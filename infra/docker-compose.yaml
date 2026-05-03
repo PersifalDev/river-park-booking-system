@@ -1,0 +1,402 @@
+name: river-park
+
+services:
+  kafka:
+    image: ${KAFKA_IMAGE}
+    container_name: river-park-kafka
+    restart: unless-stopped
+    ports:
+      - "${KAFKA_HOST_PORT}:9094"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:${KAFKA_HOST_PORT}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID}
+
+    healthcheck:
+      test: [ "CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1" ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  user-postgres:
+    image: postgres:16
+    container_name: user-postgres
+    restart: unless-stopped
+    ports:
+      - "${USER_DB_PORT}:5432"
+    environment:
+      POSTGRES_USER: ${USER_DB_USERNAME}
+      POSTGRES_PASSWORD: ${USER_DB_PASSWORD}
+      POSTGRES_DB: ${USER_DB_NAME}
+    volumes:
+      - infra_user_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  catalog-postgres:
+    image: postgres:16
+    container_name: catalog-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_CATALOG_SERVICE_PORT}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_CATALOG_SERVICE_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_CATALOG_SERVICE_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_CATALOG_SERVICE_DB}
+    volumes:
+      - infra_catalog_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  booking-postgres:
+    image: postgres:16
+    container_name: booking-postgres
+    restart: unless-stopped
+    ports:
+      - "${BOOKING_DB_PORT}:5432"
+    environment:
+      POSTGRES_USER: ${BOOKING_DB_USERNAME}
+      POSTGRES_PASSWORD: ${BOOKING_DB_PASSWORD}
+      POSTGRES_DB: ${BOOKING_DB_NAME}
+    volumes:
+      - infra_booking_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  payment-postgres:
+    image: postgres:16
+    container_name: payment-postgres
+    restart: unless-stopped
+    ports:
+      - "${PAYMENT_DB_PORT}:5432"
+    environment:
+      POSTGRES_USER: ${PAYMENT_DB_USERNAME}
+      POSTGRES_PASSWORD: ${PAYMENT_DB_PASSWORD}
+      POSTGRES_DB: ${PAYMENT_DB_NAME}
+    volumes:
+      - infra_payment_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  notification-postgres:
+    image: postgres:16
+    container_name: notification-postgres
+    restart: unless-stopped
+    ports:
+      - "${NOTIFICATION_DB_PORT}:5432"
+    environment:
+      POSTGRES_USER: ${NOTIFICATION_DB_USERNAME}
+      POSTGRES_PASSWORD: ${NOTIFICATION_DB_PASSWORD}
+      POSTGRES_DB: ${NOTIFICATION_DB_NAME}
+    volumes:
+      - infra_notification_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  catalog-service-redis:
+    image: redis:8.4.0
+    container_name: catalog-service-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_CATALOG_SERVICE_PORT}:6379"
+    volumes:
+      - infra_catalog_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  notification-service-redis:
+    image: redis:8.4.0
+    container_name: notification-service-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_NOTIFICATION_SERVICE_PORT}:6379"
+    volumes:
+      - infra_notification_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  user-service:
+    build:
+      context: ..
+      dockerfile: user-service/Dockerfile
+    container_name: user-service
+    restart: unless-stopped
+    depends_on:
+      user-postgres:
+        condition: service_healthy
+    ports:
+      - "${USER_SERVER_PORT}:8083"
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      USER_DB_URL: jdbc:postgresql://user-postgres:5432/${USER_DB_NAME}
+      USER_DB_USERNAME: ${USER_DB_USERNAME}
+      USER_DB_PASSWORD: ${USER_DB_PASSWORD}
+      USER_SERVER_PORT: ${USER_SERVER_PORT}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_LIFETIME: ${JWT_LIFETIME}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  catalog-service:
+    build:
+      context: ..
+      dockerfile: catalog-service/Dockerfile
+    container_name: catalog-service
+    restart: unless-stopped
+    depends_on:
+      catalog-postgres:
+        condition: service_healthy
+      catalog-service-redis:
+        condition: service_healthy
+    ports:
+      - "${CATALOG_SERVICE_PORT}:8085"
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      CATALOG_SERVICE_PORT: ${CATALOG_SERVICE_PORT}
+      CATALOG_SERVICE_DB_URL: jdbc:postgresql://catalog-postgres:5432/${POSTGRES_CATALOG_SERVICE_DB}
+      POSTGRES_CATALOG_SERVICE_USER: ${POSTGRES_CATALOG_SERVICE_USER}
+      POSTGRES_CATALOG_SERVICE_PASSWORD: ${POSTGRES_CATALOG_SERVICE_PASSWORD}
+      CATALOG_SERVICE_REDIS_HOST: catalog-service-redis
+      CATALOG_SERVICE_REDIS_PORT: 6379
+      APP_BASE_DIR: /app/data/static
+      CATALOG_PUBLIC_BASE_URL: ${CATALOG_PUBLIC_BASE_URL}
+    volumes:
+      - ../data/static:/app/data/static
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  booking-service:
+    build:
+      context: ..
+      dockerfile: booking-service/Dockerfile
+    container_name: booking-service
+    restart: unless-stopped
+    depends_on:
+      booking-postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      catalog-service:
+        condition: service_started
+    ports:
+      - "${BOOKING_SERVER_PORT}:8084"
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      BOOKING_DB_URL: jdbc:postgresql://booking-postgres:5432/${BOOKING_DB_NAME}
+      BOOKING_DB_USERNAME: ${BOOKING_DB_USERNAME}
+      BOOKING_DB_PASSWORD: ${BOOKING_DB_PASSWORD}
+      BOOKING_SERVER_PORT: ${BOOKING_SERVER_PORT}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_LIFETIME: ${JWT_LIFETIME}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      USER_SERVICE_BASE_URL: http://user-service:${USER_SERVER_PORT}
+      CATALOG_SERVICE_BASE_URL: http://catalog-service:${CATALOG_SERVICE_PORT}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  payment-service:
+    build:
+      context: ..
+      dockerfile: payment-service/Dockerfile
+    container_name: payment-service
+    restart: unless-stopped
+    depends_on:
+      payment-postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "${PAYMENT_SERVER_PORT}:8087"
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      PAYMENT_DB_URL: jdbc:postgresql://payment-postgres:5432/${PAYMENT_DB_NAME}
+      PAYMENT_DB_USERNAME: ${PAYMENT_DB_USERNAME}
+      PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD}
+      PAYMENT_SERVER_PORT: ${PAYMENT_SERVER_PORT}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_LIFETIME: ${JWT_LIFETIME}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  notification-service:
+    build:
+      context: ..
+      dockerfile: notification-service/Dockerfile
+    container_name: notification-service
+    restart: unless-stopped
+    depends_on:
+      notification-postgres:
+        condition: service_healthy
+      notification-service-redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "${NOTIFICATION_SERVER_PORT}:8088"
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      NOTIFICATION_DB_URL: jdbc:postgresql://notification-postgres:5432/${NOTIFICATION_DB_NAME}
+      NOTIFICATION_DB_USERNAME: ${NOTIFICATION_DB_USERNAME}
+      NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD}
+      NOTIFICATION_SERVER_PORT: ${NOTIFICATION_SERVER_PORT}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_LIFETIME: ${JWT_LIFETIME}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      NOTIFICATION_SERVICE_REDIS_HOST: notification-service-redis
+      NOTIFICATION_SERVICE_REDIS_PORT: 6379
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  telegram-bot:
+    build:
+      context: ..
+      dockerfile: telegram-bot/Dockerfile
+    container_name: telegram-bot
+    restart: unless-stopped
+    depends_on:
+      user-service:
+        condition: service_started
+      catalog-service:
+        condition: service_started
+      booking-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+    ports:
+      - "${TELEGRAM_BOT_PORT}:8086"
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      TELEGRAM_BOT_PORT: ${TELEGRAM_BOT_PORT}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
+      TELEGRAM_ADMIN_CONTACT: ${TELEGRAM_ADMIN_CONTACT}
+      CATALOG_SERVICE_URL: http://catalog-service:${CATALOG_SERVICE_PORT}
+      BOOKING_SERVICE_URL: http://booking-service:${BOOKING_SERVER_PORT}
+      PAYMENT_SERVICE_URL: http://payment-service:${PAYMENT_SERVER_PORT}
+      USER_SERVICE_URL: http://user-service:${USER_SERVER_PORT}
+      NOTIFICATION_SERVICE_URL: http://notification-service:${NOTIFICATION_SERVER_PORT}
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  infra_user_postgres_data:
+  infra_catalog_postgres_data:
+  infra_booking_postgres_data:
+  infra_payment_postgres_data:
+  infra_notification_postgres_data:
+  infra_catalog_redis_data:
+  infra_notification_redis_data:
