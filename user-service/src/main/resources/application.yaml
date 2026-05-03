@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: user-service
+  datasource:
+    url: ${USER_DB_URL:jdbc:postgresql://localhost:5435/user_db}
+    username: ${USER_DB_USERNAME}
+    password: ${USER_DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  liquibase:
+    change-log: classpath:db/changelog/changelog-master.yaml
+
+server:
+  port: ${USER_SERVER_PORT:8083}
+
+jwt:
+  secret-key: ${JWT_SECRET_KEY}
+  lifetime: ${JWT_LIFETIME:86400000}
+
+logging:
+  level:
+    ru.haritonenko.userservice: ${LOGGING_LEVEL_RU_HARITONENKO_USERSERVICE:INFO}

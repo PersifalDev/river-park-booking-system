@@ -1,0 +1,32 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-booking-table
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/001-create-booking-table.sql
+            relativeToChangelogFile: false
+        - sql:
+            sql: CREATE EXTENSION IF NOT EXISTS pgcrypto;
+            defaultValueComputed: gen_random_uuid()
+  - changeSet:
+      id: 002-create-booking-inventory-table
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/002-create-booking-inventory-table.sql
+            relativeToChangelogFile: false
+  - changeSet:
+      id: 003-create-async-booking-task-table
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/003-create-async-booking-task-table.sql
+            relativeToChangelogFile: false
+  - changeSet:
+      id: 004-add-booking-reminder-columns
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/004-add-booking-reminder-columns.sql
+            relativeToChangelogFile: false

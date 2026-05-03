@@ -1,0 +1,19 @@
+services:
+  telegram-bot:
+    build:
+      context: ..
+      dockerfile: telegram-bot/Dockerfile
+    container_name: telegram-bot
+    restart: unless-stopped
+    ports:
+      - "${TELEGRAM_BOT_PORT:-8086}:8086"
+    environment:
+      TELEGRAM_BOT_PORT: 8086
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-river_park_booking_bot}
+      TELEGRAM_ADMIN_CONTACT: ${TELEGRAM_ADMIN_CONTACT:-+79130000000}
+      CATALOG_SERVICE_URL: ${CATALOG_SERVICE_URL:-http://host.docker.internal:8085}
+      BOOKING_SERVICE_URL: ${BOOKING_SERVICE_URL:-http://host.docker.internal:8084}
+      PAYMENT_SERVICE_URL: ${PAYMENT_SERVICE_URL:-http://host.docker.internal:8087}
+      USER_SERVICE_URL: ${USER_SERVICE_URL:-http://host.docker.internal:8083}
+      SPRING_PROFILES_ACTIVE: dev

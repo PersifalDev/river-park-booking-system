@@ -1,0 +1,36 @@
+services:
+  user-postgres:
+    image: postgres:16
+    container_name: user-postgres
+    restart: unless-stopped
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_USER: ${USER_DB_USERNAME}
+      POSTGRES_PASSWORD: ${USER_DB_PASSWORD}
+      POSTGRES_DB: user_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  user-service:
+    build:
+      context: ..
+      dockerfile: user-service/Dockerfile
+    container_name: user-service
+    restart: unless-stopped
+    depends_on:
+      user-postgres:
+        condition: service_healthy
+    ports:
+      - "${USER_SERVER_PORT:-8083}:8083"
+    environment:
+      USER_DB_URL: jdbc:postgresql://user-postgres:5432/user_db
+      USER_DB_USERNAME: ${USER_DB_USERNAME}
+      USER_DB_PASSWORD: ${USER_DB_PASSWORD}
+      USER_SERVER_PORT: 8083
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_LIFETIME: ${JWT_LIFETIME:-86400000}

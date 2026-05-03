@@ -1,0 +1,56 @@
+services:
+  catalog-postgres:
+    image: postgres:16
+    container_name: catalog-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_CATALOG_SERVICE_PORT:-5437}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_CATALOG_SERVICE_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_CATALOG_SERVICE_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_CATALOG_SERVICE_DB:-catalogdb}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  catalog-service-redis:
+    image: redis:8.4.0
+    container_name: catalog-service-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_CATALOG_SERVICE_PORT:-6381}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  catalog-service:
+    build:
+      context: ..
+      dockerfile: catalog-service/Dockerfile
+    container_name: catalog-service
+    restart: unless-stopped
+    depends_on:
+      catalog-postgres:
+        condition: service_healthy
+      catalog-service-redis:
+        condition: service_healthy
+    ports:
+      - "${CATALOG_SERVICE_PORT:-8085}:8085"
+    environment:
+      CATALOG_SERVICE_PORT: 8085
+      CATALOG_SERVICE_DB_URL: jdbc:postgresql://catalog-postgres:5432/${POSTGRES_CATALOG_SERVICE_DB:-catalogdb}
+      POSTGRES_CATALOG_SERVICE_USER: ${POSTGRES_CATALOG_SERVICE_USER}
+      POSTGRES_CATALOG_SERVICE_PASSWORD: ${POSTGRES_CATALOG_SERVICE_PASSWORD}
+      CATALOG_SERVICE_REDIS_HOST: catalog-service-redis
+      CATALOG_SERVICE_REDIS_PORT: 6379
+      APP_BASE_DIR: /app/data/static
+      CATALOG_PUBLIC_BASE_URL: http://catalog-service:8085
+      SPRING_PROFILES_ACTIVE: dev
+    volumes:
+      - ../data/static:/app/data/static

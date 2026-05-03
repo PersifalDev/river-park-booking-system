@@ -1,0 +1,13 @@
+package ru.haritonenko.commonlibs.dto.kafka.event.type;
+
+public enum CatalogEventType {
+
+    CATALOG_CATEGORY_REQUESTED,
+    CATALOG_CATEGORY_RESPONSE,
+
+    CATALOG_AVAILABILITY_REQUESTED,
+    CATALOG_AVAILABILITY_RESPONSE,
+
+    CATALOG_PRICE_REQUESTED,
+    CATALOG_PRICE_RESPONSE
+}

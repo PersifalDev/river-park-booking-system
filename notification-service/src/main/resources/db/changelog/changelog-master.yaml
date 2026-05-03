@@ -1,0 +1,8 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-notifications-table
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/001-create-notifications-table.sql
+            relativeToChangelogFile: false

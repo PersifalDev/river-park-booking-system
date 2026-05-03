@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: common-libs
+
+
+app:
+  RoomCategory:
+    default-page-size: 5
+    default-page-number: 0
+

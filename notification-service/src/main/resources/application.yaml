@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: notification-service
+
+  datasource:
+    url: ${NOTIFICATION_DB_URL:jdbc:postgresql://localhost:5439/notification_db}
+    username: ${NOTIFICATION_DB_USERNAME}
+    password: ${NOTIFICATION_DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  liquibase:
+    change-log: classpath:db/changelog/changelog-master.yaml
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:${KAFKA_HOST_PORT:9094}}
+
+server:
+  port: ${NOTIFICATION_SERVER_PORT:8088}
+
+jwt:
+  secret-key: ${JWT_SECRET_KEY:}
+  lifetime: ${JWT_LIFETIME:86400000}
+
+app:
+  notification:
+    default-page-size: ${NOTIFICATION_DEFAULT_PAGE_SIZE:10}
+    default-page-number: ${NOTIFICATION_DEFAULT_PAGE_NUMBER:0}
+  kafka:
+    consumer:
+      topics:
+        payment-events: ${PAYMENT_EVENTS_TOPIC:payments-topic}
+        booking-events: ${BOOKING_EVENTS_TOPIC:bookings-topic}
+        notification-events: ${NOTIFICATION_EVENTS_TOPIC:notifications-topic}
+      groups:
+        payment-events: ${PAYMENT_EVENTS_GROUP_ID:notification-payment-events-group}
+        booking-events: ${BOOKING_EVENTS_GROUP_ID:notification-booking-events-group}
+        notification-events: ${NOTIFICATION_EVENTS_GROUP_ID:notification-direct-events-group}
+      trusted-packages: ${CONSUMER_TRUSTED_PACKAGES:*}
+
+logging:
+  level:
+    ru.haritonenko.notificationservice: ${LOGGING_LEVEL_RU_HARITONENKO_NOTIFICATIONSERVICE:INFO}

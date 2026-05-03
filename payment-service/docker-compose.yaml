@@ -1,0 +1,70 @@
+services:
+  payment-postgres:
+    image: postgres:16
+    container_name: payment-postgres
+    restart: unless-stopped
+    ports:
+      - "5438:5432"
+    environment:
+      POSTGRES_USER: ${PAYMENT_DB_USERNAME}
+      POSTGRES_PASSWORD: ${PAYMENT_DB_PASSWORD}
+      POSTGRES_DB: payment_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  kafka:
+    image: bitnami/kafka:3.8
+    container_name: payment-kafka
+    restart: unless-stopped
+    ports:
+      - "${KAFKA_HOST_PORT:-9094}:9094"
+    environment:
+      KAFKA_CFG_NODE_ID: 0
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:${KAFKA_HOST_PORT:-9094}
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: true
+      KAFKA_KRAFT_CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      ALLOW_PLAINTEXT_LISTENER: yes
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+
+  payment-service:
+    build:
+      context: ..
+      dockerfile: payment-service/Dockerfile
+    container_name: payment-service
+    restart: unless-stopped
+    depends_on:
+      payment-postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "${PAYMENT_SERVER_PORT:-8087}:8087"
+    environment:
+      PAYMENT_DB_URL: jdbc:postgresql://payment-postgres:5432/payment_db
+      PAYMENT_DB_USERNAME: ${PAYMENT_DB_USERNAME}
+      PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD}
+      PAYMENT_SERVER_PORT: 8087
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_LIFETIME: ${JWT_LIFETIME:-86400000}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      BOOKING_EVENTS_TOPIC: ${BOOKING_EVENTS_TOPIC:-bookings-topic}
+      PAYMENT_EVENTS_TOPIC: ${PAYMENT_EVENTS_TOPIC:-payments-topic}
+      PAYMENT_EVENTS_GROUP_ID: ${PAYMENT_EVENTS_GROUP_ID:-payment-events-group}
+      PAYMENT_CONTACT_PHONE: ${PAYMENT_CONTACT_PHONE:-+7 (383) 349-50-50}
+      PAYMENT_CONTACT_COMMENT: ${PAYMENT_CONTACT_COMMENT:-Оплата производится в день заселения у администратора отеля.}

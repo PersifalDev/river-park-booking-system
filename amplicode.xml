@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AmplicodePersistenceUnitSettings">
+    <persistence-units>
+      <persistence-unit moduleName="catalog-service" name="Default">
+        <packages>
+          <package value="ru.haritonenko.catalogservice" />
+        </packages>
+      </persistence-unit>
+      <persistence-unit moduleName="common-libs" name="Default">
+        <packages>
+          <package value="ru.haritonenko.commonlibs" />
+        </packages>
+      </persistence-unit>
+      <persistence-unit moduleName="booking-service" name="Default">
+        <packages>
+          <package value="ru.haritonenko.bookingservice" />
+        </packages>
+      </persistence-unit>
+      <persistence-unit moduleName="telegram-bot" name="Default">
+        <packages>
+          <package value="ru.haritonenko.telegrambot" />
+        </packages>
+      </persistence-unit>
+      <persistence-unit moduleName="user-service" name="Default">
+        <packages>
+          <package value="ru.haritonenko.userservice" />
+        </packages>
+      </persistence-unit>
+      <persistence-unit moduleName="notification-service" name="Default">
+        <packages>
+          <package value="ru.haritonenko.notificationservice" />
+        </packages>
+      </persistence-unit>
+      <persistence-unit moduleName="payment-service" name="Default">
+        <packages>
+          <package value="ru.haritonenko.paymentservice" />
+        </packages>
+      </persistence-unit>
+    </persistence-units>
+  </component>
+</project>

@@ -1,0 +1,64 @@
+server:
+  port: ${CATALOG_SERVICE_PORT:8085}
+
+spring:
+  application:
+    name: catalog-service
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  datasource:
+    url: ${CATALOG_SERVICE_DB_URL:jdbc:postgresql://localhost:${POSTGRES_CATALOG_SERVICE_PORT:5437}/${POSTGRES_CATALOG_SERVICE_DB:catalogdb}}
+    username: ${POSTGRES_CATALOG_SERVICE_USER}
+    password: ${POSTGRES_CATALOG_SERVICE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  liquibase:
+    enabled: ${CATALOG_LIQUIBASE_ENABLED:true}
+    change-log: classpath:db/changelog/changelog-master.yaml
+    default-schema: public
+    liquibase-schema: public
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: ${CATALOG_SHOW_SQL:true}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        default_schema: public
+
+  data:
+    redis:
+      host: ${CATALOG_SERVICE_REDIS_HOST:localhost}
+      port: ${CATALOG_SERVICE_REDIS_PORT:${REDIS_CATALOG_SERVICE_PORT:6381}}
+      database: ${CATALOG_SERVICE_REDIS_DB:1}
+      timeout: ${CATALOG_SERVICE_REDIS_TIMEOUT:2s}
+
+  cache:
+    type: redis
+
+logging:
+  level:
+    org.hibernate.SQL: ${LOGGING_LEVEL_ORG_HIBERNATE_SQL:DEBUG}
+    org.hibernate.orm.jdbc.bind: ${LOGGING_LEVEL_ORG_HIBERNATE_BIND:TRACE}
+
+app:
+  roomCategory:
+    default-page-size: ${CATALOG_ROOM_CATEGORY_DEFAULT_PAGE_SIZE:5}
+    default-page-number: ${CATALOG_ROOM_CATEGORY_DEFAULT_PAGE_NUMBER:0}
+
+  services:
+    default-page-size: ${CATALOG_SERVICES_DEFAULT_PAGE_SIZE:5}
+    default-page-number: ${CATALOG_SERVICES_DEFAULT_PAGE_NUMBER:0}
+
+  cache:
+    default-ttl: ${CATEGORY_SERVICE_CACHE_DEFAULT_TTL:30s}
+    categories-ttl: ${CATEGORY_SERVICE_CACHE_CATEGORIES_TTL:30s}
+    services-ttl: ${CATEGORY_SERVICE_CACHE_SERVICES_TTL:30s}
+    photos-ttl: ${CATEGORY_SERVICE_CACHE_PHOTOS_TTL:30s}
+  base-dir: ${APP_BASE_DIR:./data/static}
+  public-base-url: ${CATALOG_PUBLIC_BASE_URL:http://localhost:8085}

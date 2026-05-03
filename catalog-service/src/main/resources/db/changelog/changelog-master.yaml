@@ -1,0 +1,76 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-room-category-table
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/001-create-room-category-table.sql
+            relativeToChangelogFile: false
+
+  - changeSet:
+      id: 002-create-room-category-photo-table
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/002-create-room-category-photo-table.sql
+            relativeToChangelogFile: false
+
+  - changeSet:
+      id: 003-create-service-item-table
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/003-create-service-item-table.sql
+            relativeToChangelogFile: false
+
+  - changeSet:
+      id: 004-seed-room-categories
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/004-seed-room-categories.sql
+            relativeToChangelogFile: false
+            splitStatements: false
+
+  - changeSet:
+      id: 005-seed-hotel-services
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/005-seed-hotel-services.sql
+            relativeToChangelogFile: false
+            splitStatements: false
+
+  - changeSet:
+      id: 006-seed-room-category-photos
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/006-seed-room-category-photos.sql
+            relativeToChangelogFile: false
+            splitStatements: false
+
+  - changeSet:
+      id: 007-add-sort-order-to-room-category-photo
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/007-add-sort-order-to-room-category-photo.sql
+            relativeToChangelogFile: false
+
+  - changeSet:
+      id: 008-create-service-item-photo-table
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/008-create-service-item-photo-table.sql
+            relativeToChangelogFile: false
+
+  - changeSet:
+      id: 009-seed-service-item-photos
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/009-seed-service-item-photos.sql
+            relativeToChangelogFile: false
+            splitStatements: false

@@ -1,0 +1,57 @@
+spring:
+  application:
+    name: payment-service
+
+  datasource:
+    url: ${PAYMENT_DB_URL:jdbc:postgresql://localhost:5438/payment_db}
+    username: ${PAYMENT_DB_USERNAME}
+    password: ${PAYMENT_DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  liquibase:
+    change-log: classpath:db/changelog/changelog-master.yaml
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:${KAFKA_HOST_PORT:9094}}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.UUIDSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+server:
+  port: ${PAYMENT_SERVER_PORT:8087}
+
+jwt:
+  secret-key: ${JWT_SECRET_KEY:}
+  lifetime: ${JWT_LIFETIME:86400000}
+
+app:
+  payment:
+    default-page-size: ${PAYMENT_DEFAULT_PAGE_SIZE:10}
+    default-page-number: ${PAYMENT_DEFAULT_PAGE_NUMBER:0}
+    events:
+      source: ${PAYMENT_EVENT_SOURCE:payment-service}
+    contact-phone: ${PAYMENT_CONTACT_PHONE:+7 (383) 349-50-50}
+    default-comment: ${PAYMENT_CONTACT_COMMENT:Оплата производится в день заселения у администратора отеля.}
+    default-instruction: ${PAYMENT_DEFAULT_INSTRUCTION:Подтвердите бронирование в Telegram. Оплата производится в день заселения у администратора.}
+
+  kafka:
+    producer:
+      topics:
+        payment-events: ${PAYMENT_EVENTS_TOPIC:payments-topic}
+    consumer:
+      topics:
+        booking-events: ${BOOKING_EVENTS_TOPIC:bookings-topic}
+      groups:
+        booking-events: ${PAYMENT_EVENTS_GROUP_ID:payment-events-group}
+      trusted-packages: ${CONSUMER_TRUSTED_PACKAGES:*}
+
+logging:
+  level:
+    ru.haritonenko.paymentservice: ${LOGGING_LEVEL_RU_HARITONENKO_PAYMENTSERVICE:INFO}

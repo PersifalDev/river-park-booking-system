@@ -1,0 +1,90 @@
+spring:
+  application:
+    name: booking-service
+
+  datasource:
+    url: ${BOOKING_DB_URL:jdbc:postgresql://localhost:5436/booking_db}
+    username: ${BOOKING_DB_USERNAME}
+    password: ${BOOKING_DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+
+  liquibase:
+    change-log: classpath:db/changelog/changelog-master.yaml
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:${KAFKA_HOST_PORT:9094}}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.UUIDSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+server:
+  port: ${BOOKING_SERVER_PORT:8084}
+
+jwt:
+  secret-key: ${JWT_SECRET_KEY}
+  lifetime: ${JWT_LIFETIME:86400000}
+
+app:
+  booking:
+    task:
+      thread-pool-size: ${BOOKING_TASK_THREAD_POOL_SIZE:2}
+      queue-capacity: ${BOOKING_TASK_QUEUE_CAPACITY:10}
+      max-attempts: ${BOOKING_TASK_MAX_ATTEMPTS:5}
+      retry-delay: ${BOOKING_TASK_RETRY_DELAY:30s}
+      scheduler-delay: ${BOOKING_TASK_SCHEDULER_DELAY:10s}
+      dispatch-batch-size: ${BOOKING_TASK_BATCH_SIZE:10}
+      hold-ttl: ${BOOKING_HOLD_TTL:15m}
+    hold-expiration-delay-ms: ${BOOKING_HOLD_EXPIRATION_DELAY_MS:60000}
+    cleanup:
+      delay-ms: ${BOOKING_CLEANUP_DELAY_MS:86400000}
+      retention-period: ${BOOKING_CLEANUP_RETENTION_PERIOD:720h}
+    reminders:
+      poll-delay-ms: ${BOOKING_REMINDERS_POLL_DELAY_MS:60000}
+      hold-expiring-window: ${BOOKING_HOLD_EXPIRING_WINDOW:5m}
+      check-in:
+        days-before: ${BOOKING_CHECK_IN_REMINDER_DAYS_BEFORE:1}
+    default-page-size: ${BOOKING_DEFAULT_PAGE_SIZE:10}
+    default-page-number: ${BOOKING_DEFAULT_PAGE_NUMBER:0}
+    events:
+      source: ${BOOKING_EVENT_SOURCE:booking-service}
+
+  task-execution:
+    poller:
+      poll-interval-ms: ${TASK_EXEC_POOL_INTERVAL_MS:15000}
+      batch-size: ${TASK_EXEC_POOL_BATCH_SIZE:5}
+      retry-delay: ${TASK_EXEC_POOL_RETRY_DELAY_S:30s}
+      default-attempts: ${TASK_EXEC_POOL_DEFAULT_ATTEMPTS:1}
+
+  kafka:
+    producer:
+      topics:
+        booking-events: ${BOOKING_EVENTS_TOPIC:bookings-topic}
+        notification-events: ${NOTIFICATION_EVENTS_TOPIC:notifications-topic}
+    consumer:
+      topics:
+        payment-events: ${PAYMENT_EVENTS_TOPIC:payments-topic}
+      groups:
+        payment-events: ${PAYMENT_EVENTS_GROUP_ID:payment-events-group}
+      trusted-packages: ${CONSUMER_TRUSTED_PACKAGES:*}
+
+  external:
+    http-client:
+      catalog-service:
+        base-url: ${CATALOG_SERVICE_BASE_URL:http://localhost:8085}
+        connect-timeout: ${CATALOG_SERVICE_CONNECT_TIMEOUT:3s}
+        read-timeout: ${CATALOG_SERVICE_READ_TIMEOUT:5s}
+      user-service:
+        base-url: ${USER_SERVICE_BASE_URL:http://localhost:8083}
+        connect-timeout: ${USER_SERVICE_CONNECT_TIMEOUT:3s}
+        read-timeout: ${USER_SERVICE_READ_TIMEOUT:5s}
+
+logging:
+  level:
+    ru.haritonenko.bookingservice: ${LOGGING_LEVEL_RU_HARITONENKO_BOOKINGSERVICE:WARN}

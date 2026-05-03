@@ -1,0 +1,69 @@
+services:
+  notification-postgres:
+    image: postgres:16
+    container_name: notification-postgres
+    restart: unless-stopped
+    ports:
+      - "5439:5432"
+    environment:
+      POSTGRES_USER: ${NOTIFICATION_DB_USERNAME}
+      POSTGRES_PASSWORD: ${NOTIFICATION_DB_PASSWORD}
+      POSTGRES_DB: notification_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  kafka:
+    image: bitnami/kafka:3.8
+    container_name: notification-kafka
+    restart: unless-stopped
+    ports:
+      - "${KAFKA_HOST_PORT:-9094}:9094"
+    environment:
+      KAFKA_CFG_NODE_ID: 0
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:${KAFKA_HOST_PORT:-9094}
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: true
+      KAFKA_KRAFT_CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      ALLOW_PLAINTEXT_LISTENER: yes
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+
+  notification-service:
+    build:
+      context: ..
+      dockerfile: notification-service/Dockerfile
+    container_name: notification-service
+    restart: unless-stopped
+    depends_on:
+      notification-postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "${NOTIFICATION_SERVER_PORT:-8088}:8088"
+    environment:
+      NOTIFICATION_DB_URL: jdbc:postgresql://notification-postgres:5432/notification_db
+      NOTIFICATION_DB_USERNAME: ${NOTIFICATION_DB_USERNAME}
+      NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD}
+      NOTIFICATION_SERVER_PORT: 8088
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_LIFETIME: ${JWT_LIFETIME:-86400000}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      BOOKING_EVENTS_TOPIC: ${BOOKING_EVENTS_TOPIC:-bookings-topic}
+      PAYMENT_EVENTS_TOPIC: ${PAYMENT_EVENTS_TOPIC:-payments-topic}
+      BOOKING_EVENTS_GROUP_ID: ${BOOKING_EVENTS_GROUP_ID:-notification-booking-events-group}
+      PAYMENT_EVENTS_GROUP_ID: ${PAYMENT_EVENTS_GROUP_ID:-notification-payment-events-group}
