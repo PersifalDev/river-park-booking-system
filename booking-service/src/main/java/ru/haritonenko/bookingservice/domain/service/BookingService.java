@@ -12,11 +12,14 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import ru.haritonenko.bookingservice.api.dto.AvailableRoomSearchRequestDto;
 import ru.haritonenko.bookingservice.api.dto.BookingRequestDto;
 import ru.haritonenko.bookingservice.api.dto.filter.BookingPageFilter;
 import ru.haritonenko.bookingservice.api.dto.filter.BookingRequestSearchFilter;
+import ru.haritonenko.bookingservice.cache.service.BookingCacheService;
 import ru.haritonenko.bookingservice.domain.Booking;
+import ru.haritonenko.bookingservice.domain.BookingCreationResult;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
 import ru.haritonenko.bookingservice.domain.db.repository.BookingEntityRepository;
 import ru.haritonenko.bookingservice.domain.exception.BookingNotFoundException;
@@ -24,6 +27,7 @@ import ru.haritonenko.bookingservice.domain.exception.IllegalBookingStateExcepti
 import ru.haritonenko.bookingservice.domain.mapper.BookingToDomainMapper;
 import ru.haritonenko.bookingservice.domain.status.BookingStatus;
 import ru.haritonenko.bookingservice.external.client.catalog.CatalogServiceHttpClient;
+import ru.haritonenko.bookingservice.kafka.outbox.service.BookingOutboxService;
 import ru.haritonenko.bookingservice.kafka.producer.booking.sender.KafkaBookingEventSender;
 import ru.haritonenko.bookingservice.kafka.producer.notification.sender.KafkaNotificationEventSender;
 import ru.haritonenko.bookingservice.tasks.domain.async.db.entity.AsyncBookingTaskEntity;
@@ -31,6 +35,7 @@ import ru.haritonenko.bookingservice.tasks.domain.async.db.repository.AsyncBooki
 import ru.haritonenko.bookingservice.tasks.domain.async.dispatcher.AsyncBookingTaskDispatcher;
 import ru.haritonenko.bookingservice.tasks.domain.async.status.AsyncBookingTaskStatus;
 import ru.haritonenko.bookingservice.tasks.domain.async.status.ProcessingStep;
+import ru.haritonenko.bookingservice.tasks.domain.exception.AsyncBookingTaskNotFoundException;
 import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
 import ru.haritonenko.commonlibs.dto.kafka.event.NotificationKafkaEvent;
 import ru.haritonenko.commonlibs.dto.kafka.event.type.BookingEventType;
@@ -49,6 +54,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -76,6 +82,11 @@ public class BookingService {
     private final KafkaNotificationEventSender notificationEventSender;
     private final BookingValidationService bookingValidationService;
     private final CatalogServiceHttpClient catalogServiceHttpClient;
+    private final BookingCacheService cacheService;
+    private final BookingOutboxService bookingOutboxService;
+    private final TransactionTemplate transactionTemplate;
+    private final PromoCodeService promoCodeService;
+    private final BookingIdempotencyService idempotencyService;
 
     @Value("${app.booking.default-page-number}")
     private int defaultPageNumber;
@@ -92,52 +103,73 @@ public class BookingService {
     @Value("${app.booking.events.source}")
     private String sourceService;
 
-    @Caching(
-            put = @CachePut(value = "bookingByUser", key = "#userId + ':' + #result.id"),
-            evict = {
-                    @CacheEvict(value = "bookingPages", allEntries = true),
-                    @CacheEvict(value = "bookingSearchPages", allEntries = true)
-            }
-    )
-    @Transactional
     public Booking createBooking(BookingRequestDto bookingRequestDto, Long userId) {
+        return createBooking(bookingRequestDto, userId, null);
+    }
+
+    public Booking createBooking(BookingRequestDto bookingRequestDto, Long userId, String idempotencyKey) {
+
+        String requestHash = idempotencyService.hash(bookingRequestDto);
+        Optional<Booking> existingBooking = idempotencyService.findExisting(userId, idempotencyKey, requestHash)
+                .map(existing -> mapper.toDomain(findBookingEntity(existing.getBookingId())));
+        if (existingBooking.isPresent()) {
+            return existingBooking.get();
+        }
+
         bookingValidationService.validateBookingRequest(bookingRequestDto, userId);
 
-        log.info("Creating booking draft: userId={}, categoryId={}, checkInDate={}, checkOutDate={}",
-                userId,
-                bookingRequestDto.categoryId(),
-                bookingRequestDto.checkInDate(),
-                bookingRequestDto.checkOutDate()
-        );
+        BookingCreationResult bookingCreationResult = Optional.ofNullable(transactionTemplate.execute(status->{
+            log.info("Creating booking draft: userId={}, categoryId={}, checkInDate={}, checkOutDate={}",
+                    userId,
+                    bookingRequestDto.categoryId(),
+                    bookingRequestDto.checkInDate(),
+                    bookingRequestDto.checkOutDate()
+            );
 
-        OffsetDateTime now = OffsetDateTime.now();
-        BookingEntity savedBooking = bookingRepository.save(BookingEntity.builder()
-                .userId(userId)
-                .roomCategoryId(bookingRequestDto.categoryId())
-                .bookingCode(bookingCodeGenerator.generate())
-                .guests(bookingRequestDto.guests())
-                .adultCount(bookingRequestDto.adultCount())
-                .childrenCount(bookingRequestDto.childrenCount())
-                .checkInDate(bookingRequestDto.checkInDate())
-                .checkOutDate(bookingRequestDto.checkOutDate())
-                .priceAmount(BigDecimal.ONE)
-                .holdExpiresAt(now.plus(holdTtl))
-                .hasPromo(bookingRequestDto.promoCode() != null && !bookingRequestDto.promoCode().isBlank())
-                .status(BookingStatus.CREATED)
-                .build());
+            OffsetDateTime now = OffsetDateTime.now();
+            BookingEntity savedBooking = bookingRepository.save(BookingEntity.builder()
+                    .userId(userId)
+                    .roomCategoryId(bookingRequestDto.categoryId())
+                    .bookingCode(bookingCodeGenerator.generate())
+                    .guests(bookingRequestDto.guests())
+                    .adultCount(bookingRequestDto.adultCount())
+                    .childrenCount(bookingRequestDto.childrenCount())
+                    .checkInDate(bookingRequestDto.checkInDate())
+                    .checkOutDate(bookingRequestDto.checkOutDate())
+                    .priceAmount(BigDecimal.ONE)
+                    .holdExpiresAt(now.plus(holdTtl))
+                    .hasPromo(bookingRequestDto.promoCode() != null && !bookingRequestDto.promoCode().isBlank())
+                    .appliedPromoCode(normalizePromoCode(bookingRequestDto.promoCode()))
+                    .status(BookingStatus.CREATED)
+                    .build());
 
-        UUID savedBookingId = savedBooking.getId();
+            UUID savedBookingId = savedBooking.getId();
+            idempotencyService.remember(userId, idempotencyKey, requestHash, savedBookingId);
 
-        AsyncBookingTaskEntity task = taskRepository.save(AsyncBookingTaskEntity.builder()
-                .bookingId(savedBookingId)
-                .status(AsyncBookingTaskStatus.NEW)
-                .processingStep(ProcessingStep.VALIDATE_REQUEST)
-                .attempts(0)
-                .nextAttemptAt(now)
-                .build());
+            AsyncBookingTaskEntity task = taskRepository.save(AsyncBookingTaskEntity.builder()
+                    .bookingId(savedBookingId)
+                    .status(AsyncBookingTaskStatus.NEW)
+                    .processingStep(ProcessingStep.VALIDATE_REQUEST)
+                    .attempts(0)
+                    .nextAttemptAt(now)
+                    .build());
 
-        log.info("Booking draft and async task created: bookingId={}, taskId={}", savedBookingId, task.getId());
-        taskDispatcher.dispatchTask(task);
+            log.info("Booking draft and async task created: bookingId={}, taskId={}", savedBookingId, task.getId());
+
+            return new BookingCreationResult(savedBooking.getId(), task.getId());
+
+        })).orElseThrow(() -> new IllegalBookingStateException("Booking creation transaction returned null result"));
+
+        Long taskId = bookingCreationResult.taskId();
+        UUID savedBookingId = bookingCreationResult.bookingId();
+
+        AsyncBookingTaskEntity foundTask = taskRepository.findById(taskId)
+                        .orElseThrow(()->{
+                            log.warn("Task with id={} not found",taskId);
+                            return new AsyncBookingTaskNotFoundException("Async task with id=%s not found".formatted(taskId));
+                        });
+
+        taskDispatcher.dispatchTask(foundTask);
 
         BookingEntity foundBooking = bookingRepository.findById(savedBookingId)
                 .orElseThrow(() -> {
@@ -145,66 +177,93 @@ public class BookingService {
                     return new BookingNotFoundException("Booking not found id=%s".formatted(savedBookingId));
                 });
 
+        cacheService.evictUserPages(userId);
+
         return mapper.toDomain(foundBooking);
     }
 
-    @Cacheable(value = "bookingByUser", key = "#authUserId + ':' + #uuid")
+    @Cacheable(
+            value = "bookingByUser",
+            key = "@bookingCacheKeys.bookingByUser(#authUserId, #uuid)"
+    )
     @Transactional(readOnly = true)
     public Booking getBookingByUuidAndUserId(Long authUserId, UUID uuid) {
         log.info("Getting booking by uuid and userId: uuid={}, userId={}", uuid, authUserId);
         return mapper.toDomain(findBookingEntityByIdAndUserId(uuid, authUserId));
     }
 
-    @Cacheable(value = "bookingPages", key = "#authUserId + ':' + (#pageFilter == null || #pageFilter.pageNumber == null ? 0 : #pageFilter.pageNumber) + ':' + (#pageFilter == null || #pageFilter.pageSize == null ? 10 : #pageFilter.pageSize)")
+    @Cacheable(
+            value = "bookingPages",
+            key = "@bookingCacheService.registerBookingPageKey(" +
+                    "#authUserId, " +
+                    "@bookingCacheKeys.bookingPage(#authUserId, #pageFilter)" +
+                    ")"
+    )
     @Transactional(readOnly = true)
     public Page<Booking> getAllActiveBookingsByUserId(Long authUserId, BookingPageFilter pageFilter) {
         log.info("Getting all active bookings by userId={}", authUserId);
+
         Pageable pageable = CommonPageable.getPageable(pageFilter, defaultPageNumber, defaultPageSize);
-        return bookingRepository.findAllByUserIdAndStatusIn(authUserId, ACTIVE_STATUSES, pageable).map(mapper::toDomain);
+        return bookingRepository.findAllByUserIdAndStatusIn(authUserId, ACTIVE_STATUSES, pageable)
+                .map(mapper::toDomain);
     }
 
-    @Caching(
-            put = @CachePut(value = "bookingByUser", key = "#authUserId + ':' + #uuid"),
-            evict = {
-                    @CacheEvict(value = "bookingPages", allEntries = true),
-                    @CacheEvict(value = "bookingSearchPages", allEntries = true)
-            }
+    @Cacheable(
+            value = "bookingPages",
+            key = "@bookingCacheService.registerBookingPageKey(" +
+                    "#authUserId, " +
+                    "'inactive:' + @bookingCacheKeys.bookingPage(#authUserId, #pageFilter)" +
+                    ")"
     )
-    @Transactional
+    @Transactional(readOnly = true)
+    public Page<Booking> getAllInactiveBookingsByUserId(Long authUserId, BookingPageFilter pageFilter) {
+        log.info("Getting all inactive bookings by userId={}", authUserId);
+
+        Pageable pageable = CommonPageable.getPageable(pageFilter, defaultPageNumber, defaultPageSize);
+        return bookingRepository.findAllByUserIdAndStatusIn(authUserId, INACTIVE_STATUSES, pageable)
+                .map(mapper::toDomain);
+    }
+
     public Booking cancelBookingByUuidAndUserId(UUID uuid, Long authUserId) {
         log.info("Cancelling booking: uuid={}, userId={}", uuid, authUserId);
-        BookingEntity booking = findBookingEntityByIdAndUserId(uuid, authUserId);
 
-        if (INACTIVE_STATUSES.contains(booking.getStatus())) {
-            log.warn("Booking already inactive and can not be cancelled: uuid={}, userId={}, status={}",
-                    uuid,
-                    authUserId,
-                    booking.getStatus()
-            );
-            throw new IllegalBookingStateException("Booking already inactive id=%s".formatted(uuid));
-        }
+        BookingEntity savedBooking = Optional.ofNullable(transactionTemplate.execute(status -> {
+            BookingEntity booking = findBookingEntityByIdAndUserId(uuid, authUserId);
 
-        if (booking.getStatus() == BookingStatus.HOLD) {
-            bookingInventoryService.releaseHeldInventory(booking);
-        }
-        if (booking.getStatus() == BookingStatus.CONFIRMED) {
-            bookingInventoryService.releaseConfirmedInventory(booking);
-        }
+            if (INACTIVE_STATUSES.contains(booking.getStatus())) {
+                log.warn("Booking already inactive and can not be cancelled: uuid={}, userId={}, status={}",
+                        uuid,
+                        authUserId,
+                        booking.getStatus()
+                );
+                throw new IllegalBookingStateException("Booking already inactive id=%s".formatted(uuid));
+            }
 
-        booking.setStatus(BookingStatus.CANCELLED);
-        booking.setHoldExpiresAt(null);
-        booking.setCancellationReason("Cancelled by user=%s".formatted(authUserId));
+            switch(booking.getStatus()){
+                case BookingStatus.HOLD -> bookingInventoryService.releaseHeldInventory(booking);
+                case BookingStatus.CONFIRMED -> bookingInventoryService.releaseConfirmedInventory(booking);
+            }
 
-        BookingEntity savedBooking = bookingRepository.save(booking);
+            booking.setStatus(BookingStatus.CANCELLED);
+            booking.setHoldExpiresAt(null);
+            booking.setCancellationReason("Cancelled by user=%s".formatted(authUserId));
 
-        log.info("Sending event to Kafka to cancel booking: eventType={}", BookingEventType.BOOKING_CANCELLED);
-        bookingEventSender.sendEvent(toKafkaEvent(savedBooking, BookingEventType.BOOKING_CANCELLED));
+            BookingEntity saved = bookingRepository.save(booking);
+
+            bookingOutboxService.saveEvent(toKafkaEvent(saved, BookingEventType.BOOKING_CANCELLED));
+
+            return saved;
+        })).orElseThrow(() -> new IllegalBookingStateException("Booking cancellation transaction returned null result"));
+
+        cacheService.evictBookingByUser(authUserId, uuid);
+        cacheService.evictUserPages(authUserId);
+
         log.info("Booking cancelled successfully: uuid={}, userId={}", uuid, authUserId);
         return mapper.toDomain(savedBooking);
     }
 
     @Caching(
-            put = @CachePut(value = "bookingByUser", key = "#authUserId + ':' + #uuid"),
+            put = @CachePut(value = "bookingByUser", key = "@bookingCacheKeys.bookingByUser(#authUserId, #uuid)"),
             evict = {
                     @CacheEvict(value = "bookingPages", allEntries = true),
                     @CacheEvict(value = "bookingSearchPages", allEntries = true)
@@ -232,6 +291,7 @@ public class BookingService {
         bookingInventoryService.confirmHeldInventory(booking);
         booking.setStatus(BookingStatus.CONFIRMED);
         booking.setHoldExpiresAt(null);
+        promoCodeService.generateForBooking(booking);
         BookingEntity savedBooking = bookingRepository.save(booking);
 
         log.info("Sending event to Kafka to confirm booking: eventType={}", BookingEventType.BOOKING_CONFIRMED);
@@ -244,8 +304,7 @@ public class BookingService {
     @Transactional(readOnly = true)
     public PageResponse<RoomCategoryResponseDto> searchAvailableRoomCategories(
             AvailableRoomSearchRequestDto request,
-            int pageNumber,
-            int pageSize
+           BookingPageFilter pageFilter
     ) {
         log.info("Searching available room categories by dates: checkIn={}, checkOut={}, guests={}",
                 request.checkInDate(), request.checkOutDate(), request.guests());
@@ -295,8 +354,8 @@ public class BookingService {
                 .filter(java.util.Objects::nonNull)
                 .toList();
 
-        int safePageSize = pageSize <= 0 ? defaultPageSize : pageSize;
-        int safePageNumber = Math.max(pageNumber, 0);
+        int safePageSize = pageFilter.getPageSize() <= 0 ? defaultPageSize :  pageFilter.getPageSize();
+        int safePageNumber = Math.max(pageFilter.getPageNumber(), 0);
         int fromIndex = Math.min(safePageNumber * safePageSize, availableRooms.size());
         int toIndex = Math.min(fromIndex + safePageSize, availableRooms.size());
         List<RoomCategoryResponseDto> pageContent = availableRooms.subList(fromIndex, toIndex);
@@ -305,7 +364,13 @@ public class BookingService {
         return new PageResponse<>(pageContent, totalPages, availableRooms.size(), safePageSize, safePageNumber);
     }
 
-    @Cacheable(value = "bookingSearchPages", key = "#authUserId + ':' + (#bookingFilter == null ? 'all' : #bookingFilter.toString()) + ':' + (#pageFilter == null || #pageFilter.pageNumber == null ? 0 : #pageFilter.pageNumber) + ':' + (#pageFilter == null || #pageFilter.pageSize == null ? 10 : #pageFilter.pageSize)")
+    @Cacheable(
+            value = "bookingSearchPages",
+            key = "@bookingCacheService.registerBookingSearchPageKey(" +
+                    "#authUserId, " +
+                    "@bookingCacheKeys.bookingSearchPage(#authUserId, #bookingFilter, #pageFilter)" +
+                    ")"
+    )
     @Transactional(readOnly = true)
     public Page<Booking> findAllBookingsByFilterAndByUserId(
             Long authUserId,
@@ -403,6 +468,7 @@ public class BookingService {
         booking.setPriceAmount(priceAmount);
         booking.setStatus(BookingStatus.HOLD);
         booking.setHoldExpiresAt(holdExpiresAt);
+        promoCodeService.generateForBooking(booking);
         BookingEntity savedBooking = bookingRepository.save(booking);
 
         log.info("Sending event to Kafka to hold booking: eventType={}", BookingEventType.BOOKING_HOLD_CREATED);
@@ -481,6 +547,25 @@ public class BookingService {
     @Transactional(readOnly = true)
     public List<BookingEntity> findBookingsForCheckInReminder(LocalDate targetDate) {
         return bookingRepository.findBookingsForCheckInReminder(BookingStatus.CONFIRMED, targetDate);
+    }
+
+    @Transactional(readOnly = true)
+    public List<BookingEntity> findConfirmedBookingsForInventoryRelease(LocalDate today) {
+        return bookingRepository.findConfirmedBookingsForInventoryRelease(BookingStatus.CONFIRMED, today);
+    }
+
+    @Transactional
+    public void releaseInventoryAfterCheckOut(UUID bookingId) {
+        log.info("Releasing inventory after check-out: bookingId={}", bookingId);
+        BookingEntity booking = findBookingEntity(bookingId);
+        if (booking.getStatus() != BookingStatus.CONFIRMED || booking.getInventoryReleasedAt() != null) {
+            return;
+        }
+        bookingInventoryService.releaseConfirmedInventory(booking);
+        booking.setInventoryReleasedAt(OffsetDateTime.now());
+        bookingRepository.save(booking);
+        cacheService.evictUserPages(booking.getUserId());
+        cacheService.evictBookingByUser(booking.getUserId(), booking.getId());
     }
 
     @Caching(evict = {
@@ -589,5 +674,9 @@ public class BookingService {
                         now
                 )
         );
+    }
+
+    private String normalizePromoCode(String promoCode) {
+        return promoCode == null || promoCode.isBlank() ? null : promoCode.trim().toUpperCase();
     }
 }

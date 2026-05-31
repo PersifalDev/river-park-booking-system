@@ -1,54 +1,42 @@
 # payment-service
 
-Сервис учебной оплаты без эквайринга. Создает запись PENDING по событию HOLD, подтверждает намерение оплатить на месте и публикует payment-события в Kafka.
+Сервис учебной оплаты без эквайринга. После HOLD-брони создает платежное намерение и позволяет подтвердить оплату на месте.
 
 ## API
 
-- `GET /payments` — получить платежи текущего пользователя
-- `GET /payments/booking/{bookingId}` — получить платеж по броне
-- `PATCH /payments/booking/{bookingId}/confirm` — подтвердить намерение оплатить на месте
-- `PATCH /payments/booking/{bookingId}/cancel` — отменить подтверждение
+| Метод | URL | Описание |
+| --- | --- | --- |
+| `GET` | `/payments` | Платежи пользователя |
+| `GET` | `/payments/booking/{bookingId}` | Платеж по брони |
+| `PATCH` | `/payments/booking/{bookingId}/confirm` | Подтвердить оплату |
+| `PATCH` | `/payments/booking/{bookingId}/cancel` | Отменить подтверждение |
 
-Kafka consumer:
-- `BOOKING_HOLD_CREATED`
-- `BOOKING_CANCELLED`
-- `BOOKING_EXPIRED`
+Swagger UI: `http://localhost:8087/swagger-ui.html`
 
-Kafka producer:
-- `PAYMENT_PENDING`
-- `PAYMENT_CONFIRMED`
-- `PAYMENT_CANCELLED`
+## Kafka
 
+| Направление | События |
+| --- | --- |
+| Consumer | `BOOKING_HOLD_CREATED`, `BOOKING_CANCELLED`, `BOOKING_EXPIRED` |
+| Producer | `PAYMENT_PENDING`, `PAYMENT_CONFIRMED`, `PAYMENT_CANCELLED`, `PAYMENT_FAILED` |
 
-## Конфигурация env
+## Основные env
 
-- `PAYMENT_DB_URL`
-- `PAYMENT_DB_USERNAME`
-- `PAYMENT_DB_PASSWORD`
-- `PAYMENT_SERVER_PORT`
-- `JWT_SECRET_KEY`
-- `JWT_LIFETIME`
-- `KAFKA_HOST_PORT`
-- `BOOKING_EVENTS_TOPIC`
-- `PAYMENT_EVENTS_TOPIC`
-- `PAYMENT_CONTACT_PHONE`
-- `PAYMENT_CONTACT_COMMENT`
+| Переменная | Пример | Назначение |
+| --- | --- | --- |
+| `PAYMENT_DB_URL` | `jdbc:postgresql://localhost:5438/payment_db` | PostgreSQL URL |
+| `PAYMENT_SERVER_PORT` | `8087` | HTTP порт |
+| `PAYMENT_EVENTS_TOPIC` | `payments-topic` | Topic платежей |
+| `BOOKING_EVENTS_TOPIC` | `bookings-topic` | Topic броней |
+| `PAYMENT_CONTACT_PHONE` | `+7 (383) 349-50-50` | Телефон отеля |
 
+## Запуск
 
-## Сборка и запуск
-
-```bash
-./mvnw -pl payment-service -am clean package
+```powershell
+.\mvnw.cmd -pl payment-service -am spring-boot:run
 ```
 
-```bash
-./mvnw -pl payment-service -am spring-boot:run
-```
-
-## Docker
-
-```bash
+```powershell
+cd payment-service
 docker compose --env-file .env up --build -d
 ```
-
-Приложение по умолчанию доступно на порту `8087`.

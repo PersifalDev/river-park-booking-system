@@ -18,6 +18,7 @@ import static java.util.Objects.isNull;
 public class BookingPricingService {
 
     private final CatalogServiceHttpClient catalogServiceHttpClient;
+    private final PromoCodeService promoCodeService;
 
     public BigDecimal calculatePrice(BookingEntity booking) {
         long nights = ChronoUnit.DAYS.between(booking.getCheckInDate(), booking.getCheckOutDate());
@@ -33,6 +34,12 @@ public class BookingPricingService {
             throw new RoomCategoryNotFoundException("Room category not found");
         }
         BigDecimal totalPrice = category.basePrice().multiply(BigDecimal.valueOf(nights));
+        totalPrice = promoCodeService.applyPromoIfPresent(
+                booking.getId(),
+                booking.getUserId(),
+                booking.getAppliedPromoCode(),
+                totalPrice
+        );
         log.info("Calculated booking price: bookingId={}, roomCategoryId={}, nights={}, totalPrice={}",
                 booking.getId(),
                 roomCategoryId,

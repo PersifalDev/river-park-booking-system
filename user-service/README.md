@@ -1,38 +1,46 @@
 # user-service
 
-Сервис пользователей и JWT-аутентификации.
+Сервис пользователей River Park: регистрация, аутентификация и выдача JWT.
 
 ## API
 
-- `POST /users` — регистрация пользователя
-- `POST /users/auth` — получение JWT токена
-- `GET /users/{id}` — получение пользователя по id
+| Метод | URL | Описание |
+| --- | --- | --- |
+| `POST` | `/users` | Зарегистрировать пользователя |
+| `POST` | `/users/auth` | Получить JWT |
+| `GET` | `/users/{id}` | Получить пользователя по id |
 
+Swagger UI: `http://localhost:8083/swagger-ui.html`
 
-## Конфигурация env
+## Основные env
 
-- `USER_DB_URL`
-- `USER_DB_USERNAME`
-- `USER_DB_PASSWORD`
-- `USER_SERVER_PORT`
-- `JWT_SECRET_KEY`
-- `JWT_LIFETIME`
+| Переменная | Пример | Назначение |
+| --- | --- | --- |
+| `USER_DB_URL` | `jdbc:postgresql://localhost:5435/user_db` | PostgreSQL URL |
+| `USER_DB_USERNAME` | `postgres` | Пользователь БД |
+| `USER_DB_PASSWORD` | `postgres` | Пароль БД |
+| `USER_SERVER_PORT` | `8083` | HTTP порт |
+| `JWT_SECRET_KEY` | `change-me` | Секрет JWT |
+| `JWT_LIFETIME` | `86400000` | TTL JWT |
 
+## Пример `.env`
 
-## Сборка и запуск
-
-```bash
-./mvnw -pl user-service -am clean package
+```env
+USER_DB_USERNAME=postgres
+USER_DB_PASSWORD=postgres
+USER_DB_URL=jdbc:postgresql://localhost:5435/user_db
+USER_SERVER_PORT=8083
+JWT_SECRET_KEY=change-me
+JWT_LIFETIME=86400000
 ```
 
-```bash
-./mvnw -pl user-service -am spring-boot:run
+## Запуск
+
+```powershell
+.\mvnw.cmd -pl user-service -am spring-boot:run
 ```
 
-## Docker
-
-```bash
+```powershell
+cd user-service
 docker compose --env-file .env up --build -d
 ```
-
-Приложение по умолчанию доступно на порту `8083`.

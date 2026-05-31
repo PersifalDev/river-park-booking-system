@@ -21,15 +21,9 @@ public class BookingEntityValidator implements ConstraintValidator<ValidBookingE
         boolean valid = true;
         context.disableDefaultConstraintViolation();
 
-        if (allGuestsFieldsPresent(value)
-                && !Objects.equals(value.getGuests(), value.getAdultCount() + value.getChildrenCount())) {
-            context.buildConstraintViolationWithTemplate("Guests count must be equal to adult count plus children count")
-                    .addPropertyNode("guests")
-                    .addConstraintViolation();
-            valid = false;
-        }
+        boolean activeHoldStatus = BookingStatus.CREATED.equals(value.getStatus())
+                || BookingStatus.HOLD.equals(value.getStatus());
 
-        boolean activeHoldStatus = BookingStatus.CREATED.equals(value.getStatus()) || BookingStatus.HOLD.equals(value.getStatus());
         if (activeHoldStatus && Objects.isNull(value.getHoldExpiresAt())) {
             context.buildConstraintViolationWithTemplate("Hold expiration moment is required for CREATED and HOLD statuses")
                     .addPropertyNode("holdExpiresAt")
@@ -45,11 +39,5 @@ public class BookingEntityValidator implements ConstraintValidator<ValidBookingE
         }
 
         return valid;
-    }
-
-    private boolean allGuestsFieldsPresent(BookingEntity value) {
-        return Objects.nonNull(value.getGuests())
-                && Objects.nonNull(value.getAdultCount())
-                && Objects.nonNull(value.getChildrenCount());
     }
 }

@@ -39,7 +39,7 @@ public class AsyncBookingTaskProcessor {
     private final AsyncBookingTaskDispatcherProperties properties;
 
     public AsyncBookingTaskProcessor(
-            @Qualifier("taskDispatcherThreadPool") ExecutorService externalHttpThreadPool,
+            @Qualifier("externalHttpThreadPool") ExecutorService externalHttpThreadPool,
             @Lazy BookingService bookingService,
             BookingInventoryService bookingInventoryService,
             BookingPricingService bookingPricingService,
@@ -221,11 +221,15 @@ public class AsyncBookingTaskProcessor {
 
     private CompletableFuture<Void> getCreateHoldFuture(AsyncBookingTaskEntity task, BigDecimal priceAmount) {
         return CompletableFuture
-                .runAsync(() -> transactionTemplate.executeWithoutResult(status -> {
+                .supplyAsync(() -> {
+                    BookingEntity booking = bookingService.findBookingEntity(task.getBookingId());
+                    return bookingInventoryService.getTotalUnitsFromRoomCategory(booking.getRoomCategoryId());
+                }, externalHttpThreadPool)
+                .thenAcceptAsync(totalUnits -> transactionTemplate.executeWithoutResult(status -> {
                     try {
                         BookingEntity booking = bookingService.findBookingEntity(task.getBookingId());
                         log.info("Creating booking hold: bookingId={}, taskId={}", task.getBookingId(), task.getId());
-                        bookingInventoryService.holdInventory(booking);
+                        bookingInventoryService.holdInventory(booking, totalUnits);
                         bookingService.setBookingHold(
                                 task.getBookingId(),
                                 priceAmount,

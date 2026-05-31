@@ -1,5 +1,10 @@
 package ru.haritonenko.notificationservice.api.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -23,6 +28,8 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/notifications")
 @RequiredArgsConstructor
+@Tag(name = "Notifications", description = "Уведомления пользователя")
+@SecurityRequirement(name = "bearerAuth")
 public class NotificationController {
 
     private final NotificationService notificationService;
@@ -30,6 +37,8 @@ public class NotificationController {
     private final AuthenticationService authenticationService;
 
     @GetMapping
+    @Operation(summary = "Получить все уведомления")
+    @ApiResponse(responseCode = "200", description = "Страница уведомлений")
     public ResponseEntity<Page<NotificationResponseDto>> getAllNotifications(@ModelAttribute NotificationPageFilter pageFilter) {
         Long authUserId = getAuthenticatedUser().id();
         log.info("Request for getting all notifications for userId={}", authUserId);
@@ -37,6 +46,8 @@ public class NotificationController {
     }
 
     @GetMapping("/unread")
+    @Operation(summary = "Получить непрочитанные уведомления")
+    @ApiResponse(responseCode = "200", description = "Страница непрочитанных уведомлений")
     public ResponseEntity<Page<NotificationResponseDto>> getUnreadNotifications(@ModelAttribute NotificationPageFilter pageFilter) {
         Long authUserId = getAuthenticatedUser().id();
         log.info("Request for getting unread notifications for userId={}", authUserId);
@@ -44,13 +55,19 @@ public class NotificationController {
     }
 
     @PatchMapping("/{notificationId}/read")
-    public ResponseEntity<NotificationResponseDto> markAsRead(@PathVariable UUID notificationId) {
+    @Operation(summary = "Отметить уведомление прочитанным")
+    @ApiResponse(responseCode = "200", description = "Уведомление обновлено")
+    public ResponseEntity<NotificationResponseDto> markAsRead(
+            @Parameter(description = "UUID уведомления") @PathVariable UUID notificationId
+    ) {
         Long authUserId = getAuthenticatedUser().id();
         log.info("Request for marking notification as read: notificationId={}, userId={}", notificationId, authUserId);
         return ResponseEntity.ok(notificationMapper.toDto(notificationService.markAsRead(notificationId, authUserId)));
     }
 
     @PatchMapping("/read-all")
+    @Operation(summary = "Отметить все уведомления прочитанными")
+    @ApiResponse(responseCode = "204", description = "Все уведомления отмечены прочитанными")
     public ResponseEntity<Void> markAllAsRead() {
         Long authUserId = getAuthenticatedUser().id();
         log.info("Request for marking all notifications as read for userId={}", authUserId);

@@ -52,7 +52,9 @@ public class BotUpdateService {
     private static final int ROOM_PAGE_SIZE = 1;
     private static final int SERVICE_PAGE_SIZE = 4;
     private static final int PHOTO_PAGE_SIZE = 20;
-    private static final int BOOKINGS_PAGE_SIZE = 50;
+    private static final int BOOKINGS_PAGE_SIZE = 5;
+    private static final int MAX_BOOKING_GUESTS = 6;
+    private static final int MAX_BOOKING_ADULTS = 4;
     private static final int NOTIFICATIONS_PAGE_SIZE = 5;
     private static final DateTimeFormatter HUMAN_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy");
 
@@ -255,6 +257,26 @@ public class BotUpdateService {
                 botMessageService.deleteMessage(chatId, messageId);
             }
             sendBookings(chatId, photoMessage ? null : messageId, false);
+            return;
+        }
+
+        if ("booking:inactive".equals(data)) {
+            if (photoMessage) {
+                botMessageService.deleteMessage(chatId, messageId);
+            }
+            sendInactiveBookings(chatId, photoMessage ? null : messageId, false, 0);
+            return;
+        }
+
+        if (data.startsWith("booking:page:")) {
+            int pageNumber = Integer.parseInt(data.substring("booking:page:".length()));
+            sendBookings(chatId, photoMessage ? null : messageId, photoMessage, pageNumber);
+            return;
+        }
+
+        if (data.startsWith("booking:inactive:page:")) {
+            int pageNumber = Integer.parseInt(data.substring("booking:inactive:page:".length()));
+            sendInactiveBookings(chatId, photoMessage ? null : messageId, photoMessage, pageNumber);
             return;
         }
 
@@ -656,6 +678,10 @@ public class BotUpdateService {
         if (adults == null) {
             return;
         }
+        if (adults > MAX_BOOKING_ADULTS || adults > MAX_BOOKING_GUESTS) {
+            botMessageService.sendText(chatId, maxGuestsMessage(), botKeyboardFactory.mainMenu());
+            return;
+        }
 
         BookingDraft bookingDraft = chatStateService.get(chatId).bookingDraft().toBuilder()
                 .adultCount(adults)
@@ -674,6 +700,10 @@ public class BotUpdateService {
         BookingDraft currentDraft = chatStateService.get(chatId).bookingDraft();
         RoomCategoryResponseDto room = catalogClient.getRoomById(currentDraft.roomCategoryId());
         int totalGuests = safeInt(currentDraft.adultCount()) + children;
+        if (totalGuests > MAX_BOOKING_GUESTS) {
+            botMessageService.sendText(chatId, maxGuestsMessage(), botKeyboardFactory.mainMenu());
+            return;
+        }
         if (room.maxGuests() != null && totalGuests > room.maxGuests()) {
             botMessageService.sendText(chatId, botTextFactory.buildGuestOverflowMessage(room), botKeyboardFactory.mainMenu());
             return;
@@ -702,6 +732,10 @@ public class BotUpdateService {
         int totalGuests = safeInt(bookingDraft.adultCount()) + safeInt(bookingDraft.childrenCount());
 
         RoomCategoryResponseDto room = catalogClient.getRoomById(bookingDraft.roomCategoryId());
+        if (totalGuests > MAX_BOOKING_GUESTS) {
+            botMessageService.sendText(chatId, maxGuestsMessage(), botKeyboardFactory.mainMenu());
+            return;
+        }
         if (room.maxGuests() != null && totalGuests > room.maxGuests()) {
             botMessageService.sendText(chatId, botTextFactory.buildGuestOverflowMessage(room), botKeyboardFactory.mainMenu());
             return;
@@ -810,8 +844,13 @@ public class BotUpdateService {
     }
 
     private void sendBookings(Long chatId, Integer messageId, boolean photoMessage) {
+        sendBookings(chatId, messageId, photoMessage, 0);
+    }
+
+    private void sendBookings(Long chatId, Integer messageId, boolean photoMessage, int pageNumber) {
         String jwt = botAuthService.getJwt(chatId);
-        List<BotBookingResponseDto> bookings = bookingClient.getBookings(jwt, 0, BOOKINGS_PAGE_SIZE).stream()
+        var page = bookingClient.getBookingsPage(jwt, pageNumber, BOOKINGS_PAGE_SIZE);
+        List<BotBookingResponseDto> bookings = page == null || page.content() == null ? List.of() : page.content().stream()
                 .filter(this::isVisibleBookingForUser)
                 .sorted(java.util.Comparator.comparing(BotBookingResponseDto::createdAt, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())).reversed())
                 .toList();
@@ -826,12 +865,38 @@ public class BotUpdateService {
         }
 
         List<BotBookingListItem> bookingItems = buildBookingListItems(bookings);
+        int totalPages = page == null ? 0 : page.totalPages();
 
         if (messageId != null && !photoMessage) {
-            botMessageService.editText(chatId, messageId, botTextFactory.buildMyBookingsMessage(bookings), botKeyboardFactory.bookingsList(bookingItems));
+            botMessageService.editText(chatId, messageId, botTextFactory.buildMyBookingsMessage(bookings), botKeyboardFactory.bookingsList(bookingItems, pageNumber, totalPages, "booking:page:", true));
             return;
         }
-        botMessageService.sendText(chatId, botTextFactory.buildMyBookingsMessage(bookings), botKeyboardFactory.bookingsList(bookingItems));
+        botMessageService.sendText(chatId, botTextFactory.buildMyBookingsMessage(bookings), botKeyboardFactory.bookingsList(bookingItems, pageNumber, totalPages, "booking:page:", true));
+    }
+
+    private void sendInactiveBookings(Long chatId, Integer messageId, boolean photoMessage, int pageNumber) {
+        String jwt = botAuthService.getJwt(chatId);
+        var page = bookingClient.getInactiveBookingsPage(jwt, pageNumber, BOOKINGS_PAGE_SIZE);
+        List<BotBookingResponseDto> bookings = page == null || page.content() == null ? List.of() : page.content();
+
+        if (bookings.isEmpty()) {
+            String text = "\u041d\u0435\u0441\u043e\u0441\u0442\u043e\u044f\u0432\u0448\u0438\u0445\u0441\u044f \u0431\u0440\u043e\u043d\u0435\u0439 \u043f\u043e\u043a\u0430 \u043d\u0435\u0442.";
+            if (messageId != null && !photoMessage) {
+                botMessageService.editText(chatId, messageId, text, botKeyboardFactory.inlineMainMenu());
+                return;
+            }
+            botMessageService.sendText(chatId, text, botKeyboardFactory.mainMenu());
+            return;
+        }
+
+        List<BotBookingListItem> bookingItems = buildBookingListItems(bookings);
+        String text = "\u041d\u0435\u0441\u043e\u0441\u0442\u043e\u044f\u0432\u0448\u0438\u0435\u0441\u044f \u0431\u0440\u043e\u043d\u0438.";
+        int totalPages = page == null ? 0 : page.totalPages();
+        if (messageId != null && !photoMessage) {
+            botMessageService.editText(chatId, messageId, text, botKeyboardFactory.bookingsList(bookingItems, pageNumber, totalPages, "booking:inactive:page:", false));
+            return;
+        }
+        botMessageService.sendText(chatId, text, botKeyboardFactory.bookingsList(bookingItems, pageNumber, totalPages, "booking:inactive:page:", false));
     }
 
     private void showBookingDetails(Long chatId, UUID bookingId, Integer messageId, boolean photoMessage) {
@@ -1242,5 +1307,9 @@ public class BotUpdateService {
                 && message.hasPhoto()
                 && message.getPhoto() != null
                 && !message.getPhoto().isEmpty();
+    }
+
+    private String maxGuestsMessage() {
+        return "\u041c\u0430\u043a\u0441\u0438\u043c\u0443\u043c 6 \u0433\u043e\u0441\u0442\u0435\u0439 \u0432 \u043e\u0434\u043d\u043e\u0439 \u0431\u0440\u043e\u043d\u0438.";
     }
 }

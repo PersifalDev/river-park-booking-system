@@ -4,14 +4,23 @@ import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.haritonenko.bookingservice.domain.exception.BookingAvailabilityException;
+import ru.haritonenko.bookingservice.domain.exception.BookingIdempotencyConflictException;
 import ru.haritonenko.bookingservice.domain.exception.BookingNotFoundException;
 import ru.haritonenko.bookingservice.domain.exception.IllegalBookingStateException;
+import ru.haritonenko.bookingservice.domain.exception.BookingHoldFailedException;
+import ru.haritonenko.bookingservice.external.circuit.ExternalCircuitBreakerOpenException;
+import ru.haritonenko.bookingservice.kafka.outbox.exception.KafkaBookingEventIllegalStateException;
+import ru.haritonenko.bookingservice.kafka.outbox.exception.KafkaEventNotFoundException;
+import ru.haritonenko.bookingservice.tasks.domain.exception.AsyncBookingTaskNotFoundException;
 import ru.haritonenko.commonlibs.dto.error.ErrorMessageResponse;
+import ru.haritonenko.commonlibs.exception.BookingGuestsOverloadedException;
+import ru.haritonenko.commonlibs.exception.CategoryIllegalArgumentException;
+import ru.haritonenko.commonlibs.exception.RoomCategoryNotFoundException;
+import ru.haritonenko.commonlibs.exception.UserIllegalArgumentException;
 
 import java.time.OffsetDateTime;
 import java.util.stream.Collectors;
@@ -34,16 +43,37 @@ public class GlobalExceptionHandler {
                 detailedMessage);
     }
 
-    @ExceptionHandler(BookingNotFoundException.class)
-    public ResponseEntity<ErrorMessageResponse> handleBookingNotFoundException(BookingNotFoundException ex) {
-        log.warn("Booking not found exception", ex);
+    @ExceptionHandler({
+            BookingNotFoundException.class,
+            RoomCategoryNotFoundException.class,
+            AsyncBookingTaskNotFoundException.class,
+            KafkaEventNotFoundException.class
+    })
+    public ResponseEntity<ErrorMessageResponse> handleBookingNotFoundException(RuntimeException ex) {
+        log.warn("Not found exception", ex);
         return buildErrorResponse(HttpStatus.NOT_FOUND, ex.getMessage(), ex.getClass().getSimpleName());
     }
 
-    @ExceptionHandler({BookingAvailabilityException.class, IllegalBookingStateException.class})
+    @ExceptionHandler({
+            BookingAvailabilityException.class,
+            BookingHoldFailedException.class,
+            BookingIdempotencyConflictException.class,
+            IllegalBookingStateException.class,
+            KafkaBookingEventIllegalStateException.class
+    })
     public ResponseEntity<ErrorMessageResponse> handleConflictExceptions(RuntimeException ex) {
         log.warn("Booking conflict exception", ex);
         return buildErrorResponse(HttpStatus.CONFLICT, ex.getMessage(), ex.getClass().getSimpleName());
+    }
+
+    @ExceptionHandler({
+            BookingGuestsOverloadedException.class,
+            CategoryIllegalArgumentException.class,
+            UserIllegalArgumentException.class
+    })
+    public ResponseEntity<ErrorMessageResponse> handleBadRequestDomainExceptions(RuntimeException ex) {
+        log.warn("Bad request domain exception", ex);
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), ex.getClass().getSimpleName());
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
@@ -56,6 +86,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorMessageResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
         log.warn("Illegal argument exception", ex);
         return buildErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), ex.getClass().getSimpleName());
+    }
+
+    @ExceptionHandler(ExternalCircuitBreakerOpenException.class)
+    public ResponseEntity<ErrorMessageResponse> handleExternalCircuitBreakerOpenException(ExternalCircuitBreakerOpenException ex) {
+        log.warn("External circuit breaker is open", ex);
+        return buildErrorResponse(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage(), ex.getClass().getSimpleName());
     }
 
     @ExceptionHandler(Exception.class)

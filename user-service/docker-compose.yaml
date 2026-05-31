@@ -4,11 +4,11 @@ services:
     container_name: user-postgres
     restart: unless-stopped
     ports:
-      - "5435:5432"
+      - "${USER_DB_PORT:-5435}:5432"
     environment:
       POSTGRES_USER: ${USER_DB_USERNAME}
       POSTGRES_PASSWORD: ${USER_DB_PASSWORD}
-      POSTGRES_DB: user_db
+      POSTGRES_DB: ${USER_DB_NAME}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
@@ -28,9 +28,9 @@ services:
     ports:
       - "${USER_SERVER_PORT:-8083}:8083"
     environment:
-      USER_DB_URL: jdbc:postgresql://user-postgres:5432/user_db
+      USER_DB_URL: jdbc:postgresql://user-postgres:5432/${USER_DB_NAME}
       USER_DB_USERNAME: ${USER_DB_USERNAME}
       USER_DB_PASSWORD: ${USER_DB_PASSWORD}
-      USER_SERVER_PORT: 8083
+      USER_SERVER_PORT: ${USER_SERVER_PORT}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_LIFETIME: ${JWT_LIFETIME:-86400000}

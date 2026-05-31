@@ -1,53 +1,38 @@
 # telegram-bot
 
-Telegram-бот River Park. Показывает номера, услуги, правила проживания и контакты. Подготовлена конфигурация для интеграции с booking-service и payment-service по сценарию подтверждения оплаты на месте.
+Telegram-интерфейс River Park Booking System. Бот показывает каталог, создает брони, отображает активные и несостоявшиеся брони, уведомления и промокоды.
 
-## API
+## Сценарии
 
-Команды и сценарии:
-- `/start`
-- `/help`
-- `Подобрать номер`
-- `Все номера`
-- `Найти номер`
-- `Услуги`
-- `Найти услугу`
-- `Правила проживания`
-- `Контакты`
+| Сценарий | Описание |
+| --- | --- |
+| Подбор номера | Пользователь выбирает даты, гостей и категорию |
+| Мои брони | Активные брони с пагинацией |
+| Несостоявшиеся брони | Отмененные, истекшие и failed-брони |
+| Подтверждение брони | Подтверждение HOLD-брони |
+| Промокоды | Бот показывает промокод после бронирования, пользователь может применить его в следующей брони |
 
-Платежный сценарий для MVP:
-- показать пользователю рассчитанную сумму проживания
-- предложить кнопку подтверждения намерения оплатить на месте
-- после подтверждения вызвать `payment-service`
-- после отмены вызвать `payment-service` cancel
+Swagger UI: `http://localhost:8086/swagger-ui.html`
 
+## Основные env
 
-## Конфигурация env
+| Переменная | Пример | Назначение |
+| --- | --- | --- |
+| `TELEGRAM_BOT_TOKEN` | `123:token` | Токен Telegram |
+| `TELEGRAM_BOT_USERNAME` | `river_park_booking_bot` | Username бота |
+| `CATALOG_SERVICE_URL` | `http://catalog-service:8085` | URL catalog-service |
+| `BOOKING_SERVICE_URL` | `http://booking-service:8084` | URL booking-service |
+| `PAYMENT_SERVICE_URL` | `http://payment-service:8087` | URL payment-service |
+| `USER_SERVICE_URL` | `http://user-service:8083` | URL user-service |
+| `NOTIFICATION_SERVICE_URL` | `http://notification-service:8088` | URL notification-service |
 
-- `TELEGRAM_BOT_PORT`
-- `TELEGRAM_BOT_USERNAME`
-- `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_ADMIN_CONTACT`
-- `CATALOG_SERVICE_URL`
-- `BOOKING_SERVICE_URL`
-- `PAYMENT_SERVICE_URL`
-- `USER_SERVICE_URL`
+## Запуск
 
-
-## Сборка и запуск
-
-```bash
-./mvnw -pl telegram-bot -am clean package
+```powershell
+.\mvnw.cmd -pl telegram-bot -am spring-boot:run
 ```
 
-```bash
-./mvnw -pl telegram-bot -am spring-boot:run
-```
-
-## Docker
-
-```bash
+```powershell
+cd telegram-bot
 docker compose --env-file .env up --build -d
 ```
-
-Приложение по умолчанию доступно на порту `8086`.

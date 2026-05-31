@@ -2,7 +2,6 @@ package ru.haritonenko.bookingservice.domain.db.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -13,9 +12,11 @@ import lombok.Setter;
 import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.proxy.HibernateProxy;
 import ru.haritonenko.bookingservice.domain.converter.BookingStatusConverter;
-import ru.haritonenko.bookingservice.domain.custom.validation.annotation.NotPastDate;
-import ru.haritonenko.bookingservice.domain.custom.validation.annotation.ValidBookingDates;
+import ru.haritonenko.bookingservice.domain.custom.validation.BookingDateRangeData;
+import ru.haritonenko.bookingservice.domain.custom.validation.GuestCountData;
+import ru.haritonenko.bookingservice.domain.custom.validation.annotation.ValidBookingDateRange;
 import ru.haritonenko.bookingservice.domain.custom.validation.annotation.ValidBookingEntity;
+import ru.haritonenko.bookingservice.domain.custom.validation.annotation.ValidGuestCounts;
 import ru.haritonenko.bookingservice.domain.status.BookingStatus;
 
 import java.math.BigDecimal;
@@ -29,11 +30,21 @@ import java.util.UUID;
 @Builder(toBuilder = true)
 @AllArgsConstructor
 @NoArgsConstructor
-@ValidBookingDates
+@ValidBookingDateRange(
+        checkInRequired = true,
+        checkOutRequired = true,
+        pastAllowed = true
+)
+@ValidGuestCounts(
+        guestsRequired = true,
+        adultCountRequired = true,
+        childrenCountRequired = true,
+        validateComposition = true
+)
 @ValidBookingEntity
 @Table(name = "booking")
 @Entity
-public class BookingEntity {
+public class BookingEntity implements BookingDateRangeData, GuestCountData {
 
     @Id
     @Column(name = "id", nullable = false, updatable = false)
@@ -52,28 +63,18 @@ public class BookingEntity {
     @Column(name = "booking_code", nullable = false, unique = true, updatable = false, length = 64)
     private String bookingCode;
 
-    @NotNull(message = "Guests count can not be null")
-    @Min(value = 1, message = "Guests count must be greater than or equal to 1")
     @Column(name = "guests", nullable = false)
     private Integer guests;
 
-    @NotNull(message = "Adult count can not be null")
-    @Min(value = 1, message = "Adult count must be greater than or equal to 1")
     @Column(name = "adult_count", nullable = false)
     private Integer adultCount;
 
-    @NotNull(message = "Children count can not be null")
-    @Min(value = 0, message = "Children count must be greater than or equal to 0")
     @Column(name = "children_count", nullable = false)
     private Integer childrenCount;
 
-    @NotNull(message = "Check in date can not be null")
-    @NotPastDate(message = "Check in date can not be in the past")
     @Column(name = "check_in_date", nullable = false)
     private LocalDate checkInDate;
 
-    @NotNull(message = "Check out date can not be null")
-    @NotPastDate(message = "Check out date can not be in the past")
     @Column(name = "check_out_date", nullable = false)
     private LocalDate checkOutDate;
 
@@ -91,9 +92,21 @@ public class BookingEntity {
     @Column(name = "check_in_reminder_sent_at")
     private OffsetDateTime checkInReminderSentAt;
 
+    @Column(name = "inventory_released_at")
+    private OffsetDateTime inventoryReleasedAt;
+
     @NotNull(message = "Promo flag can not be null")
     @Column(name = "has_promo", nullable = false)
     private Boolean hasPromo;
+
+    @Column(name = "applied_promo_code", length = 64)
+    private String appliedPromoCode;
+
+    @Column(name = "generated_promo_code", length = 64)
+    private String generatedPromoCode;
+
+    @Column(name = "promo_discount_percent")
+    private Integer promoDiscountPercent;
 
     @NotNull(message = "Booking status can not be null")
     @Column(name = "status", nullable = false)
@@ -108,6 +121,31 @@ public class BookingEntity {
 
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+
+    @Override
+    public LocalDate checkInDate() {
+        return checkInDate;
+    }
+
+    @Override
+    public LocalDate checkOutDate() {
+        return checkOutDate;
+    }
+
+    @Override
+    public Integer guests() {
+        return guests;
+    }
+
+    @Override
+    public Integer adultCount() {
+        return adultCount;
+    }
+
+    @Override
+    public Integer childrenCount() {
+        return childrenCount;
+    }
 
     @PrePersist
     private void onCreate() {

@@ -1,56 +1,93 @@
 # River Park Booking System
 
-Микросервисная система автоматизации бронирования номеров для River Park через Telegram-бота.
+Микросервисная система автоматизации бронирования номеров для отеля River Park в Новосибирске.
 
-## Сервисы
+## Состав системы
 
-- `user-service` — регистрация, аутентификация, JWT
-- `catalog-service` — категории номеров, фото, услуги, правила проживания
-- `booking-service` — поиск, создание, HOLD, CONFIRMED, CANCELLED, EXPIRED
-- `payment-service` — учебный платеж без эквайринга, подтверждение намерения оплатить на месте
-- `notification-service` — прием событий из Kafka, сохранение уведомлений, выдача непрочитанных уведомлений
-- `telegram-bot` — пользовательский интерфейс
-- `infra` — общий стенд инфраструктуры
-- `common-libs` — общие DTO, kafka-события, security-модели и utility
+| Модуль | Порт | Назначение |
+| --- | ---: | --- |
+| `user-service` | `8083` | Регистрация, авторизация, JWT |
+| `booking-service` | `8084` | Оркестрация бронирования, inventory, HOLD, подтверждение, промокоды |
+| `catalog-service` | `8085` | Категории номеров, услуги, правила проживания, фото |
+| `telegram-bot` | `8086` | Пользовательский интерфейс |
+| `payment-service` | `8087` | Учебная оплата без эквайринга, подтверждение оплаты на месте |
+| `notification-service` | `8088` | Уведомления пользователя |
+| `common-libs` | - | Общие DTO, Kafka events, security и page utilities |
+| `infra` | - | Общий Docker Compose стенд |
 
-## Бизнес-процесс
+## Основной сценарий
 
-1. Пользователь выбирает даты, гостей и категорию в Telegram.
-2. `booking-service` проверяет availability, считает сумму и создает бронь в статусе `HOLD`.
-3. `booking-service` публикует `BOOKING_HOLD_CREATED`.
-4. `payment-service` создает учебную запись `PENDING` без реального эквайринга и публикует `PAYMENT_PENDING`.
-5. `notification-service` сохраняет уведомление с суммой проживания и инструкцией, что оплата выполняется при заселении у администратора.
-6. Пользователь подтверждает бронь в боте.
-7. `payment-service` переводит запись `PENDING -> CONFIRMED` и публикует `PAYMENT_CONFIRMED`.
-8. `booking-service` слушает `PAYMENT_CONFIRMED` и переводит бронь `HOLD -> CONFIRMED`.
-9. `notification-service` сохраняет итоговое уведомление о подтвержденной брони.
-10. Если пользователь отменяет подтверждение, идет `PAYMENT_CANCELLED`, затем `BOOKING_CANCELLED`.
-11. Если истек TTL удержания, `booking-service` переводит бронь в `EXPIRED`, освобождает inventory и публикует событие об автоотмене.
+1. Пользователь выбирает даты, гостей и категорию номера.
+2. `booking-service` проверяет ограничения гостей, доступность и цену.
+3. `booking-service` удерживает inventory и переводит бронь в `HOLD`.
+4. `payment-service` создает платежное намерение для оплаты на месте.
+5. `notification-service` сохраняет уведомления.
+6. Пользователь подтверждает бронь.
+7. `payment-service` публикует подтверждение, `booking-service` переводит бронь в `CONFIRMED`.
+8. После выезда inventory освобождается планировщиком.
 
-## Запуск инфраструктуры
+`booking-service` является оркестратором саги. Бот не управляет состоянием бизнес-процесса, он только вызывает API и показывает результат пользователю.
 
-Общий стенд расположен в `infra`.
+## Технические решения
 
-```bash
+| Задача | Решение |
+| --- | --- |
+| Конкурентное бронирование | Inventory rows создаются заранее через `INSERT ... ON CONFLICT DO NOTHING`, затем перечитываются `SELECT ... FOR UPDATE` |
+| Повторные запросы | `Idempotency-Key` на `POST /booking` |
+| Защита API бронирования | Sliding-window rate limiter |
+| Сетевые сбои | Timeout и circuit breaker для booking -> catalog/user |
+| Kafka надежность | Transactional outbox в `booking-service` |
+| Асинхронная цепочка брони | Virtual threads для внешних HTTP-задач |
+| Документация API | Springdoc OpenAPI + Swagger UI |
+
+## Требования
+
+| Инструмент | Версия |
+| --- | --- |
+| Java | `25` |
+| Maven | Wrapper из проекта |
+| Docker | Docker Desktop / Docker Engine |
+| Docker Compose | v2 |
+
+## Запуск всей системы
+
+```powershell
 cd infra
 docker compose --env-file .env up --build -d
 ```
 
-## Сервисные docker-compose
+Проверка конфигурации:
 
-Для каждого сервиса есть свой `docker-compose.yaml`.
-Он поднимает приложение, его БД и необходимые внешние зависимости.
+```powershell
+docker compose --env-file infra\.env -f infra\docker-compose.yaml config --quiet
+```
 
-## JWT
+## Локальная сборка
 
-Секреты вынесены в `.env` каждого сервиса.
-Перед запуском обязательно установи свои реальные значения.
+```powershell
+.\mvnw.cmd -DskipTests compile
+```
 
-## README по сервисам
+## Swagger UI
 
-- `user-service/README.md`
-- `catalog-service/README.md`
-- `booking-service/README.md`
-- `payment-service/README.md`
-- `notification-service/README.md`
-- `telegram-bot/README.md`
+| Сервис | URL |
+| --- | --- |
+| User | `http://localhost:8083/swagger-ui.html` |
+| Booking | `http://localhost:8084/swagger-ui.html` |
+| Catalog | `http://localhost:8085/swagger-ui.html` |
+| Telegram Bot | `http://localhost:8086/swagger-ui.html` |
+| Payment | `http://localhost:8087/swagger-ui.html` |
+| Notification | `http://localhost:8088/swagger-ui.html` |
+
+## Общие переменные
+
+| Переменная | Назначение |
+| --- | --- |
+| `JWT_SECRET_KEY` | Секрет подписи JWT |
+| `JWT_LIFETIME` | Время жизни JWT в миллисекундах |
+| `KAFKA_BOOTSTRAP_SERVERS` | Kafka bootstrap servers |
+| `SPRINGDOC_API_DOCS_ENABLED` | Включить `/v3/api-docs` |
+| `SPRINGDOC_SWAGGER_UI_ENABLED` | Включить Swagger UI |
+| `SPRINGDOC_SWAGGER_UI_PATH` | Путь Swagger UI |
+
+Все `.env` добавлены в `.gitignore`, чтобы секреты не попадали в репозиторий.

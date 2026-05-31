@@ -3,6 +3,7 @@ package ru.haritonenko.bookingservice.domain.db.repository;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -30,4 +31,18 @@ public interface BookingInventoryRepository extends JpaRepository<BookingInvento
     );
 
     Optional<BookingInventoryEntity> findByRoomCategoryIdAndBookingDate(Long roomCategoryId, LocalDate bookingDate);
+
+    @Modifying
+    @Query(value = """
+            INSERT INTO booking_inventory(room_category_id, booking_date, total_units, held_units, confirmed_units, created_at, updated_at)
+            SELECT :roomCategoryId, day::date, :totalUnits, 0, 0, now(), now()
+            FROM generate_series(:fromDate, :toDate - interval '1 day', interval '1 day') AS day
+            ON CONFLICT (room_category_id, booking_date) DO NOTHING
+            """, nativeQuery = true)
+    void insertMissingRows(
+            @Param("roomCategoryId") Long roomCategoryId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate,
+            @Param("totalUnits") Integer totalUnits
+    );
 }

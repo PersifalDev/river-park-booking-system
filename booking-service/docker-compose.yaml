@@ -4,11 +4,11 @@ services:
     container_name: booking-postgres
     restart: unless-stopped
     ports:
-      - "5436:5432"
+      - "${BOOKING_DB_PORT:-5436}:5432"
     environment:
       POSTGRES_USER: ${BOOKING_DB_USERNAME}
       POSTGRES_PASSWORD: ${BOOKING_DB_PASSWORD}
-      POSTGRES_DB: booking_db
+      POSTGRES_DB: ${BOOKING_DB_NAME}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
@@ -32,7 +32,7 @@ services:
       KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: true
-      KAFKA_KRAFT_CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_KRAFT_CLUSTER_ID: ${KAFKA_KRAFT_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk}
       ALLOW_PLAINTEXT_LISTENER: yes
     healthcheck:
       test: ["CMD-SHELL", "/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
@@ -56,15 +56,15 @@ services:
     ports:
       - "${BOOKING_SERVER_PORT:-8084}:8084"
     environment:
-      BOOKING_DB_URL: jdbc:postgresql://booking-postgres:5432/booking_db
+      BOOKING_DB_URL: jdbc:postgresql://booking-postgres:5432/${BOOKING_DB_NAME}
       BOOKING_DB_USERNAME: ${BOOKING_DB_USERNAME}
       BOOKING_DB_PASSWORD: ${BOOKING_DB_PASSWORD}
-      BOOKING_SERVER_PORT: 8084
+      BOOKING_SERVER_PORT: ${BOOKING_SERVER_PORT}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_LIFETIME: ${JWT_LIFETIME:-86400000}
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
       BOOKING_EVENTS_TOPIC: ${BOOKING_EVENTS_TOPIC:-bookings-topic}
       PAYMENT_EVENTS_TOPIC: ${PAYMENT_EVENTS_TOPIC:-payments-topic}
       NOTIFICATION_EVENTS_TOPIC: ${NOTIFICATION_EVENTS_TOPIC:-notifications-topic}
-      USER_SERVICE_BASE_URL: http://host.docker.internal:8083
-      CATALOG_SERVICE_BASE_URL: http://host.docker.internal:8085
+      USER_SERVICE_BASE_URL: ${USER_SERVICE_BASE_URL:-http://host.docker.internal:8083}
+      CATALOG_SERVICE_BASE_URL: ${CATALOG_SERVICE_BASE_URL:-http://host.docker.internal:8085}

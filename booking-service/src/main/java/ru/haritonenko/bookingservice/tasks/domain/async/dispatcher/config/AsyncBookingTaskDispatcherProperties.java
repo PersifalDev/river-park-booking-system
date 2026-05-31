@@ -18,4 +18,5 @@ public class AsyncBookingTaskDispatcherProperties {
     private Duration schedulerDelay;
     private Integer dispatchBatchSize;
     private Duration holdTtl;
+    private Boolean externalHttpVirtualThreadsEnabled = true;
 }

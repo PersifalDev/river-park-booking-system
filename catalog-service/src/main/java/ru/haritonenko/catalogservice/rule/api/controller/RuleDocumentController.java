@@ -1,5 +1,8 @@
 package ru.haritonenko.catalogservice.rule.api.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
@@ -12,11 +15,14 @@ import ru.haritonenko.catalogservice.rule.domain.service.RuleDocumentService;
 @RequestMapping("/api/v1/catalog/rules")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Rules", description = "Правила проживания и документы отеля")
 public class RuleDocumentController {
 
     private final RuleDocumentService ruleDocumentService;
 
     @GetMapping("/document")
+    @Operation(summary = "Получить метаданные документа с правилами проживания")
+    @ApiResponse(responseCode = "200", description = "Метаданные документа")
     public ResponseEntity<RuleDocumentResponseDto> getRuleDocumentInfo() {
         log.info("Request to get hotel rule document metadata");
         return ResponseEntity
@@ -25,6 +31,8 @@ public class RuleDocumentController {
     }
 
     @GetMapping("/document/file")
+    @Operation(summary = "Скачать PDF с правилами проживания")
+    @ApiResponse(responseCode = "200", description = "PDF документ")
     public ResponseEntity<Resource> downloadRuleDocument() {
         log.info("Request to download hotel rule document");
 

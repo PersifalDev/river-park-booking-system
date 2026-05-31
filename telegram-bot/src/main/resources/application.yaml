@@ -5,6 +5,22 @@ spring:
 server:
   port: ${TELEGRAM_BOT_PORT:8086}
 
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:true}
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
+    path: ${SPRINGDOC_SWAGGER_UI_PATH:/swagger-ui.html}
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+
+openapi:
+  title: River Park Telegram Bot API
+  description: OpenAPI настройки Telegram Bot приложения River Park.
+  version: 1.0.0
+
 telegram:
   bot:
     token: ${TELEGRAM_BOT_TOKEN}

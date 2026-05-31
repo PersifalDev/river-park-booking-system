@@ -1,5 +1,11 @@
 package ru.haritonenko.paymentservice.api.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -25,6 +31,8 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/payments")
 @RequiredArgsConstructor
+@Tag(name = "Payments", description = "Учебные платежи и подтверждение оплаты на месте")
+@SecurityRequirement(name = "bearerAuth")
 public class PaymentController {
 
     private final PaymentService paymentService;
@@ -32,13 +40,22 @@ public class PaymentController {
     private final AuthenticationService authenticationService;
 
     @GetMapping("/booking/{bookingId}")
-    public ResponseEntity<PaymentResponseDto> getPaymentByBookingId(@PathVariable UUID bookingId) {
+    @Operation(summary = "Получить платеж по брони")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Платеж найден"),
+            @ApiResponse(responseCode = "404", description = "Платеж не найден")
+    })
+    public ResponseEntity<PaymentResponseDto> getPaymentByBookingId(
+            @Parameter(description = "UUID брони") @PathVariable UUID bookingId
+    ) {
         Long authUserId = getAuthenticatedUser().id();
         log.info("Request for getting payment by bookingId={} for userId={}", bookingId, authUserId);
         return ResponseEntity.ok(paymentMapper.toDto(paymentService.getPaymentByBookingIdAndUserId(bookingId, authUserId)));
     }
 
     @GetMapping
+    @Operation(summary = "Получить платежи пользователя")
+    @ApiResponse(responseCode = "200", description = "Страница платежей")
     public ResponseEntity<Page<PaymentResponseDto>> getAllPayments(@ModelAttribute PaymentPageFilter pageFilter) {
         Long authUserId = getAuthenticatedUser().id();
         log.info("Request for getting all payments by userId={}", authUserId);
@@ -46,14 +63,22 @@ public class PaymentController {
     }
 
     @PatchMapping("/booking/{bookingId}/confirm")
-    public ResponseEntity<PaymentResponseDto> confirmPayment(@PathVariable UUID bookingId) {
+    @Operation(summary = "Подтвердить оплату на месте")
+    @ApiResponse(responseCode = "200", description = "Платеж подтвержден")
+    public ResponseEntity<PaymentResponseDto> confirmPayment(
+            @Parameter(description = "UUID брони") @PathVariable UUID bookingId
+    ) {
         Long authUserId = getAuthenticatedUser().id();
         log.info("Request for confirming payment by bookingId={} for userId={}", bookingId, authUserId);
         return ResponseEntity.ok(paymentMapper.toDto(paymentService.confirmPaymentByBookingIdAndUserId(bookingId, authUserId)));
     }
 
     @PatchMapping("/booking/{bookingId}/cancel")
-    public ResponseEntity<PaymentResponseDto> cancelPayment(@PathVariable UUID bookingId) {
+    @Operation(summary = "Отменить подтверждение оплаты")
+    @ApiResponse(responseCode = "200", description = "Платеж отменен")
+    public ResponseEntity<PaymentResponseDto> cancelPayment(
+            @Parameter(description = "UUID брони") @PathVariable UUID bookingId
+    ) {
         Long authUserId = getAuthenticatedUser().id();
         log.info("Request for cancelling payment by bookingId={} for userId={}", bookingId, authUserId);
         return ResponseEntity.ok(paymentMapper.toDto(paymentService.cancelPaymentByBookingIdAndUserId(bookingId, authUserId)));

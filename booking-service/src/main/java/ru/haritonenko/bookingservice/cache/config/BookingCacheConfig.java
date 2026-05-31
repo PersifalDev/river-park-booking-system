@@ -1,4 +1,4 @@
-package ru.haritonenko.bookingservice.config.cache;
+package ru.haritonenko.bookingservice.cache.config;
 
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;

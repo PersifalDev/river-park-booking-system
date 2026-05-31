@@ -1,55 +1,35 @@
 # notification-service
 
-Сервис уведомлений. Слушает booking- и payment-события, сохраняет уведомления в БД и отдает непрочитанные уведомления пользователю.
+Сервис уведомлений River Park: принимает события из Kafka, сохраняет уведомления и отдает их пользователю.
 
 ## API
 
-- `GET /notifications` — получить все уведомления текущего пользователя
-- `GET /notifications/unread` — получить непрочитанные уведомления
-- `PATCH /notifications/{notificationId}/read` — отметить уведомление как прочитанное
-- `PATCH /notifications/read-all` — отметить все уведомления как прочитанные
+| Метод | URL | Описание |
+| --- | --- | --- |
+| `GET` | `/notifications` | Все уведомления пользователя |
+| `GET` | `/notifications/unread` | Непрочитанные уведомления |
+| `PATCH` | `/notifications/{notificationId}/read` | Отметить одно уведомление прочитанным |
+| `PATCH` | `/notifications/read-all` | Отметить все уведомления прочитанными |
 
-Kafka consumer:
-- `BOOKING_CREATED`
-- `BOOKING_HOLD_CREATED`
-- `BOOKING_CONFIRMED`
-- `BOOKING_CANCELLED`
-- `BOOKING_EXPIRED`
-- `BOOKING_FAILED`
-- `PAYMENT_INVOICE_CREATED`
-- `PAYMENT_PENDING`
-- `PAYMENT_CONFIRMED`
-- `PAYMENT_CANCELLED`
-- `PAYMENT_FAILED`
+Swagger UI: `http://localhost:8088/swagger-ui.html`
 
+## Основные env
 
-## Конфигурация env
+| Переменная | Пример | Назначение |
+| --- | --- | --- |
+| `NOTIFICATION_DB_URL` | `jdbc:postgresql://localhost:5439/notification_db` | PostgreSQL URL |
+| `NOTIFICATION_SERVER_PORT` | `8088` | HTTP порт |
+| `BOOKING_EVENTS_TOPIC` | `bookings-topic` | Topic броней |
+| `PAYMENT_EVENTS_TOPIC` | `payments-topic` | Topic платежей |
+| `NOTIFICATION_EVENTS_TOPIC` | `notifications-topic` | Topic direct notifications |
 
-- `NOTIFICATION_DB_URL`
-- `NOTIFICATION_DB_USERNAME`
-- `NOTIFICATION_DB_PASSWORD`
-- `NOTIFICATION_SERVER_PORT`
-- `JWT_SECRET_KEY`
-- `JWT_LIFETIME`
-- `KAFKA_HOST_PORT`
-- `BOOKING_EVENTS_TOPIC`
-- `PAYMENT_EVENTS_TOPIC`
+## Запуск
 
-
-## Сборка и запуск
-
-```bash
-./mvnw -pl notification-service -am clean package
+```powershell
+.\mvnw.cmd -pl notification-service -am spring-boot:run
 ```
 
-```bash
-./mvnw -pl notification-service -am spring-boot:run
-```
-
-## Docker
-
-```bash
+```powershell
+cd notification-service
 docker compose --env-file .env up --build -d
 ```
-
-Приложение по умолчанию доступно на порту `8088`.

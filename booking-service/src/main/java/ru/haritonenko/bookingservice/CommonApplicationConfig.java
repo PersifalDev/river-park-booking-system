@@ -1,16 +1,32 @@
 package ru.haritonenko.bookingservice;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.transaction.support.TransactionTemplate;
+import ru.haritonenko.bookingservice.cache.config.BookingCacheProperties;
+import ru.haritonenko.bookingservice.config.validation.BookingValidationProperties;
 import ru.haritonenko.bookingservice.tasks.domain.async.dispatcher.config.AsyncBookingTaskDispatcherProperties;
 
+import java.util.TimeZone;
 import java.util.concurrent.*;
 
 @Configuration
-@EnableConfigurationProperties(AsyncBookingTaskDispatcherProperties.class)
+@EnableConfigurationProperties({
+        BookingCacheProperties.class,
+        AsyncBookingTaskDispatcherProperties.class,
+        BookingValidationProperties.class
+})
 public class CommonApplicationConfig {
+
+    @Bean
+    public InitializingBean bookingTimeZoneInitializer(BookingValidationProperties properties) {
+        return () -> {
+            if (properties.getDateZone() != null) {
+                TimeZone.setDefault(TimeZone.getTimeZone(properties.getDateZone()));
+            }
+        };
+    }
 
     @Bean(destroyMethod = "shutdown")
     public ExecutorService taskDispatcherThreadPool(AsyncBookingTaskDispatcherProperties properties) {
@@ -26,6 +42,9 @@ public class CommonApplicationConfig {
 
     @Bean(destroyMethod = "shutdown")
     public ExecutorService externalHttpThreadPool(AsyncBookingTaskDispatcherProperties properties) {
+        if (Boolean.TRUE.equals(properties.getExternalHttpVirtualThreadsEnabled())) {
+            return Executors.newVirtualThreadPerTaskExecutor();
+        }
         return new ThreadPoolExecutor(
                 properties.getThreadPoolSize(),
                 properties.getThreadPoolSize(),

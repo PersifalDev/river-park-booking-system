@@ -1,8 +1,7 @@
 package ru.haritonenko.bookingservice.kafka.producer.booking.configuration;
 
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.boot.ssl.DefaultSslBundleRegistry;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
@@ -21,9 +20,7 @@ public class KafkaConfigurationBookingProducer {
     public KafkaTemplate<UUID, BookingKafkaEvent<BookingKafkaPayload>> kafkaBookingTemplate(
             KafkaProperties kafkaProperties
     ) {
-        var props = kafkaProperties.buildProducerProperties(
-                new DefaultSslBundleRegistry()
-        );
+        var props = kafkaProperties.buildProducerProperties();
 
         ProducerFactory<UUID, BookingKafkaEvent<BookingKafkaPayload>> producerFactory =
                 new DefaultKafkaProducerFactory<>(props);

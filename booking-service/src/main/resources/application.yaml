@@ -27,21 +27,57 @@ spring:
 server:
   port: ${BOOKING_SERVER_PORT:8084}
 
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:true}
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
+    path: ${SPRINGDOC_SWAGGER_UI_PATH:/swagger-ui.html}
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+
+openapi:
+  title: River Park Booking Service API
+  description: API бронирования River Park: создание, HOLD, подтверждение, отмена, inventory, промокоды и напоминания.
+  version: 1.0.0
+  security-scheme-name: bearerAuth
+
 jwt:
   secret-key: ${JWT_SECRET_KEY}
   lifetime: ${JWT_LIFETIME:86400000}
 
 app:
   booking:
+    validation:
+      date-zone: ${BOOKING_VALIDATION_DATE_ZONE:Asia/Novosibirsk}
+      guests:
+        min-total: ${BOOKING_MIN_TOTAL_GUESTS:1}
+        max-total: ${BOOKING_MAX_TOTAL_GUESTS:6}
+        min-adults: ${BOOKING_MIN_ADULTS:1}
+        max-adults: ${BOOKING_MAX_ADULTS:4}
+        min-children: ${BOOKING_MIN_CHILDREN:0}
+        max-children: ${BOOKING_MAX_CHILDREN:5}
+      price:
+        min: ${BOOKING_MIN_PRICE:0.00}
+        max: ${BOOKING_MAX_PRICE:1000000.00}
+        fraction-digits: ${BOOKING_PRICE_FRACTION_DIGITS:2}
+      area:
+        min: ${BOOKING_MIN_AREA:0.00}
+        max: ${BOOKING_MAX_AREA:1000.00}
+        fraction-digits: ${BOOKING_AREA_FRACTION_DIGITS:2}
     task:
       thread-pool-size: ${BOOKING_TASK_THREAD_POOL_SIZE:2}
       queue-capacity: ${BOOKING_TASK_QUEUE_CAPACITY:10}
+      external-http-virtual-threads-enabled: ${BOOKING_EXTERNAL_HTTP_VIRTUAL_THREADS_ENABLED:true}
       max-attempts: ${BOOKING_TASK_MAX_ATTEMPTS:5}
       retry-delay: ${BOOKING_TASK_RETRY_DELAY:30s}
       scheduler-delay: ${BOOKING_TASK_SCHEDULER_DELAY:10s}
       dispatch-batch-size: ${BOOKING_TASK_BATCH_SIZE:10}
       hold-ttl: ${BOOKING_HOLD_TTL:15m}
     hold-expiration-delay-ms: ${BOOKING_HOLD_EXPIRATION_DELAY_MS:60000}
+
     cleanup:
       delay-ms: ${BOOKING_CLEANUP_DELAY_MS:86400000}
       retention-period: ${BOOKING_CLEANUP_RETENTION_PERIOD:720h}
@@ -54,6 +90,26 @@ app:
     default-page-number: ${BOOKING_DEFAULT_PAGE_NUMBER:0}
     events:
       source: ${BOOKING_EVENT_SOURCE:booking-service}
+    cache:
+      page-index-ttl: ${BOOKING_PAGE_INDEX_TTL:PT1H}
+
+    promo:
+      generated-discount-percent: ${BOOKING_PROMO_GENERATED_DISCOUNT_PERCENT:10}
+
+    idempotency:
+      ttl: ${BOOKING_IDEMPOTENCY_TTL:24h}
+
+    rate-limit:
+      enabled: ${BOOKING_RATE_LIMIT_ENABLED:true}
+      window: ${BOOKING_RATE_LIMIT_WINDOW:1m}
+      max-requests-per-window: ${BOOKING_RATE_LIMIT_MAX_REQUESTS_PER_WINDOW:120}
+      max-create-booking-requests-per-window: ${BOOKING_RATE_LIMIT_MAX_CREATE_BOOKING_REQUESTS_PER_WINDOW:20}
+
+    outbox:
+      poll-delay-ms: ${BOOKING_OUTBOX_POLL_DELAY_MS:5000}
+      batch-size: ${BOOKING_OUTBOX_BATCH_SIZE:10}
+      retry-delay: ${BOOKING_OUTBOX_RETRY_DELAY:30s}
+      max-attempts: ${BOOKING_OUTBOX_MAX_ATTEMPTS:5}
 
   task-execution:
     poller:
@@ -61,6 +117,8 @@ app:
       batch-size: ${TASK_EXEC_POOL_BATCH_SIZE:5}
       retry-delay: ${TASK_EXEC_POOL_RETRY_DELAY_S:30s}
       default-attempts: ${TASK_EXEC_POOL_DEFAULT_ATTEMPTS:1}
+
+
 
   kafka:
     producer:
@@ -75,6 +133,10 @@ app:
       trusted-packages: ${CONSUMER_TRUSTED_PACKAGES:*}
 
   external:
+    circuit-breaker:
+      enabled: ${BOOKING_EXTERNAL_CIRCUIT_BREAKER_ENABLED:true}
+      failure-threshold: ${BOOKING_EXTERNAL_CIRCUIT_BREAKER_FAILURE_THRESHOLD:5}
+      open-state-duration: ${BOOKING_EXTERNAL_CIRCUIT_BREAKER_OPEN_STATE_DURATION:30s}
     http-client:
       catalog-service:
         base-url: ${CATALOG_SERVICE_BASE_URL:http://localhost:8085}

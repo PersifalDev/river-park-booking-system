@@ -1,5 +1,9 @@
 package ru.haritonenko.catalogservice.category.api.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,12 +23,15 @@ import ru.haritonenko.catalogservice.category.domain.service.RoomCategoryService
 @RestController
 @RequestMapping("/api/v1/catalog/rooms")
 @RequiredArgsConstructor
+@Tag(name = "Room Categories", description = "Категории номеров River Park")
 public class RoomCategoryController {
 
     private final RoomCategoryService roomCategoryService;
     private final RoomCategoryToDtoMapper mapper;
 
     @GetMapping
+    @Operation(summary = "Получить категории номеров")
+    @ApiResponse(responseCode = "200", description = "Страница категорий номеров")
     public Page<RoomCategoryResponseDto> getAllRoomCategories(
             @Valid RoomCategoryPageFilter pageFilter
     ) {
@@ -34,8 +41,10 @@ public class RoomCategoryController {
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Получить категорию номера по id")
+    @ApiResponse(responseCode = "200", description = "Категория найдена")
     public ResponseEntity<RoomCategoryResponseDto> getRoomCategoryById(
-            @PathVariable("id") Long id
+            @Parameter(description = "ID категории номера") @PathVariable("id") Long id
     ) {
         log.info("Request for getting room category by id={}", id);
         var foundRoomCategory = roomCategoryService.getRoomCategoryById(id);
@@ -45,6 +54,8 @@ public class RoomCategoryController {
     }
 
     @PostMapping("/search")
+    @Operation(summary = "Найти категории номеров по фильтру")
+    @ApiResponse(responseCode = "200", description = "Страница найденных категорий")
     public ResponseEntity<Page<RoomCategoryResponseDto>> getRoomCategoriesWithFilter(
             @Valid @RequestBody RoomCategorySearchRequestDto requestRoomsWithFilter,
             @Valid RoomCategoryPageFilter roomFilter

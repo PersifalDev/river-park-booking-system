@@ -6,7 +6,9 @@ import org.springframework.stereotype.Service;
 import ru.haritonenko.bookingservice.api.dto.BookingRequestDto;
 import ru.haritonenko.bookingservice.external.client.catalog.CatalogServiceHttpClient;
 import ru.haritonenko.commonlibs.exception.BookingGuestsOverloadedException;
+import ru.haritonenko.commonlibs.exception.CategoryIllegalArgumentException;
 import ru.haritonenko.commonlibs.exception.RoomCategoryNotFoundException;
+import ru.haritonenko.commonlibs.exception.UserIllegalArgumentException;
 
 import static java.util.Objects.isNull;
 
@@ -16,6 +18,7 @@ import static java.util.Objects.isNull;
 public class BookingValidationService {
 
     private final CatalogServiceHttpClient catalogServiceHttpClient;
+    private final PromoCodeService promoCodeService;
 
     public void validateBookingRequest(
             BookingRequestDto bookingRequest,
@@ -25,12 +28,12 @@ public class BookingValidationService {
 
         if (isNull(categoryIdFromRequest)) {
             log.warn("Room category id from request has null value");
-            throw new IllegalArgumentException("Category id from request is null");
+            throw new CategoryIllegalArgumentException("Category id from request is null");
         }
 
         if (isNull(userId)) {
             log.warn("User id from request has null value");
-            throw new IllegalArgumentException("User id from request is null");
+            throw new UserIllegalArgumentException("User id from request is null");
         }
         log.info("Validating booking request against external services: userId={}, categoryId={}",
                 userId, categoryIdFromRequest);
@@ -48,6 +51,13 @@ public class BookingValidationService {
                     categoryIdFromRequest
             );
             throw new BookingGuestsOverloadedException("More guests have been selected than are available");
+        }
+
+        if (bookingRequest.promoCode() != null
+                && !bookingRequest.promoCode().isBlank()
+                && !promoCodeService.isPromoCodeUsableForUser(bookingRequest.promoCode(), userId)) {
+            log.warn("Promo code is invalid or already used: userId={}", userId);
+            throw new IllegalArgumentException("Promo code is invalid or already used");
         }
     }
 }

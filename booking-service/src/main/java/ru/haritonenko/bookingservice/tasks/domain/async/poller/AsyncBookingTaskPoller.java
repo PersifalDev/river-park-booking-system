@@ -12,6 +12,7 @@ import ru.haritonenko.bookingservice.tasks.domain.async.dispatcher.AsyncBookingT
 import ru.haritonenko.bookingservice.tasks.domain.async.poller.config.AsyncBookingTaskPollerProperties;
 import ru.haritonenko.bookingservice.tasks.domain.async.status.AsyncBookingTaskStatus;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -58,6 +59,10 @@ public class AsyncBookingTaskPoller {
         bookingService.findExpiredCreatedBookings().forEach(booking -> {
             log.info("Expiring created booking: bookingId={}", booking.getId());
             bookingService.expireCreatedBooking(booking.getId());
+        });
+        bookingService.findConfirmedBookingsForInventoryRelease(LocalDate.now()).forEach(booking -> {
+            log.info("Releasing confirmed booking inventory after check-out: bookingId={}", booking.getId());
+            bookingService.releaseInventoryAfterCheckOut(booking.getId());
         });
     }
 

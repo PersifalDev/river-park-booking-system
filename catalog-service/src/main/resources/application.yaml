@@ -1,6 +1,22 @@
 server:
   port: ${CATALOG_SERVICE_PORT:8085}
 
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:true}
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
+    path: ${SPRINGDOC_SWAGGER_UI_PATH:/swagger-ui.html}
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+
+openapi:
+  title: River Park Catalog Service API
+  description: API справочника River Park: категории номеров, фото, услуги и правила проживания.
+  version: 1.0.0
+
 spring:
   application:
     name: catalog-service

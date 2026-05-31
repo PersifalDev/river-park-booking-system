@@ -21,9 +21,16 @@ import java.util.UUID;
 @Repository
 public interface BookingEntityRepository extends JpaRepository<BookingEntity, UUID>, JpaSpecificationExecutor<BookingEntity> {
 
-    Optional<BookingEntity> findByIdAndUserId(UUID id, Long userId);
+    Optional<BookingEntity> findByIdAndUserId(
+            UUID id,
+            Long userId
+    );
 
-    Page<BookingEntity> findAllByUserIdAndStatusIn(Long userId, Collection<BookingStatus> statuses, Pageable pageable);
+    Page<BookingEntity> findAllByUserIdAndStatusIn(
+            Long userId,
+            Collection<BookingStatus> statuses,
+            Pageable pageable
+    );
 
     @Query("""
             SELECT b from BookingEntity b
@@ -31,7 +38,10 @@ public interface BookingEntityRepository extends JpaRepository<BookingEntity, UU
               AND b.holdExpiresAt IS NOT NULL
               AND b.holdExpiresAt < :now
             """)
-    List<BookingEntity> findExpiredHolds(@Param("status") BookingStatus status, @Param("now") OffsetDateTime now);
+    List<BookingEntity> findExpiredHolds(
+            @Param("status") BookingStatus status,
+            @Param("now") OffsetDateTime now
+    );
 
     @Query("""
             SELECT b from BookingEntity b
@@ -39,7 +49,10 @@ public interface BookingEntityRepository extends JpaRepository<BookingEntity, UU
               AND b.holdExpiresAt IS NOT NULL
               AND b.holdExpiresAt < :now
             """)
-    List<BookingEntity> findExpiredCreatedDrafts(@Param("status") BookingStatus status, @Param("now") OffsetDateTime now);
+    List<BookingEntity> findExpiredCreatedDrafts(
+            @Param("status") BookingStatus status,
+            @Param("now") OffsetDateTime now
+    );
 
     @Query("""
             SELECT b from BookingEntity b
@@ -65,6 +78,18 @@ public interface BookingEntityRepository extends JpaRepository<BookingEntity, UU
     List<BookingEntity> findBookingsForCheckInReminder(
             @Param("status") BookingStatus status,
             @Param("targetDate") LocalDate targetDate
+    );
+
+    @Query("""
+            SELECT b from BookingEntity b
+            WHERE b.status = :status
+              AND b.inventoryReleasedAt IS NULL
+              AND b.checkOutDate <= :today
+            ORDER BY b.checkOutDate ASC, b.createdAt ASC
+            """)
+    List<BookingEntity> findConfirmedBookingsForInventoryRelease(
+            @Param("status") BookingStatus status,
+            @Param("today") LocalDate today
     );
 
     @Modifying

@@ -5,24 +5,12 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import ru.haritonenko.bookingservice.tasks.domain.async.db.entity.AsyncBookingTaskEntity;
-import ru.haritonenko.bookingservice.tasks.domain.async.status.AsyncBookingTaskStatus;
 
 import java.time.OffsetDateTime;
 import java.util.List;
 
 @Repository
 public interface AsyncBookingTaskEntityRepository extends JpaRepository<AsyncBookingTaskEntity, Long> {
-
-    @Query("""
-            SELECT t from AsyncBookingTaskEntity t
-            WHERE t.status in :statuses
-              AND (t.nextAttemptAt IS NULL OR t.nextAttemptAt <= :now)
-            ORDER BY t.createdAt ASC
-            """)
-    List<AsyncBookingTaskEntity> findAvailableTasks(
-            @Param("statuses") List<AsyncBookingTaskStatus> statuses,
-            @Param("now") OffsetDateTime now
-    );
 
     @Query(value = """
             SELECT * FROM async_booking_task as t 

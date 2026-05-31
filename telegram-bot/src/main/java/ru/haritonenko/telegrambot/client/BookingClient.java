@@ -45,7 +45,15 @@ public class BookingClient {
     }
 
     public List<BotBookingResponseDto> getBookings(String jwt, int pageNumber, int pageSize) {
-        BotPageResponse<BotBookingResponseDto> response = bookingRestClient.get()
+        BotPageResponse<BotBookingResponseDto> response = getBookingsPage(jwt, pageNumber, pageSize);
+
+        return response == null || response.content() == null
+                ? List.of()
+                : response.content();
+    }
+
+    public BotPageResponse<BotBookingResponseDto> getBookingsPage(String jwt, int pageNumber, int pageSize) {
+        return bookingRestClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/booking")
                         .queryParam("pageNumber", pageNumber)
@@ -54,10 +62,18 @@ public class BookingClient {
                 .header(HttpHeaders.AUTHORIZATION, bearer(jwt))
                 .retrieve()
                 .body(BOOKING_PAGE_TYPE);
+    }
 
-        return response == null || response.content() == null
-                ? List.of()
-                : response.content();
+    public BotPageResponse<BotBookingResponseDto> getInactiveBookingsPage(String jwt, int pageNumber, int pageSize) {
+        return bookingRestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/booking/inactive")
+                        .queryParam("pageNumber", pageNumber)
+                        .queryParam("pageSize", pageSize)
+                        .build())
+                .header(HttpHeaders.AUTHORIZATION, bearer(jwt))
+                .retrieve()
+                .body(BOOKING_PAGE_TYPE);
     }
 
     public PageResponse<RoomCategoryResponseDto> searchAvailableRooms(

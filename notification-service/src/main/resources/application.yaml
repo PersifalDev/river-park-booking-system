@@ -24,6 +24,23 @@ spring:
 server:
   port: ${NOTIFICATION_SERVER_PORT:8088}
 
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:true}
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
+    path: ${SPRINGDOC_SWAGGER_UI_PATH:/swagger-ui.html}
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+
+openapi:
+  title: River Park Notification Service API
+  description: API уведомлений River Park: список, непрочитанные уведомления и отметка прочитанными.
+  version: 1.0.0
+  security-scheme-name: bearerAuth
+
 jwt:
   secret-key: ${JWT_SECRET_KEY:}
   lifetime: ${JWT_LIFETIME:86400000}

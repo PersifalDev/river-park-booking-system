@@ -15,9 +15,7 @@ import ru.haritonenko.commonlibs.exception.RoomCategoryNotFoundException;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static java.util.Objects.isNull;
 
@@ -38,14 +36,21 @@ public class BookingInventoryService {
 
         Long roomCategoryId = booking.getRoomCategoryId();
         Integer totalUnits = getTotalUnitsFromRoomCategory(roomCategoryId);
+        holdInventory(booking, totalUnits);
+    }
+
+    public void holdInventory(BookingEntity booking, Integer totalUnits) {
+        if (isNull(booking)) {
+            log.warn("Booking not found to hold inventory");
+            throw new BookingNotFoundException("Booking not found");
+        }
 
         log.info("Holding inventory for booking: bookingId={}, userId={}, roomCategoryId={}, bookingCode={}",
                 booking.getId(),
                 booking.getUserId(),
-                roomCategoryId,
+                booking.getRoomCategoryId(),
                 booking.getBookingCode()
         );
-
 
         transactionTemplate.executeWithoutResult(status -> {
             List<BookingInventoryEntity> inventoryEntities = getOrCreateForUpdate(booking, totalUnits);
@@ -54,22 +59,21 @@ public class BookingInventoryService {
                 if (available <= 0) {
                     log.warn("Inventory is not available: bookingId={}, roomCategoryId={}, bookingDate={}",
                             booking.getId(),
-                            roomCategoryId,
+                            booking.getRoomCategoryId(),
                             inventory.getBookingDate()
                     );
                     throw new BookingAvailabilityException(
-                            "No available rooms for category=%s on date=%s".formatted(roomCategoryId, inventory.getBookingDate())
+                            "No available rooms for category=%s on date=%s".formatted(booking.getRoomCategoryId(), inventory.getBookingDate())
                     );
                 }
                 inventory.setHeldUnits(inventory.getHeldUnits() + 1);
                 log.info("Inventory held: bookingId={}, roomCategoryId={}, bookingDate={}, heldUnits={}",
                         booking.getId(),
-                        roomCategoryId,
+                        booking.getRoomCategoryId(),
                         inventory.getBookingDate(),
                         inventory.getHeldUnits()
                 );
             }
-            inventoryRepository.saveAll(inventoryEntities);
         });
     }
 
@@ -96,7 +100,6 @@ public class BookingInventoryService {
                 );
             }
         }
-        inventoryRepository.saveAll(inventoryEntities);
     }
 
     @Transactional
@@ -122,7 +125,6 @@ public class BookingInventoryService {
                 );
             }
         }
-        inventoryRepository.saveAll(inventoryEntities);
     }
 
     @Transactional
@@ -157,7 +159,6 @@ public class BookingInventoryService {
                     inventory.getConfirmedUnits()
             );
         }
-        inventoryRepository.saveAll(inventoryEntities);
     }
 
     @Transactional(readOnly = true)
@@ -215,7 +216,7 @@ public class BookingInventoryService {
                 available = inventory.getTotalUnits() - inventory.getHeldUnits() - inventory.getConfirmedUnits();
             }
 
-            minAvailable = Math.min(minAvailable, Math.max(available, 0));
+            minAvailable = Math.clamp(available, 0, minAvailable);
             if (minAvailable <= 0) {
                 return 0;
             }
@@ -224,66 +225,18 @@ public class BookingInventoryService {
         return minAvailable == Integer.MAX_VALUE ? 0 : minAvailable;
     }
 
-    @Transactional(readOnly = true)
-    public boolean isCategoryAvailable(Long roomCategoryId, LocalDate checkInDate, LocalDate checkOutDate, Integer totalUnits) {
-        if (roomCategoryId == null || checkInDate == null || checkOutDate == null || !checkOutDate.isAfter(checkInDate)) {
-            return false;
-        }
-
-        int fallbackTotalUnits = totalUnits == null ? 0 : totalUnits;
-        for (LocalDate date : getDates(checkInDate, checkOutDate)) {
-            BookingInventoryEntity inventory = inventoryRepository.findByRoomCategoryIdAndBookingDate(roomCategoryId, date).orElse(null);
-            if (inventory == null) {
-                if (fallbackTotalUnits <= 0) {
-                    return false;
-                }
-                continue;
-            }
-            int available = inventory.getTotalUnits() - inventory.getHeldUnits() - inventory.getConfirmedUnits();
-            if (available <= 0) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     private List<BookingInventoryEntity> getOrCreateForUpdate(BookingEntity booking, Integer totalUnits) {
-        List<BookingInventoryEntity> existing = inventoryRepository.findForUpdateByRoomCategoryIdAndBookingDateBetween(
+        inventoryRepository.insertMissingRows(
+                booking.getRoomCategoryId(),
+                booking.getCheckInDate(),
+                booking.getCheckOutDate(),
+                totalUnits
+        );
+        return inventoryRepository.findForUpdateByRoomCategoryIdAndBookingDateBetween(
                 booking.getRoomCategoryId(),
                 booking.getCheckInDate(),
                 booking.getCheckOutDate()
         );
-
-        Long bookingCategoryId = booking.getRoomCategoryId();
-        Map<LocalDate, BookingInventoryEntity> inventoryByDate = new HashMap<>();
-        for (BookingInventoryEntity entity : existing) {
-            inventoryByDate.put(entity.getBookingDate(), entity);
-        }
-
-        List<LocalDate> dates = getDates(booking.getCheckInDate(), booking.getCheckOutDate());
-        List<BookingInventoryEntity> result = new ArrayList<>();
-
-        for (LocalDate date : dates) {
-            BookingInventoryEntity current = inventoryByDate.get(date);
-            if (current == null) {
-                current = BookingInventoryEntity.builder()
-                        .roomCategoryId(bookingCategoryId)
-                        .bookingDate(date)
-                        .totalUnits(totalUnits)
-                        .heldUnits(0)
-                        .confirmedUnits(0)
-                        .build();
-
-                log.info("Creating default inventory row: roomCategoryId={}, bookingDate={}, totalUnits={}",
-                        bookingCategoryId,
-                        date,
-                        totalUnits
-                );
-            }
-            result.add(current);
-        }
-
-        return result;
     }
 
     private List<LocalDate> getDates(LocalDate fromDate, LocalDate toDate) {
@@ -296,7 +249,7 @@ public class BookingInventoryService {
         return dates;
     }
 
-    private Integer getTotalUnitsFromRoomCategory(Long roomCategoryId) {
+    public Integer getTotalUnitsFromRoomCategory(Long roomCategoryId) {
         if (isNull(roomCategoryId)) {
             log.warn("Room category id from request has null value");
             throw new IllegalArgumentException("Category id from request is null");

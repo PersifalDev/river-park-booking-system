@@ -286,6 +286,13 @@ public class BotTextFactory {
         if (booking.holdExpiresAt() != null) {
             builder.append("\nУдержание до: ").append(formatDateTime(booking.holdExpiresAt()));
         }
+        if (booking.generatedPromoCode() != null && !booking.generatedPromoCode().isBlank()) {
+            builder.append("\n\u0412\u0430\u0448 \u043f\u0440\u043e\u043c\u043e\u043a\u043e\u0434 \u043d\u0430 \u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0435\u0435 \u0431\u0440\u043e\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435: ")
+                    .append(booking.generatedPromoCode());
+            if (booking.promoDiscountPercent() != null) {
+                builder.append(" (-").append(booking.promoDiscountPercent()).append("%)");
+            }
+        }
         if (payment != null) {
             if (payment.paymentInstruction() != null && !payment.paymentInstruction().isBlank()) {
                 builder.append("\n\nИнструкция: ").append(payment.paymentInstruction());

@@ -1,5 +1,9 @@
 package ru.haritonenko.catalogservice.photo.category.api.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -14,14 +18,17 @@ import ru.haritonenko.catalogservice.photo.category.domain.service.RoomCategoryP
 @RestController
 @RequestMapping("/api/v1/catalog/rooms/{categoryId}/photos")
 @RequiredArgsConstructor
+@Tag(name = "Room Category Photos", description = "Фотографии категорий номеров")
 public class RoomCategoryPhotoController {
 
     private final RoomCategoryPhotoService photoService;
     private final RoomCategoryPhotoDomainToResponseDtoMapper mapper;
 
     @GetMapping
+    @Operation(summary = "Получить фотографии категории номера")
+    @ApiResponse(responseCode = "200", description = "Страница фотографий категории")
     public Page<RoomCategoryPhotoResponseDto> getCategoryPhotos(
-            @PathVariable("categoryId") Long categoryId,
+            @Parameter(description = "ID категории номера") @PathVariable("categoryId") Long categoryId,
             @Valid @ModelAttribute RoomCategoryPhotoPageFilter pageFilter
     ) {
         return photoService.getCategoryPhotos(categoryId, pageFilter)

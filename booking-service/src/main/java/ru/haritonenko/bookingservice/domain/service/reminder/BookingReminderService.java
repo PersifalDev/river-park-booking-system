@@ -45,7 +45,7 @@ public class BookingReminderService {
                     booking,
                     NotificationEventType.BOOKING_HOLD_EXPIRING,
                     "Удержание скоро истечёт",
-                    "Бронь %s удерживается до %s. Подтвердите её в боте, иначе удержание будет снято автоматически."
+                    "Бронь %s удерживается до %s. Подтвердите бронь, иначе удержание будет снято автоматически."
                             .formatted(booking.getBookingCode(), formatDateTime(booking.getHoldExpiresAt()))
             );
             bookingService.markHoldReminderSent(booking.getId(), now);

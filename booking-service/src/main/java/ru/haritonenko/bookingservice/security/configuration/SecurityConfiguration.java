@@ -8,6 +8,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
+import ru.haritonenko.bookingservice.rate.filter.BookingRateLimitFilter;
 import ru.haritonenko.bookingservice.security.custom.CustomAccessDeniedHandler;
 import ru.haritonenko.bookingservice.security.custom.CustomAuthenticationEntryPoint;
 import ru.haritonenko.bookingservice.security.jwt.filter.JwtTokenFilter;
@@ -18,6 +19,7 @@ import ru.haritonenko.bookingservice.security.jwt.filter.JwtTokenFilter;
 public class SecurityConfiguration {
 
     private final JwtTokenFilter jwtTokenFilter;
+    private final BookingRateLimitFilter bookingRateLimitFilter;
     private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
     private final CustomAccessDeniedHandler customAccessDeniedHandler;
 
@@ -34,6 +36,7 @@ public class SecurityConfiguration {
                         .requestMatchers("/booking/**").authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(jwtTokenFilter, AnonymousAuthenticationFilter.class)
+                .addFilterAfter(bookingRateLimitFilter, JwtTokenFilter.class)
                 .build();
     }
 }

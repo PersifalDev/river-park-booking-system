@@ -122,9 +122,23 @@ public class BotKeyboardFactory {
     }
 
     public InlineKeyboardMarkup bookingsList(List<BotBookingListItem> bookings) {
+        return bookingsList(bookings, 0, 1, "booking:page:", true);
+    }
+
+    public InlineKeyboardMarkup bookingsList(
+            List<BotBookingListItem> bookings,
+            int pageNumber,
+            int totalPages,
+            String pagePrefix,
+            boolean includeInactiveLink
+    ) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
         for (BotBookingListItem booking : bookings) {
             rows.add(row(button(booking.label(), "booking:view:" + booking.bookingId())));
+        }
+        rows.add(paginationRow(pageNumber, totalPages, pagePrefix));
+        if (includeInactiveLink) {
+            rows.add(row(button("\u041d\u0435\u0441\u043e\u0441\u0442\u043e\u044f\u0432\u0448\u0438\u0435\u0441\u044f \u0431\u0440\u043e\u043d\u0438", "booking:inactive")));
         }
         rows.add(row(button("Меню", "menu:main")));
         return InlineKeyboardMarkup.builder().keyboard(rows).build();
