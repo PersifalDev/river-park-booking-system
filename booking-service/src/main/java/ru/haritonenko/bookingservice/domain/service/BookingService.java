@@ -398,8 +398,12 @@ public class BookingService {
                 .filter(java.util.Objects::nonNull)
                 .toList();
 
-        int safePageSize = pageFilter.getPageSize() <= 0 ? defaultPageSize :  pageFilter.getPageSize();
-        int safePageNumber = Math.max(pageFilter.getPageNumber(), 0);
+        int safePageSize = pageFilter.getPageSize() == null || pageFilter.getPageSize() <= 0
+                ? defaultPageSize
+                : pageFilter.getPageSize();
+        int safePageNumber = pageFilter.getPageNumber() == null
+                ? defaultPageNumber
+                : Math.max(pageFilter.getPageNumber(), 0);
         int fromIndex = Math.min(safePageNumber * safePageSize, availableRooms.size());
         int toIndex = Math.min(fromIndex + safePageSize, availableRooms.size());
         List<RoomCategoryResponseDto> pageContent = availableRooms.subList(fromIndex, toIndex);
