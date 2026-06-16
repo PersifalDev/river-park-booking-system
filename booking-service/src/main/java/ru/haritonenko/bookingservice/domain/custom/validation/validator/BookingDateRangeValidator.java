@@ -2,7 +2,7 @@ package ru.haritonenko.bookingservice.domain.custom.validation.validator;
 
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import ru.haritonenko.bookingservice.config.validation.BookingValidationProperties;
 import ru.haritonenko.bookingservice.domain.custom.validation.BookingDateRangeData;
@@ -13,7 +13,6 @@ import java.time.LocalDate;
 import java.util.Objects;
 
 @Component
-@RequiredArgsConstructor
 public class BookingDateRangeValidator implements ConstraintValidator<ValidBookingDateRange, BookingDateRangeData> {
 
     private final BookingValidationProperties properties;
@@ -23,6 +22,15 @@ public class BookingDateRangeValidator implements ConstraintValidator<ValidBooki
     private boolean checkOutRequired;
 
     private boolean pastAllowed;
+
+    public BookingDateRangeValidator() {
+        this(new BookingValidationProperties());
+    }
+
+    @Autowired
+    public BookingDateRangeValidator(BookingValidationProperties properties) {
+        this.properties = properties;
+    }
 
     @Override
     public void initialize(ValidBookingDateRange constraintAnnotation) {

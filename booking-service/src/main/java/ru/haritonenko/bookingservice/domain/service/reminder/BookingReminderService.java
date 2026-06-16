@@ -12,6 +12,7 @@ import ru.haritonenko.commonlibs.dto.kafka.event.type.NotificationEventType;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -22,6 +23,7 @@ public class BookingReminderService {
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+    private static final ZoneId NOVOSIBIRSK_ZONE = ZoneId.of("Asia/Novosibirsk");
 
     private final BookingService bookingService;
 
@@ -54,7 +56,7 @@ public class BookingReminderService {
 
     @Scheduled(fixedDelayString = "${app.booking.reminders.poll-delay-ms:60000}")
     public void sendCheckInReminders() {
-        LocalDate targetDate = LocalDate.now().plusDays(checkInDaysBefore);
+        LocalDate targetDate = LocalDate.now(NOVOSIBIRSK_ZONE).plusDays(checkInDaysBefore);
         List<BookingEntity> bookings = bookingService.findBookingsForCheckInReminder(targetDate);
         if (bookings.isEmpty()) {
             return;
@@ -74,7 +76,7 @@ public class BookingReminderService {
     }
 
     private String formatDateTime(OffsetDateTime dateTime) {
-        return dateTime == null ? "—" : dateTime.toLocalDateTime().format(DATE_TIME_FORMATTER);
+        return dateTime == null ? "—" : dateTime.atZoneSameInstant(NOVOSIBIRSK_ZONE).format(DATE_TIME_FORMATTER);
     }
 
     private String formatDate(LocalDate date) {

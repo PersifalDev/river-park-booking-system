@@ -27,9 +27,9 @@ services:
     healthcheck:
       test: [ "CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1" ]
       interval: 15s
-      timeout: 10s
-      retries: 10
-      start_period: 30s
+      timeout: 30s
+      retries: 20
+      start_period: 120s
 
   user-postgres:
     image: postgres:16
@@ -44,11 +44,11 @@ services:
     volumes:
       - infra_user_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 10s
-      timeout: 5s
-      start_period: 10s
-      retries: 5
+      test: ["CMD-SHELL", "psql -U $$POSTGRES_USER -d $$POSTGRES_DB -tAc 'SELECT 1' | grep -q 1"]
+      interval: 15s
+      timeout: 20s
+      start_period: 180s
+      retries: 20
     logging:
       driver: json-file
       options:
@@ -68,11 +68,11 @@ services:
     volumes:
       - infra_catalog_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 10s
-      timeout: 5s
-      start_period: 10s
-      retries: 5
+      test: ["CMD-SHELL", "psql -U $$POSTGRES_USER -d $$POSTGRES_DB -tAc 'SELECT 1' | grep -q 1"]
+      interval: 15s
+      timeout: 20s
+      start_period: 180s
+      retries: 20
     logging:
       driver: json-file
       options:
@@ -92,11 +92,11 @@ services:
     volumes:
       - infra_booking_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 10s
-      timeout: 5s
-      start_period: 10s
-      retries: 5
+      test: ["CMD-SHELL", "psql -U $$POSTGRES_USER -d $$POSTGRES_DB -tAc 'SELECT 1' | grep -q 1"]
+      interval: 15s
+      timeout: 20s
+      start_period: 180s
+      retries: 20
     logging:
       driver: json-file
       options:
@@ -116,11 +116,11 @@ services:
     volumes:
       - infra_payment_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 10s
-      timeout: 5s
-      start_period: 10s
-      retries: 5
+      test: ["CMD-SHELL", "psql -U $$POSTGRES_USER -d $$POSTGRES_DB -tAc 'SELECT 1' | grep -q 1"]
+      interval: 15s
+      timeout: 20s
+      start_period: 180s
+      retries: 20
     logging:
       driver: json-file
       options:
@@ -140,11 +140,11 @@ services:
     volumes:
       - infra_notification_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 10s
-      timeout: 5s
-      start_period: 10s
-      retries: 5
+      test: ["CMD-SHELL", "psql -U $$POSTGRES_USER -d $$POSTGRES_DB -tAc 'SELECT 1' | grep -q 1"]
+      interval: 15s
+      timeout: 20s
+      start_period: 180s
+      retries: 20
     logging:
       driver: json-file
       options:
@@ -362,6 +362,8 @@ services:
         condition: service_started
       catalog-service:
         condition: service_started
+      catalog-service-redis:
+        condition: service_healthy
       booking-service:
         condition: service_started
       payment-service:
@@ -379,6 +381,9 @@ services:
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
       TELEGRAM_ADMIN_CONTACT: ${TELEGRAM_ADMIN_CONTACT}
       CATALOG_SERVICE_URL: http://catalog-service:${CATALOG_SERVICE_PORT}
+      TELEGRAM_BOT_REDIS_HOST: catalog-service-redis
+      TELEGRAM_BOT_REDIS_PORT: 6379
+      TELEGRAM_BOT_REDIS_DB: 2
       BOOKING_SERVICE_URL: http://booking-service:${BOOKING_SERVER_PORT}
       PAYMENT_SERVICE_URL: http://payment-service:${PAYMENT_SERVER_PORT}
       USER_SERVICE_URL: http://user-service:${USER_SERVER_PORT}

@@ -97,6 +97,7 @@ class BookingControllerTest extends AbstractIntegrationTest {
                         BigDecimal.valueOf(5000),
                         20.0,
                         10,
+                        null,
                         null
                 ));
 

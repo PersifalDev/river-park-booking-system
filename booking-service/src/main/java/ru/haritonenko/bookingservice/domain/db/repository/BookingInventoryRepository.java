@@ -36,7 +36,7 @@ public interface BookingInventoryRepository extends JpaRepository<BookingInvento
     @Query(value = """
             INSERT INTO booking_inventory(room_category_id, booking_date, total_units, held_units, confirmed_units, created_at, updated_at)
             SELECT :roomCategoryId, day::date, :totalUnits, 0, 0, now(), now()
-            FROM generate_series(:fromDate, :toDate - interval '1 day', interval '1 day') AS day
+            FROM generate_series(CAST(:fromDate AS timestamp), CAST(:toDate AS timestamp) - interval '1 day', interval '1 day') AS day
             ON CONFLICT (room_category_id, booking_date) DO NOTHING
             """, nativeQuery = true)
     void insertMissingRows(

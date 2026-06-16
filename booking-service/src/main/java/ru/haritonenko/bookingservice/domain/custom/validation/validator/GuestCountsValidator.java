@@ -2,7 +2,7 @@ package ru.haritonenko.bookingservice.domain.custom.validation.validator;
 
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import ru.haritonenko.bookingservice.config.validation.BookingValidationProperties;
 import ru.haritonenko.bookingservice.domain.custom.validation.GuestCountData;
@@ -10,7 +10,6 @@ import ru.haritonenko.bookingservice.domain.custom.validation.annotation.ValidGu
 import java.util.Objects;
 
 @Component
-@RequiredArgsConstructor
 public class GuestCountsValidator implements ConstraintValidator<ValidGuestCounts, GuestCountData> {
 
     private final BookingValidationProperties properties;
@@ -21,14 +20,23 @@ public class GuestCountsValidator implements ConstraintValidator<ValidGuestCount
 
     private boolean childrenCountRequired;
 
-    private boolean validateComposition;
+    private boolean compositionRequired;
+
+    public GuestCountsValidator() {
+        this(new BookingValidationProperties());
+    }
+
+    @Autowired
+    public GuestCountsValidator(BookingValidationProperties properties) {
+        this.properties = properties;
+    }
 
     @Override
     public void initialize(ValidGuestCounts constraintAnnotation) {
         this.guestsRequired = constraintAnnotation.guestsRequired();
         this.adultCountRequired = constraintAnnotation.adultCountRequired();
         this.childrenCountRequired = constraintAnnotation.childrenCountRequired();
-        this.validateComposition = constraintAnnotation.validateComposition();
+        this.compositionRequired = constraintAnnotation.compositionRequired();
     }
 
     @Override
@@ -131,7 +139,7 @@ public class GuestCountsValidator implements ConstraintValidator<ValidGuestCount
             valid = false;
         }
 
-        if (validateComposition
+        if (compositionRequired
                 && Objects.nonNull(guests)
                 && Objects.nonNull(adultCount)
                 && Objects.nonNull(childrenCount)

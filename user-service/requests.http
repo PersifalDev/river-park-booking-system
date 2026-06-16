@@ -1,0 +1,28 @@
+@baseUrl = http://localhost:8083
+@userId = 1
+
+### Зарегистрировать пользователя
+POST {{baseUrl}}/users
+Content-Type: application/json
+
+{
+  "login": "test-user",
+  "key": "test-password"
+}
+
+### Получить JWT токен
+# После успешного запроса токен сохранится в переменную auth_token для следующих запросов.
+POST {{baseUrl}}/users/auth
+Content-Type: application/json
+
+{
+  "login": "test-user",
+  "password": "test-password"
+}
+
+> {% client.global.set("auth_token", response.body.jwt); %}
+
+### Получить пользователя по id
+GET {{baseUrl}}/users/{{userId}}
+Authorization: Bearer {{auth_token}}
+

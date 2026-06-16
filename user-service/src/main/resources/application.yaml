@@ -5,6 +5,11 @@ spring:
     url: ${USER_DB_URL:jdbc:postgresql://localhost:5435/user_db}
     username: ${USER_DB_USERNAME}
     password: ${USER_DB_PASSWORD}
+    hikari:
+      initialization-fail-timeout: ${USER_DB_INITIALIZATION_FAIL_TIMEOUT:-1}
+      connection-timeout: ${USER_DB_CONNECTION_TIMEOUT:60000}
+      validation-timeout: ${USER_DB_VALIDATION_TIMEOUT:10000}
+      max-lifetime: ${USER_DB_MAX_LIFETIME:1800000}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -28,7 +33,7 @@ springdoc:
 
 openapi:
   title: River Park User Service API
-  description: API пользователей River Park: регистрация, аутентификация и получение профиля.
+  description: "User API for River Park: registration, authentication and profile."
   version: 1.0.0
   security-scheme-name: bearerAuth
 

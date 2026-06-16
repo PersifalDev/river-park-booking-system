@@ -1,0 +1,7 @@
+@baseUrl = http://localhost:8086
+
+### Telegram bot service
+# В telegram-bot нет REST-контроллеров для бизнес-операций.
+# Сервис принимает обновления через Telegram long polling и сам вызывает user/catalog/booking/payment/notification.
+# Этот файл оставлен как точка для будущих HTTP endpoints сервиса.
+

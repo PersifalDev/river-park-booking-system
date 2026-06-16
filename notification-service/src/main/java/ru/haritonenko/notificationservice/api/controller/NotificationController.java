@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import ru.haritonenko.commonlibs.security.authorization.user.AuthUser;
+import ru.haritonenko.commonlibs.utils.pages.PageResponse;
 import ru.haritonenko.notificationservice.api.dto.filter.NotificationPageFilter;
 import ru.haritonenko.notificationservice.api.dto.NotificationResponseDto;
 import ru.haritonenko.notificationservice.domain.mapper.NotificationMapper;
@@ -39,19 +40,19 @@ public class NotificationController {
     @GetMapping
     @Operation(summary = "Получить все уведомления")
     @ApiResponse(responseCode = "200", description = "Страница уведомлений")
-    public ResponseEntity<Page<NotificationResponseDto>> getAllNotifications(@ModelAttribute NotificationPageFilter pageFilter) {
+    public ResponseEntity<PageResponse<NotificationResponseDto>> getAllNotifications(@ModelAttribute NotificationPageFilter pageFilter) {
         Long authUserId = getAuthenticatedUser().id();
         log.info("Request for getting all notifications for userId={}", authUserId);
-        return ResponseEntity.ok(notificationService.getAllNotificationsByUserId(authUserId, pageFilter).map(notificationMapper::toDto));
+        return ResponseEntity.ok(toPageResponse(notificationService.getAllNotificationsByUserId(authUserId, pageFilter).map(notificationMapper::toDto)));
     }
 
     @GetMapping("/unread")
     @Operation(summary = "Получить непрочитанные уведомления")
     @ApiResponse(responseCode = "200", description = "Страница непрочитанных уведомлений")
-    public ResponseEntity<Page<NotificationResponseDto>> getUnreadNotifications(@ModelAttribute NotificationPageFilter pageFilter) {
+    public ResponseEntity<PageResponse<NotificationResponseDto>> getUnreadNotifications(@ModelAttribute NotificationPageFilter pageFilter) {
         Long authUserId = getAuthenticatedUser().id();
         log.info("Request for getting unread notifications for userId={}", authUserId);
-        return ResponseEntity.ok(notificationService.getUnreadNotificationsByUserId(authUserId, pageFilter).map(notificationMapper::toDto));
+        return ResponseEntity.ok(toPageResponse(notificationService.getUnreadNotificationsByUserId(authUserId, pageFilter).map(notificationMapper::toDto)));
     }
 
     @PatchMapping("/{notificationId}/read")
@@ -79,5 +80,15 @@ public class NotificationController {
         AuthUser authUser = authenticationService.getCurrentAuthenticatedUser();
         log.info("Authenticated notification-service user resolved: userId={}", authUser.id());
         return authUser;
+    }
+
+    private <T> PageResponse<T> toPageResponse(Page<T> page) {
+        return new PageResponse<>(
+                page.getContent(),
+                page.getTotalPages(),
+                page.getTotalElements(),
+                page.getSize(),
+                page.getNumber()
+        );
     }
 }

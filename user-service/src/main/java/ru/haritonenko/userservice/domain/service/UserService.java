@@ -49,7 +49,7 @@ public class UserService {
         log.info("User registration started for login: {}", userFromRegistration.login());
 
         if (userRepository.existsByLogin(userFromRegistration.login())) {
-            log.warn("Error while registering user");
+            log.info("User already registered, login={}", userFromRegistration.login());
             throw new UserAlreadyRegisteredException("This user has already registered");
         }
         var hashedPass = passwordEncoder.encode(userFromRegistration.key());

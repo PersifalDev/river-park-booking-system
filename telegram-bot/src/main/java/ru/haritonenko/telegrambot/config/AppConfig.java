@@ -14,7 +14,8 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
         BookingClientProperties.class,
         PaymentClientProperties.class,
         UserClientProperties.class,
-        NotificationClientProperties.class
+        NotificationClientProperties.class,
+        PhotoDeliveryProperties.class
 })
 public class AppConfig {
 

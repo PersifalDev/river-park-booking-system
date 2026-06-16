@@ -1,0 +1,22 @@
+@baseUrl = http://localhost:8088
+@authToken = {{auth_token}}
+@notificationId = 00000000-0000-0000-0000-000000000000
+@pageNumber = 0
+@pageSize = 10
+
+### Получить все уведомления пользователя
+GET {{baseUrl}}/notifications?pageNumber={{pageNumber}}&pageSize={{pageSize}}
+Authorization: Bearer {{authToken}}
+
+### Получить непрочитанные уведомления пользователя
+GET {{baseUrl}}/notifications/unread?pageNumber={{pageNumber}}&pageSize={{pageSize}}
+Authorization: Bearer {{authToken}}
+
+### Отметить уведомление прочитанным
+PATCH {{baseUrl}}/notifications/{{notificationId}}/read
+Authorization: Bearer {{authToken}}
+
+### Отметить все уведомления прочитанными
+PATCH {{baseUrl}}/notifications/read-all
+Authorization: Bearer {{authToken}}
+

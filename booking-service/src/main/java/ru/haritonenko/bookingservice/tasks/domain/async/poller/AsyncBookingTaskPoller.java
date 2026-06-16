@@ -70,6 +70,7 @@ public class AsyncBookingTaskPoller {
     public void cleanupInactiveBookings() {
         log.debug("Starting inactive bookings cleanup");
         bookingService.deleteInactiveBookingsCreatedBefore(bookingService.getCleanupThreshold());
+        bookingService.deleteCompletedBookingsCheckedOutBefore(bookingService.getCompletedCleanupThresholdDate());
     }
 
     private List<AsyncBookingTaskEntity> pickTasksForProcessing() {

@@ -1,6 +1,5 @@
 package ru.haritonenko.catalogservice.services.cache;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -10,11 +9,12 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import ru.haritonenko.catalogservice.photo.service.domain.ServiceItemPhoto;
 import ru.haritonenko.catalogservice.services.domain.ServiceItem;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -31,13 +31,6 @@ public class ServicesCacheConfig {
     private Duration defaultTtl;
     @Value("${app.cache.services-ttl:30s}")
     private Duration servicesTtl;
-
-    @Bean
-    public ObjectMapper redisObjectMapper() {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.findAndRegisterModules();
-        return mapper;
-    }
 
     @Bean
     public CacheManager cacheManager(
@@ -67,26 +60,26 @@ public class ServicesCacheConfig {
                 .build();
     }
 
-    private <T> Jackson2JsonRedisSerializer<T> serializer(
+    private <T> JacksonJsonRedisSerializer<T> serializer(
             ObjectMapper mapper,
             Class<T> type
     ) {
-        return new Jackson2JsonRedisSerializer<>(mapper, type);
+        return new JacksonJsonRedisSerializer<>(mapper, type);
     }
 
-    private <T> Jackson2JsonRedisSerializer<T> listSerializer(
+    private <T> JacksonJsonRedisSerializer<T> listSerializer(
             ObjectMapper mapper,
             Class<T> elementType
     ) {
         var javaType = mapper.getTypeFactory()
                 .constructCollectionType(List.class, elementType);
-        return new Jackson2JsonRedisSerializer<>(mapper, javaType);
+        return new JacksonJsonRedisSerializer<>(mapper, javaType);
     }
 
     private RedisCacheConfiguration cacheConfig(
             RedisCacheConfiguration base,
             Duration ttl,
-            Jackson2JsonRedisSerializer<?> valueSerializer
+            JacksonJsonRedisSerializer<?> valueSerializer
     ) {
         return base.entryTtl(ttl)
                 .serializeValuesWith(

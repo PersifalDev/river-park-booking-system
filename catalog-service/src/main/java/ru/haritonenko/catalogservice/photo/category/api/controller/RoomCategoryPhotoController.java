@@ -13,6 +13,7 @@ import ru.haritonenko.catalogservice.photo.category.api.dto.RoomCategoryPhotoRes
 import ru.haritonenko.catalogservice.photo.category.api.dto.filter.RoomCategoryPhotoPageFilter;
 import ru.haritonenko.catalogservice.photo.category.domain.mapper.RoomCategoryPhotoDomainToResponseDtoMapper;
 import ru.haritonenko.catalogservice.photo.category.domain.service.RoomCategoryPhotoService;
+import ru.haritonenko.commonlibs.utils.pages.PageResponse;
 
 @Validated
 @RestController
@@ -27,11 +28,20 @@ public class RoomCategoryPhotoController {
     @GetMapping
     @Operation(summary = "Получить фотографии категории номера")
     @ApiResponse(responseCode = "200", description = "Страница фотографий категории")
-    public Page<RoomCategoryPhotoResponseDto> getCategoryPhotos(
+    public PageResponse<RoomCategoryPhotoResponseDto> getCategoryPhotos(
             @Parameter(description = "ID категории номера") @PathVariable("categoryId") Long categoryId,
             @Valid @ModelAttribute RoomCategoryPhotoPageFilter pageFilter
     ) {
-        return photoService.getCategoryPhotos(categoryId, pageFilter)
-                .map(mapper::toDto);
+        return toPageResponse(photoService.getCategoryPhotos(categoryId, pageFilter).map(mapper::toDto));
+    }
+
+    private <T> PageResponse<T> toPageResponse(Page<T> page) {
+        return new PageResponse<>(
+                page.getContent(),
+                page.getTotalPages(),
+                page.getTotalElements(),
+                page.getSize(),
+                page.getNumber()
+        );
     }
 }

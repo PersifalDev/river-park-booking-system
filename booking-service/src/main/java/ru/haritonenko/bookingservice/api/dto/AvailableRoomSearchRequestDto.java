@@ -16,7 +16,7 @@ import java.time.LocalDate;
         pastAllowed = false
 )
 @ValidGuestCounts(
-        guestsRequired = true
+        guestsRequired = false
 )
 @ValidAvailableRoomSearchRequest
 public record AvailableRoomSearchRequestDto(

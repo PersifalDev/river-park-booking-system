@@ -1,9 +1,11 @@
 package ru.haritonenko.bookingservice;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestClient;
 import ru.haritonenko.bookingservice.cache.config.BookingCacheProperties;
 import ru.haritonenko.bookingservice.config.validation.BookingValidationProperties;
 import ru.haritonenko.bookingservice.tasks.domain.async.dispatcher.config.AsyncBookingTaskDispatcherProperties;
@@ -26,6 +28,12 @@ public class CommonApplicationConfig {
                 TimeZone.setDefault(TimeZone.getTimeZone(properties.getDateZone()));
             }
         };
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(RestClient.Builder.class)
+    public RestClient.Builder restClientBuilder() {
+        return RestClient.builder();
     }
 
     @Bean(destroyMethod = "shutdown")

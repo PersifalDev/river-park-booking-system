@@ -14,6 +14,7 @@ public record RoomCategoryResponseDto(
         BigDecimal basePrice,
         Double areaSquare,
         Integer totalUnits,
+        Integer availableUnits,
         String mainPhotoUrl
 ) {
 }

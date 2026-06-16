@@ -61,36 +61,53 @@ public class BotKeyboardFactory {
     }
 
     public InlineKeyboardMarkup roomCard(Long roomId, int pageNumber, int totalPages) {
+        return roomCard(roomId, pageNumber, totalPages, "rooms:page:");
+    }
+
+    public InlineKeyboardMarkup roomCard(Long roomId, int pageNumber, int totalPages, String pagePrefix) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
+        String sourceSuffix = "rooms:filter:page:".equals(pagePrefix) ? ":filter" : "";
         rows.add(row(
-                button("Подробнее", "room:view:" + roomId + ":" + pageNumber),
-                button("Фото", "room:photos:" + roomId + ":" + pageNumber)
+                button("Подробнее", "room:view:" + roomId + ":" + pageNumber + sourceSuffix),
+                button("Фото", "room:photos:" + roomId + ":" + pageNumber + sourceSuffix)
         ));
         rows.add(row(button("Забронировать", "booking:start:" + roomId)));
-        rows.add(paginationRow(pageNumber, totalPages, "rooms:page:"));
+        rows.add(paginationRow(pageNumber, totalPages, pagePrefix));
         rows.add(row(button("Меню", "menu:main")));
         return InlineKeyboardMarkup.builder().keyboard(rows).build();
     }
 
     public InlineKeyboardMarkup roomDetails(Long roomId, int pageNumber) {
+        return roomDetails(roomId, pageNumber, false);
+    }
+
+    public InlineKeyboardMarkup roomDetails(Long roomId, int pageNumber, boolean filtered) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
+        String sourceSuffix = filtered ? ":filter" : "";
+        String pagePrefix = filtered ? "rooms:filter:page:" : "rooms:page:";
         rows.add(row(
                 button("Забронировать", "booking:start:" + roomId),
-                button("Фото", "room:photos:" + roomId + ":" + pageNumber)
+                button("Фото", "room:photos:" + roomId + ":" + pageNumber + sourceSuffix)
         ));
-        rows.add(row(button("К списку номеров", "rooms:page:" + pageNumber)));
+        rows.add(row(button("К списку номеров", pagePrefix + pageNumber)));
         rows.add(row(button("Меню", "menu:main")));
         return InlineKeyboardMarkup.builder().keyboard(rows).build();
     }
 
     public InlineKeyboardMarkup photoGallery(Long roomId, int photoIndex, int totalPhotos, int roomPageNumber) {
+        return photoGallery(roomId, photoIndex, totalPhotos, roomPageNumber, false);
+    }
+
+    public InlineKeyboardMarkup photoGallery(Long roomId, int photoIndex, int totalPhotos, int roomPageNumber, boolean filtered) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
-        rows.add(photoPaginationRow(roomId, photoIndex, totalPhotos, roomPageNumber));
+        rows.add(photoPaginationRow(roomId, photoIndex, totalPhotos, roomPageNumber, filtered));
+        String pagePrefix = filtered ? "rooms:filter:page:" : "rooms:page:";
+        String sourceSuffix = filtered ? ":filter" : "";
         rows.add(row(
-                button("Подробнее", "room:view:" + roomId + ":" + roomPageNumber),
+                button("Подробнее", "room:view:" + roomId + ":" + roomPageNumber + sourceSuffix),
                 button("Забронировать", "booking:start:" + roomId)
         ));
-        rows.add(row(button("Назад к подборке", "rooms:page:" + roomPageNumber)));
+        rows.add(row(button("Назад к подборке", pagePrefix + roomPageNumber)));
         rows.add(row(button("Все номера", "menu:all-rooms"), button("Меню", "menu:main")));
         return InlineKeyboardMarkup.builder().keyboard(rows).build();
     }
@@ -132,13 +149,28 @@ public class BotKeyboardFactory {
             String pagePrefix,
             boolean includeInactiveLink
     ) {
+        return bookingsList(bookings, pageNumber, totalPages, pagePrefix, includeInactiveLink, false);
+    }
+
+    public InlineKeyboardMarkup bookingsList(
+            List<BotBookingListItem> bookings,
+            int pageNumber,
+            int totalPages,
+            String pagePrefix,
+            boolean includeSections,
+            boolean includeBackToActive
+    ) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
         for (BotBookingListItem booking : bookings) {
             rows.add(row(button(booking.label(), "booking:view:" + booking.bookingId())));
         }
         rows.add(paginationRow(pageNumber, totalPages, pagePrefix));
-        if (includeInactiveLink) {
-            rows.add(row(button("\u041d\u0435\u0441\u043e\u0441\u0442\u043e\u044f\u0432\u0448\u0438\u0435\u0441\u044f \u0431\u0440\u043e\u043d\u0438", "booking:inactive")));
+        if (includeSections) {
+            rows.add(row(button("Несостоявшиеся", "booking:inactive"), button("Ранние", "booking:early")));
+            rows.add(row(button("История", "booking:history")));
+        }
+        if (includeBackToActive) {
+            rows.add(row(button("Назад к актуальным", "menu:my-bookings")));
         }
         rows.add(row(button("Меню", "menu:main")));
         return InlineKeyboardMarkup.builder().keyboard(rows).build();
@@ -149,9 +181,7 @@ public class BotKeyboardFactory {
         if (canConfirmPayment(booking, payment)) {
             rows.add(row(button("Подтвердить бронь", "payment:confirm:" + booking.id())));
         }
-        if (canCancelThroughPayment(booking, payment)) {
-            rows.add(row(button("Отменить бронь", "payment:cancel:" + booking.id())));
-        } else if (canCancelBooking(booking)) {
+        if (canCancelBooking(booking)) {
             rows.add(row(button("Отменить бронь", "booking:cancel:" + booking.id())));
         }
         rows.add(row(button("К списку броней", "menu:my-bookings"), button("Меню", "menu:main")));
@@ -163,13 +193,6 @@ public class BotKeyboardFactory {
                 && "HOLD".equalsIgnoreCase(booking.status())
                 && payment != null
                 && "PENDING".equalsIgnoreCase(payment.status());
-    }
-
-    private boolean canCancelThroughPayment(BotBookingResponseDto booking, BotPaymentResponseDto payment) {
-        return booking != null
-                && payment != null
-                && "PENDING".equalsIgnoreCase(payment.status())
-                && ("HOLD".equalsIgnoreCase(booking.status()) || "CREATED".equalsIgnoreCase(booking.status()));
     }
 
     private boolean canCancelBooking(BotBookingResponseDto booking) {
@@ -190,12 +213,17 @@ public class BotKeyboardFactory {
     }
 
     private InlineKeyboardRow photoPaginationRow(Long roomId, int photoIndex, int totalPhotos, int roomPageNumber) {
+        return photoPaginationRow(roomId, photoIndex, totalPhotos, roomPageNumber, false);
+    }
+
+    private InlineKeyboardRow photoPaginationRow(Long roomId, int photoIndex, int totalPhotos, int roomPageNumber, boolean filtered) {
         InlineKeyboardRow row = new InlineKeyboardRow();
+        String sourceSuffix = filtered ? ":filter" : "";
         if (photoIndex > 0) {
-            row.add(button("⬅️", "room:photo:index:" + roomId + ":" + (photoIndex - 1) + ":" + roomPageNumber));
+            row.add(button("⬅️", "room:photo:index:" + roomId + ":" + (photoIndex - 1) + ":" + roomPageNumber + sourceSuffix));
         }
         if (photoIndex + 1 < totalPhotos) {
-            row.add(button("➡️", "room:photo:index:" + roomId + ":" + (photoIndex + 1) + ":" + roomPageNumber));
+            row.add(button("➡️", "room:photo:index:" + roomId + ":" + (photoIndex + 1) + ":" + roomPageNumber + sourceSuffix));
         }
         return row;
     }

@@ -9,7 +9,7 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import ru.haritonenko.commonlibs.dto.kafka.event.NotificationKafkaEvent;
 import ru.haritonenko.commonlibs.dto.kafka.payload.NotificationKafkaPayload;
 
@@ -38,8 +38,8 @@ public class NotificationKafkaConfigurationDirectConsumer {
         configs.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
         configs.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
         configs.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, UUIDDeserializer.class);
-        configs.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
-        configs.put(JsonDeserializer.TRUSTED_PACKAGES, trustedPackages);
+        configs.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JacksonJsonDeserializer.class);
+        configs.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, trustedPackages);
         return new DefaultKafkaConsumerFactory<>(configs);
     }
 

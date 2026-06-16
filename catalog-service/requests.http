@@ -1,0 +1,46 @@
+@baseUrl = http://localhost:8085
+@roomCategoryId = 2
+@serviceId = 1
+@serviceType = ROOM_SERVICE_DELIVERY
+@pageNumber = 0
+@pageSize = 10
+
+### Получить категории номеров
+GET {{baseUrl}}/api/v1/catalog/rooms?pageNumber={{pageNumber}}&pageSize={{pageSize}}
+
+### Получить категорию номера по id
+GET {{baseUrl}}/api/v1/catalog/rooms/{{roomCategoryId}}
+
+### Найти категории номеров по фильтру
+POST {{baseUrl}}/api/v1/catalog/rooms/search?pageNumber={{pageNumber}}&pageSize={{pageSize}}
+Content-Type: application/json
+
+{
+  "guests": 2,
+  "roomType": "STANDARD_DOUBLE",
+  "priceFrom": 1000,
+  "priceTo": 10000,
+  "minArea": 10
+}
+
+### Получить краткую информацию о категории номера для внутренних сервисов
+GET {{baseUrl}}/api/v1/internal/catalog/rooms/{{roomCategoryId}}
+
+### Получить фотографии категории номера
+GET {{baseUrl}}/api/v1/catalog/rooms/{{roomCategoryId}}/photos?pageNumber={{pageNumber}}&pageSize={{pageSize}}
+
+### Получить активные услуги
+GET {{baseUrl}}/api/v1/catalog/services?pageNumber={{pageNumber}}&pageSize={{pageSize}}
+
+### Получить активную услугу по id
+GET {{baseUrl}}/api/v1/catalog/services/{{serviceId}}
+
+### Получить активную услугу по типу
+GET {{baseUrl}}/api/v1/catalog/services/by-type/{{serviceType}}
+
+### Получить метаданные документа с правилами проживания
+GET {{baseUrl}}/api/v1/catalog/rules/document
+
+### Скачать PDF с правилами проживания
+GET {{baseUrl}}/api/v1/catalog/rules/document/file
+

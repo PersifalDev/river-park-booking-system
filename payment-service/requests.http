@@ -1,0 +1,22 @@
+@baseUrl = http://localhost:8087
+@authToken = {{auth_token}}
+@bookingId = 00000000-0000-0000-0000-000000000000
+@pageNumber = 0
+@pageSize = 10
+
+### Получить платеж по брони
+GET {{baseUrl}}/payments/booking/{{bookingId}}
+Authorization: Bearer {{authToken}}
+
+### Получить платежи пользователя
+GET {{baseUrl}}/payments?pageNumber={{pageNumber}}&pageSize={{pageSize}}
+Authorization: Bearer {{authToken}}
+
+### Подтвердить оплату на месте
+PATCH {{baseUrl}}/payments/booking/{{bookingId}}/confirm
+Authorization: Bearer {{authToken}}
+
+### Отменить подтверждение оплаты
+PATCH {{baseUrl}}/payments/booking/{{bookingId}}/cancel
+Authorization: Bearer {{authToken}}
+

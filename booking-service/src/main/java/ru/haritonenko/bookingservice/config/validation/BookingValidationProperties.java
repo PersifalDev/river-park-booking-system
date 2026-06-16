@@ -12,7 +12,7 @@ import java.time.ZoneId;
 @ConfigurationProperties(prefix = "app.booking.validation")
 public class BookingValidationProperties {
 
-    private ZoneId dateZone;
+    private ZoneId dateZone = ZoneId.of("Asia/Novosibirsk");
 
     private Guests guests = new Guests();
 
@@ -24,38 +24,38 @@ public class BookingValidationProperties {
     @Setter
     public static class Guests {
 
-        private int minTotal;
+        private int minTotal = 1;
 
-        private int maxTotal;
+        private int maxTotal = 6;
 
-        private int minAdults;
+        private int minAdults = 1;
 
-        private int maxAdults;
+        private int maxAdults = 4;
 
-        private int minChildren;
+        private int minChildren = 0;
 
-        private int maxChildren;
+        private int maxChildren = 5;
     }
 
     @Getter
     @Setter
     public static class Price {
 
-        private BigDecimal min;
+        private BigDecimal min = new BigDecimal("0.00");
 
-        private BigDecimal max;
+        private BigDecimal max = new BigDecimal("1000000.00");
 
-        private int fractionDigits;
+        private int fractionDigits = 2;
     }
 
     @Getter
     @Setter
     public static class Area {
 
-        private BigDecimal min;
+        private BigDecimal min = new BigDecimal("0.00");
 
-        private BigDecimal max;
+        private BigDecimal max = new BigDecimal("1000.00");
 
-        private int fractionDigits;
+        private int fractionDigits = 2;
     }
 }

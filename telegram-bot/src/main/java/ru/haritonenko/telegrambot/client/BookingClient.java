@@ -76,6 +76,30 @@ public class BookingClient {
                 .body(BOOKING_PAGE_TYPE);
     }
 
+    public BotPageResponse<BotBookingResponseDto> getEarlyBookingsPage(String jwt, int pageNumber, int pageSize) {
+        return bookingRestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/booking/early")
+                        .queryParam("pageNumber", pageNumber)
+                        .queryParam("pageSize", pageSize)
+                        .build())
+                .header(HttpHeaders.AUTHORIZATION, bearer(jwt))
+                .retrieve()
+                .body(BOOKING_PAGE_TYPE);
+    }
+
+    public BotPageResponse<BotBookingResponseDto> getHistoryBookingsPage(String jwt, int pageNumber, int pageSize) {
+        return bookingRestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/booking/history")
+                        .queryParam("pageNumber", pageNumber)
+                        .queryParam("pageSize", pageSize)
+                        .build())
+                .header(HttpHeaders.AUTHORIZATION, bearer(jwt))
+                .retrieve()
+                .body(BOOKING_PAGE_TYPE);
+    }
+
     public PageResponse<RoomCategoryResponseDto> searchAvailableRooms(
             String jwt,
             BotAvailableRoomSearchRequestDto request,
@@ -109,6 +133,22 @@ public class BookingClient {
                 .header(HttpHeaders.AUTHORIZATION, bearer(jwt))
                 .retrieve()
                 .body(BotBookingResponseDto.class);
+    }
+
+    public void clearInactiveBookings(String jwt) {
+        bookingRestClient.delete()
+                .uri("/booking/inactive")
+                .header(HttpHeaders.AUTHORIZATION, bearer(jwt))
+                .retrieve()
+                .toBodilessEntity();
+    }
+
+    public void clearCompletedBookings(String jwt) {
+        bookingRestClient.delete()
+                .uri("/booking/completed")
+                .header(HttpHeaders.AUTHORIZATION, bearer(jwt))
+                .retrieve()
+                .toBodilessEntity();
     }
 
     private String bearer(String jwt) {

@@ -17,6 +17,7 @@ import ru.haritonenko.bookingservice.api.dto.AvailableRoomSearchRequestDto;
 import ru.haritonenko.bookingservice.api.dto.BookingRequestDto;
 import ru.haritonenko.bookingservice.api.dto.filter.BookingPageFilter;
 import ru.haritonenko.bookingservice.api.dto.filter.BookingRequestSearchFilter;
+import ru.haritonenko.bookingservice.config.validation.BookingValidationProperties;
 import ru.haritonenko.bookingservice.cache.service.BookingCacheService;
 import ru.haritonenko.bookingservice.domain.Booking;
 import ru.haritonenko.bookingservice.domain.BookingCreationResult;
@@ -71,6 +72,7 @@ public class BookingService {
             BookingStatus.EXPIRED,
             BookingStatus.FAILED
     );
+    private static final String REVIEW_NOTIFICATION_TITLE = "Как прошло проживание?";
 
     private final BookingEntityRepository bookingRepository;
     private final AsyncBookingTaskEntityRepository taskRepository;
@@ -81,6 +83,7 @@ public class BookingService {
     private final KafkaBookingEventSender bookingEventSender;
     private final KafkaNotificationEventSender notificationEventSender;
     private final BookingValidationService bookingValidationService;
+    private final BookingValidationProperties bookingValidationProperties;
     private final CatalogServiceHttpClient catalogServiceHttpClient;
     private final BookingCacheService cacheService;
     private final BookingOutboxService bookingOutboxService;
@@ -224,6 +227,44 @@ public class BookingService {
                 .map(mapper::toDomain);
     }
 
+    @Cacheable(
+            value = "bookingPages",
+            key = "@bookingCacheService.registerBookingPageKey(" +
+                    "#authUserId, " +
+                    "'early:' + @bookingCacheKeys.bookingPage(#authUserId, #pageFilter)" +
+                    ")"
+    )
+    @Transactional(readOnly = true)
+    public Page<Booking> getAllEarlyCompletedBookingsByUserId(Long authUserId, BookingPageFilter pageFilter) {
+        log.info("Getting all early completed bookings by userId={}", authUserId);
+
+        Pageable pageable = CommonPageable.getPageable(pageFilter, defaultPageNumber, defaultPageSize);
+        LocalDate thresholdDate = LocalDate.now().minusMonths(1);
+        return bookingRepository.findAllByUserIdAndStatusAndCheckOutDateBefore(
+                        authUserId,
+                        BookingStatus.CONFIRMED,
+                        thresholdDate,
+                        pageable
+                )
+                .map(mapper::toDomain);
+    }
+
+    @Cacheable(
+            value = "bookingPages",
+            key = "@bookingCacheService.registerBookingPageKey(" +
+                    "#authUserId, " +
+                    "'history:' + @bookingCacheKeys.bookingPage(#authUserId, #pageFilter)" +
+                    ")"
+    )
+    @Transactional(readOnly = true)
+    public Page<Booking> getAllHistoryBookingsByUserId(Long authUserId, BookingPageFilter pageFilter) {
+        log.info("Getting all booking history by userId={}", authUserId);
+
+        Pageable pageable = CommonPageable.getPageable(pageFilter, defaultPageNumber, defaultPageSize);
+        return bookingRepository.findAllByUserId(authUserId, pageable)
+                .map(mapper::toDomain);
+    }
+
     public Booking cancelBookingByUuidAndUserId(UUID uuid, Long authUserId) {
         log.info("Cancelling booking: uuid={}, userId={}", uuid, authUserId);
 
@@ -246,7 +287,7 @@ public class BookingService {
 
             booking.setStatus(BookingStatus.CANCELLED);
             booking.setHoldExpiresAt(null);
-            booking.setCancellationReason("Cancelled by user=%s".formatted(authUserId));
+            booking.setCancellationReason("Отменено");
 
             BookingEntity saved = bookingRepository.save(booking);
 
@@ -291,7 +332,6 @@ public class BookingService {
         bookingInventoryService.confirmHeldInventory(booking);
         booking.setStatus(BookingStatus.CONFIRMED);
         booking.setHoldExpiresAt(null);
-        promoCodeService.generateForBooking(booking);
         BookingEntity savedBooking = bookingRepository.save(booking);
 
         log.info("Sending event to Kafka to confirm booking: eventType={}", BookingEventType.BOOKING_CONFIRMED);
@@ -311,6 +351,9 @@ public class BookingService {
 
         if (request.checkInDate() == null || request.checkOutDate() == null || !request.checkOutDate().isAfter(request.checkInDate())) {
             throw new IllegalArgumentException("Check-out date must be after check-in date");
+        }
+        if (request.checkInDate().isBefore(LocalDate.now(bookingValidationProperties.getDateZone()))) {
+            throw new IllegalArgumentException("Check-in date can not be in the past");
         }
 
         var filter = RoomCategorySearchRequestDto.builder()
@@ -337,7 +380,7 @@ public class BookingService {
                             request.checkOutDate(),
                             room.totalUnits()
                     );
-                    if (availableUnits <= 0) {
+                    if (hasAnyFilter && availableUnits <= 0) {
                         return null;
                     }
                     return new RoomCategoryResponseDto(
@@ -347,6 +390,7 @@ public class BookingService {
                             room.maxGuests(),
                             room.basePrice(),
                             room.areaSquare(),
+                            room.totalUnits(),
                             availableUnits,
                             room.mainPhotoUrl()
                     );
@@ -468,7 +512,6 @@ public class BookingService {
         booking.setPriceAmount(priceAmount);
         booking.setStatus(BookingStatus.HOLD);
         booking.setHoldExpiresAt(holdExpiresAt);
-        promoCodeService.generateForBooking(booking);
         BookingEntity savedBooking = bookingRepository.save(booking);
 
         log.info("Sending event to Kafka to hold booking: eventType={}", BookingEventType.BOOKING_HOLD_CREATED);
@@ -563,7 +606,14 @@ public class BookingService {
         }
         bookingInventoryService.releaseConfirmedInventory(booking);
         booking.setInventoryReleasedAt(OffsetDateTime.now());
-        bookingRepository.save(booking);
+        String promoCode = promoCodeService.generateForBooking(booking);
+        BookingEntity savedBooking = bookingRepository.save(booking);
+        sendDirectNotification(
+                savedBooking,
+                NotificationEventType.BOOKING_REVIEW_REQUEST,
+                REVIEW_NOTIFICATION_TITLE,
+                buildReviewNotificationMessage(savedBooking, promoCode)
+        );
         cacheService.evictUserPages(booking.getUserId());
         cacheService.evictBookingByUser(booking.getUserId(), booking.getId());
     }
@@ -609,9 +659,52 @@ public class BookingService {
         log.info("Inactive bookings cleanup finished, deletedCount={}", deleted);
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "bookingByUser", allEntries = true),
+            @CacheEvict(value = "bookingPages", allEntries = true),
+            @CacheEvict(value = "bookingSearchPages", allEntries = true)
+    })
+    @Transactional
+    public int deleteInactiveBookingsByUserId(Long userId) {
+        log.info("Deleting inactive bookings for userId={}", userId);
+        int deleted = bookingRepository.deleteInactiveBookingsByUserId(userId, INACTIVE_STATUSES);
+        log.info("Inactive user bookings cleanup finished: userId={}, deletedCount={}", userId, deleted);
+        return deleted;
+    }
+
+    @Caching(evict = {
+            @CacheEvict(value = "bookingByUser", allEntries = true),
+            @CacheEvict(value = "bookingPages", allEntries = true),
+            @CacheEvict(value = "bookingSearchPages", allEntries = true)
+    })
+    @Transactional
+    public int deleteCompletedBookingsByUserId(Long userId) {
+        log.info("Deleting completed bookings for userId={}", userId);
+        int deleted = bookingRepository.deleteCompletedBookingsByUserId(userId, BookingStatus.CONFIRMED, LocalDate.now());
+        log.info("Completed user bookings cleanup finished: userId={}, deletedCount={}", userId, deleted);
+        return deleted;
+    }
+
+    @Caching(evict = {
+            @CacheEvict(value = "bookingByUser", allEntries = true),
+            @CacheEvict(value = "bookingPages", allEntries = true),
+            @CacheEvict(value = "bookingSearchPages", allEntries = true)
+    })
+    @Transactional
+    public void deleteCompletedBookingsCheckedOutBefore(LocalDate thresholdDate) {
+        log.info("Deleting completed bookings checked out before {}", thresholdDate);
+        int deleted = bookingRepository.deleteCompletedBookingsCheckedOutBefore(BookingStatus.CONFIRMED, thresholdDate);
+        log.info("Completed bookings cleanup finished, deletedCount={}", deleted);
+    }
+
     @Transactional(readOnly = true)
     public OffsetDateTime getCleanupThreshold() {
         return OffsetDateTime.now().minus(cleanupRetentionPeriod);
+    }
+
+    @Transactional(readOnly = true)
+    public LocalDate getCompletedCleanupThresholdDate() {
+        return LocalDate.now().minusDays(cleanupRetentionPeriod.toDays());
     }
 
     private BookingEntity findBookingEntityByIdAndUserId(UUID uuid, Long authUserId) {
@@ -678,5 +771,18 @@ public class BookingService {
 
     private String normalizePromoCode(String promoCode) {
         return promoCode == null || promoCode.isBlank() ? null : promoCode.trim().toUpperCase();
+    }
+
+    private String buildReviewNotificationMessage(BookingEntity booking, String promoCode) {
+        StringBuilder builder = new StringBuilder()
+                .append("Спасибо, что выбрали River Park. Все понравилось? Оставьте отзыв на сайте отеля.");
+        if (promoCode != null && !promoCode.isBlank()) {
+            builder.append("\n\nВаш промокод на следующее заселение: ")
+                    .append(promoCode);
+            if (booking.getPromoDiscountPercent() != null) {
+                builder.append(" (-").append(booking.getPromoDiscountPercent()).append("%)");
+            }
+        }
+        return builder.toString();
     }
 }

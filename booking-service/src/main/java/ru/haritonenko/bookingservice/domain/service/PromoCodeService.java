@@ -1,6 +1,7 @@
 package ru.haritonenko.bookingservice.domain.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,7 @@ import java.util.Locale;
 import java.util.UUID;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class PromoCodeService {
 
@@ -62,10 +64,19 @@ public class PromoCodeService {
 
         PromoCodeEntity promoCodeEntity = promoCodeRepository
                 .findForUpdateByCodeAndUserIdAndUsedFalse(promoCode, userId)
-                .orElseThrow(() -> new IllegalBookingStateException("Promo code is invalid or already used"));
+                .orElse(null);
+        if (promoCodeEntity == null) {
+            log.warn("Promo code is invalid or already used, booking continues without discount: bookingId={}, userId={}",
+                    bookingId, userId);
+            clearAppliedPromo(bookingId);
+            return priceAmount;
+        }
 
         if (bookingId.equals(promoCodeEntity.getSourceBookingId())) {
-            throw new IllegalBookingStateException("Promo code can not be used for the booking that generated it");
+            log.warn("Promo code can not be used for the booking that generated it, booking continues without discount: bookingId={}, userId={}",
+                    bookingId, userId);
+            clearAppliedPromo(bookingId);
+            return priceAmount;
         }
 
         promoCodeEntity.setUsed(true);
@@ -73,6 +84,7 @@ public class PromoCodeService {
         promoCodeEntity.setRedeemedAt(OffsetDateTime.now());
         BookingEntity booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new IllegalBookingStateException("Booking not found for promo applying id=%s".formatted(bookingId)));
+        booking.setHasPromo(true);
         booking.setAppliedPromoCode(promoCode);
         booking.setPromoDiscountPercent(promoCodeEntity.getDiscountPercent());
 
@@ -101,5 +113,13 @@ public class PromoCodeService {
 
     private String normalize(String promoCode) {
         return promoCode == null || promoCode.isBlank() ? null : promoCode.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private void clearAppliedPromo(UUID bookingId) {
+        bookingRepository.findById(bookingId).ifPresent(booking -> {
+            booking.setHasPromo(false);
+            booking.setAppliedPromoCode(null);
+            booking.setPromoDiscountPercent(null);
+        });
     }
 }

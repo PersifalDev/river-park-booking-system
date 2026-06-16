@@ -37,7 +37,7 @@ springdoc:
 
 openapi:
   title: River Park Notification Service API
-  description: API уведомлений River Park: список, непрочитанные уведомления и отметка прочитанными.
+  description: "Notification API for River Park: list, unread notifications and mark as read."
   version: 1.0.0
   security-scheme-name: bearerAuth
 

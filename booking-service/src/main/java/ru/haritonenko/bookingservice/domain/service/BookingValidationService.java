@@ -56,8 +56,7 @@ public class BookingValidationService {
         if (bookingRequest.promoCode() != null
                 && !bookingRequest.promoCode().isBlank()
                 && !promoCodeService.isPromoCodeUsableForUser(bookingRequest.promoCode(), userId)) {
-            log.warn("Promo code is invalid or already used: userId={}", userId);
-            throw new IllegalArgumentException("Promo code is invalid or already used");
+            log.warn("Promo code is invalid or already used, booking will continue without discount: userId={}", userId);
         }
     }
 }

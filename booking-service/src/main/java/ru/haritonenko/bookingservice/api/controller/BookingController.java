@@ -125,6 +125,48 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.getAllInactiveBookingsByUserId(authUserId, pageFilter).map(mapper::toDto));
     }
 
+    @GetMapping("/early")
+    @Operation(summary = "Получить ранние состоявшиеся брони", description = "Возвращает CONFIRMED брони текущего пользователя с датой выезда старше месяца.")
+    @ApiResponse(responseCode = "200", description = "Страница ранних состоявшихся броней")
+    public ResponseEntity<Page<BookingResponseDto>> getAllEarlyCompletedBookingsByUserId(
+            @Valid @ModelAttribute BookingPageFilter pageFilter
+    ) {
+        Long authUserId = getAuthenticatedUser().id();
+        log.info("Request for getting all early completed bookings for user={}", authUserId);
+        return ResponseEntity.ok(bookingService.getAllEarlyCompletedBookingsByUserId(authUserId, pageFilter).map(mapper::toDto));
+    }
+
+    @GetMapping("/history")
+    @Operation(summary = "Получить историю бронирований", description = "Возвращает все брони текущего пользователя.")
+    @ApiResponse(responseCode = "200", description = "Страница истории бронирований")
+    public ResponseEntity<Page<BookingResponseDto>> getAllHistoryBookingsByUserId(
+            @Valid @ModelAttribute BookingPageFilter pageFilter
+    ) {
+        Long authUserId = getAuthenticatedUser().id();
+        log.info("Request for getting all booking history for user={}", authUserId);
+        return ResponseEntity.ok(bookingService.getAllHistoryBookingsByUserId(authUserId, pageFilter).map(mapper::toDto));
+    }
+
+    @DeleteMapping("/inactive")
+    @Operation(summary = "Очистить несостоявшиеся брони")
+    @ApiResponse(responseCode = "204", description = "Несостоявшиеся брони текущего пользователя очищены")
+    public ResponseEntity<Void> clearInactiveBookingsByUserId() {
+        Long authUserId = getAuthenticatedUser().id();
+        log.info("Request for clearing inactive bookings for user={}", authUserId);
+        bookingService.deleteInactiveBookingsByUserId(authUserId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/completed")
+    @Operation(summary = "Очистить состоявшиеся брони")
+    @ApiResponse(responseCode = "204", description = "Состоявшиеся брони текущего пользователя очищены")
+    public ResponseEntity<Void> clearCompletedBookingsByUserId() {
+        Long authUserId = getAuthenticatedUser().id();
+        log.info("Request for clearing completed bookings for user={}", authUserId);
+        bookingService.deleteCompletedBookingsByUserId(authUserId);
+        return ResponseEntity.noContent().build();
+    }
+
     @PatchMapping("/{uuid}/cancel")
     @Operation(summary = "Отменить бронь")
     @ApiResponses({

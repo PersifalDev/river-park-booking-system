@@ -31,10 +31,14 @@ public class BookingNotificationService {
 
     public void sendBookingCancelledNotification(BookingKafkaPayload payload) {
         log.info("Creating BOOKING_CANCELLED notification: bookingId={}, userId={}, reason={}", payload.bookingId(), payload.userId(), payload.cancellationReason());
-        String message = payload.cancellationReason() == null || payload.cancellationReason().isBlank()
-                ? "Бронь %s была отменена.".formatted(code(payload))
-                : "Бронь %s отменена. %s".formatted(code(payload), payload.cancellationReason());
-        notificationService.createNotification(payload.userId(), payload.bookingId(), null, "Бронь отменена", message, NotificationEventType.BOOKING_CANCELLED);
+        notificationService.createNotification(
+                payload.userId(),
+                payload.bookingId(),
+                null,
+                "Бронь отменена",
+                "Бронь %s отменена.".formatted(code(payload)),
+                NotificationEventType.BOOKING_CANCELLED
+        );
     }
 
     public void sendBookingExpiredNotification(BookingKafkaPayload payload) {

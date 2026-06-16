@@ -1,11 +1,14 @@
 package ru.haritonenko.catalogservice.photo.category.domain.service;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import ru.haritonenko.catalogservice.photo.category.api.dto.filter.RoomCategoryPhotoPageFilter;
 import ru.haritonenko.catalogservice.photo.category.domain.RoomCategoryPhoto;
@@ -19,6 +22,8 @@ import ru.haritonenko.catalogservice.photo.category.domain.type.RoomCategoryPhot
 import ru.haritonenko.catalogservice.photo.category.loader.RoomCategoryPhotoLoader;
 import ru.haritonenko.catalogservice.config.properties.cache.CacheProperties;
 import ru.haritonenko.commonlibs.utils.pages.CommonPageable;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 import java.nio.file.Path;
 import java.util.*;
@@ -28,21 +33,41 @@ import static java.util.Objects.nonNull;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class RoomCategoryPhotoService {
 
     private static final String CACHE_KEY_PREFIX = "room-category-main-photo:";
+    private static final String PHOTO_PAGE_CACHE_KEY_PREFIX = "room-category-photo-page:";
 
     private final RoomCategoryPhotoLoader loader;
     private final RoomCategoryPhotoEntityToDomainMapper mapper;
     private final RoomCategoryPhotoEntityRepository photoRepository;
     private final RedisTemplate<String, RoomCategoryPhoto> redisTemplate;
+    private final StringRedisTemplate stringRedisTemplate;
+    private final ObjectMapper objectMapper;
     private final CacheProperties cacheProperties;
 
     @Value("${app.roomCategory.default-page-number}")
     private int defaultPageNumber;
     @Value("${app.roomCategory.default-page-size}")
     private int defaultPageSize;
+
+    public RoomCategoryPhotoService(
+            RoomCategoryPhotoLoader loader,
+            RoomCategoryPhotoEntityToDomainMapper mapper,
+            RoomCategoryPhotoEntityRepository photoRepository,
+            RedisTemplate<String, RoomCategoryPhoto> redisTemplate,
+            @Qualifier("stringPhotoRedisTemplate") StringRedisTemplate stringRedisTemplate,
+            ObjectMapper objectMapper,
+            CacheProperties cacheProperties
+    ) {
+        this.loader = loader;
+        this.mapper = mapper;
+        this.photoRepository = photoRepository;
+        this.redisTemplate = redisTemplate;
+        this.stringRedisTemplate = stringRedisTemplate;
+        this.objectMapper = objectMapper;
+        this.cacheProperties = cacheProperties;
+    }
 
     public RoomCategoryPhoto getMainPhotoByCategoryId(Long categoryId) {
         checkCategoryIdNotNullOrThrow(categoryId);
@@ -105,10 +130,17 @@ public class RoomCategoryPhotoService {
         checkCategoryIdNotNullOrThrow(categoryId);
 
         log.info("Extracting all photos for category id={}", categoryId);
+        Pageable pageable = CommonPageable.getPageable(pageFilter, defaultPageNumber, defaultPageSize);
+        String cacheKey = PHOTO_PAGE_CACHE_KEY_PREFIX + categoryId + ":" + pageable.getPageNumber() + ":" + pageable.getPageSize();
+
+        Page<RoomCategoryPhoto> cachedPage = getCachedPhotoPage(cacheKey, pageable);
+        if (cachedPage != null) {
+            return cachedPage;
+        }
 
         var photoPage = photoRepository.findByRoomCategoryIdOrderByIdAsc(
                 categoryId,
-                CommonPageable.getPageable(pageFilter, defaultPageNumber, defaultPageSize)
+                pageable
         );
 
         if (photoPage.isEmpty()) {
@@ -116,8 +148,10 @@ public class RoomCategoryPhotoService {
             throw new PhotoListNotFoundException("Photo list not found");
         }
 
-        return photoPage.map(mapper::toDomain)
+        Page<RoomCategoryPhoto> result = photoPage.map(mapper::toDomain)
                 .map(this::updatePhotoWithValidatedPath);
+        cachePhotoPage(cacheKey, result);
+        return result;
     }
 
     public Map<Long, RoomCategoryPhoto> getMainPhotosByCategoryIds(List<Long> categoryIds) {
@@ -213,5 +247,40 @@ public class RoomCategoryPhotoService {
             log.warn("Category id for extracting photo is null");
             throw new IllegalArgumentException("Category id is null");
         }
+    }
+
+    private Page<RoomCategoryPhoto> getCachedPhotoPage(String cacheKey, Pageable pageable) {
+        try {
+            String cached = stringRedisTemplate.opsForValue().get(cacheKey);
+            if (cached == null || cached.isBlank()) {
+                return null;
+            }
+            CachedPhotoPage cachedPage = objectMapper.readValue(cached, CachedPhotoPage.class);
+            return new PageImpl<>(cachedPage.content(), pageable, cachedPage.totalElements());
+        } catch (RedisConnectionFailureException exception) {
+            log.warn("Redis unavailable during photo page read, fallback to DB. key={}", cacheKey, exception);
+            return null;
+        } catch (JacksonException exception) {
+            log.warn("Photo page cache payload is invalid, fallback to DB. key={}", cacheKey, exception);
+            return null;
+        }
+    }
+
+    private void cachePhotoPage(String cacheKey, Page<RoomCategoryPhoto> page) {
+        try {
+            CachedPhotoPage cachedPage = new CachedPhotoPage(page.getContent(), page.getTotalElements());
+            stringRedisTemplate.opsForValue().set(
+                    cacheKey,
+                    objectMapper.writeValueAsString(cachedPage),
+                    cacheProperties.photosTtl()
+            );
+        } catch (RedisConnectionFailureException exception) {
+            log.warn("Redis unavailable during photo page write. key={}", cacheKey, exception);
+        } catch (JacksonException exception) {
+            log.warn("Failed to serialize photo page cache. key={}", cacheKey, exception);
+        }
+    }
+
+    private record CachedPhotoPage(List<RoomCategoryPhoto> content, long totalElements) {
     }
 }

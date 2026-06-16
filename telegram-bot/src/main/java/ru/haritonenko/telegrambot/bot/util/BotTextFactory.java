@@ -11,10 +11,9 @@ import ru.haritonenko.telegrambot.dto.notification.BotNotificationResponseDto;
 import ru.haritonenko.telegrambot.dto.payment.BotPaymentResponseDto;
 
 import java.math.BigDecimal;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
@@ -25,6 +24,7 @@ public class BotTextFactory {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy");
     private static final DateTimeFormatter SHORT_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd.MM");
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
+    private static final ZoneId NOVOSIBIRSK_ZONE = ZoneId.of("Asia/Novosibirsk");
 
     public String buildStartMessage() {
         return "Здравствуйте. Я бот River Park.\n\n"
@@ -36,16 +36,21 @@ public class BotTextFactory {
         return "Выберите нужный раздел ниже.";
     }
 
-    public String buildFilterStartMessage() {
-        return "Подбор номера.\n\nВведите количество гостей числом.\nНапример: 2";
+    public String buildFilterStartMessage(int maxGuests, int maxAdults, int maxChildren) {
+        return "Подбор номера.\n\n"
+                + "Введите количество гостей числом или отправьте -, если количество не важно.\n"
+                + "Максимум: " + maxGuests + " гостей, до " + maxAdults + " взрослых и до " + maxChildren + " детей.\n"
+                + "Например: 2";
     }
 
     public String buildAskFilterCheckInMessage() {
-        return "Подбор номера.\n\nВведите дату заезда в формате ДД.ММ.ГГГГ.";
+        return "Введите дату заезда в формате ДД.ММ.ГГГГ или отправьте -, если даты не важны.\n"
+                + "Самая ранняя дата: " + LocalDate.now(NOVOSIBIRSK_ZONE).format(DATE_FORMATTER);
     }
 
     public String buildAskFilterCheckOutMessage(LocalDate checkInDate) {
-        return "Дата заезда: " + formatDate(checkInDate) + "\n\nТеперь введите дату выезда в формате ДД.ММ.ГГГГ.";
+        return "Дата заезда: " + formatDate(checkInDate) + "\n\n"
+                + "Введите дату выезда в формате ДД.ММ.ГГГГ или отправьте -, чтобы искать без дат.";
     }
 
     public String buildAskRoomTypeMessage() {
@@ -53,15 +58,15 @@ public class BotTextFactory {
     }
 
     public String buildAskPriceFromMessage() {
-        return "Введите минимальную цену. Если фильтр не нужен, отправьте -";
+        return "Введите минимальную цену за ночь от 5000 до 20000. Если фильтр не нужен, отправьте -";
     }
 
     public String buildAskPriceToMessage() {
-        return "Введите максимальную цену. Если фильтр не нужен, отправьте -";
+        return "Введите максимальную цену за ночь от 5000 до 20000. Если фильтр не нужен, отправьте -";
     }
 
     public String buildAskMinAreaMessage() {
-        return "Введите минимальную площадь в м². Если фильтр не нужен, отправьте -";
+        return "Введите минимальную площадь от 10 до 60 м². Если фильтр не нужен, отправьте -";
     }
 
     public String buildFilterSummary(RoomCategorySearchRequestDto filter) {
@@ -90,21 +95,33 @@ public class BotTextFactory {
     }
 
     public String buildRoomCard(RoomCategoryResponseDto room, int pageNumber, int totalPages, boolean filtered) {
+        return buildRoomCard(room, pageNumber, totalPages, filtered, null, null);
+    }
+
+    public String buildRoomCard(
+            RoomCategoryResponseDto room,
+            int pageNumber,
+            int totalPages,
+            boolean filtered,
+            LocalDate checkInDate,
+            LocalDate checkOutDate
+    ) {
         StringBuilder builder = new StringBuilder();
         builder.append(filtered ? "Подходящие номера River Park\n" : "Номера River Park\n")
                 .append("Страница ")
                 .append(pageNumber + 1)
                 .append(" из ")
                 .append(Math.max(totalPages, 1))
-                .append("\n\n")
+                .append("\n");
+        builder.append("\n")
                 .append(roomTypeTitle(room.name()))
                 .append("\n")
                 .append("Категория: ").append(room.id()).append("\n")
                 .append("Гостей: ").append(valueOrDash(room.maxGuests())).append("\n")
                 .append("Цена: ").append(formatPrice(room.basePrice())).append(" за ночь\n")
                 .append("Площадь: ").append(formatArea(room.areaSquare())).append("\n")
-                .append(filtered ? "Свободно номеров: " : "Количество номеров: ")
-                .append(valueOrDash(room.totalUnits()));
+                .append("Всего номеров: ").append(valueOrDash(room.totalUnits())).append("\n")
+                .append("Свободно номеров: ").append(valueOrDash(availableUnits(room)));
         return builder.toString();
     }
 
@@ -115,7 +132,23 @@ public class BotTextFactory {
                 .append("Гостей: ").append(valueOrDash(room.maxGuests())).append("\n")
                 .append("Цена за ночь: ").append(formatPrice(room.basePrice())).append("\n")
                 .append("Площадь: ").append(formatArea(room.areaSquare())).append("\n")
-                .append("Количество номеров: ").append(valueOrDash(room.totalUnits()));
+                .append("Всего номеров: ").append(valueOrDash(room.totalUnits())).append("\n")
+                .append("Свободно номеров: ").append(valueOrDash(availableUnits(room)));
+        if (room.description() != null && !room.description().isBlank()) {
+            builder.append("\n\n").append(room.description());
+        }
+        return builder.toString();
+    }
+
+    public String buildAvailableRoomDetails(RoomCategoryResponseDto room) {
+        StringBuilder builder = new StringBuilder();
+        builder.append(roomTypeTitle(room.name())).append("\n")
+                .append("Категория: ").append(room.id()).append("\n")
+                .append("Гостей: ").append(valueOrDash(room.maxGuests())).append("\n")
+                .append("Цена за ночь: ").append(formatPrice(room.basePrice())).append("\n")
+                .append("Площадь: ").append(formatArea(room.areaSquare())).append("\n")
+                .append("Всего номеров: ").append(valueOrDash(room.totalUnits())).append("\n")
+                .append("Свободно номеров: ").append(valueOrDash(availableUnits(room)));
         if (room.description() != null && !room.description().isBlank()) {
             builder.append("\n\n").append(room.description());
         }
@@ -246,7 +279,7 @@ public class BotTextFactory {
 
     public String buildBookingStartMessage(RoomCategoryResponseDto room) {
         return "Бронирование номера «" + roomTypeTitle(room.name()) + "».\n\n"
-                + "Введите дату заезда в формате ДД.ММ.ГГГГ.\nНапример: " + LocalDate.now().plusDays(1).format(DATE_FORMATTER);
+                + "Введите дату заезда в формате ДД.ММ.ГГГГ.\nНапример: " + LocalDate.now(NOVOSIBIRSK_ZONE).plusDays(1).format(DATE_FORMATTER);
     }
 
     public String buildAskBookingCheckOutMessage(LocalDate checkInDate) {
@@ -254,18 +287,21 @@ public class BotTextFactory {
                 + "Теперь введите дату выезда в формате ДД.ММ.ГГГГ.";
     }
 
-    public String buildAskBookingAdultsMessage(LocalDate checkInDate, LocalDate checkOutDate) {
-        return "Период: " + formatDate(checkInDate) + " — " + formatDate(checkOutDate) + "\n\n"
-                + "Введите количество взрослых.";
+    public String buildAskBookingAdultsMessage(LocalDate checkInDate, LocalDate checkOutDate, int maxAdults, int maxGuests) {
+        return "Введите количество взрослых.\n"
+                + "Максимум: " + maxAdults + " взрослых, всего до " + maxGuests + " гостей.";
     }
 
-    public String buildAskBookingChildrenMessage(Integer adults) {
+    public String buildAskBookingChildrenMessage(Integer adults, int maxChildren, int maxGuests) {
         return "Взрослых: " + valueOrDash(adults) + "\n\n"
-                + "Введите количество детей. Если детей нет, отправьте 0.";
+                + "Введите количество детей. Если детей нет, отправьте 0.\n"
+                + "Максимум: " + maxChildren + " детей, всего до " + maxGuests + " гостей.";
     }
 
     public String buildAskBookingPromoMessage(Integer adults, Integer children) {
-        return "Гостей: " + ((adults == null ? 0 : adults) + (children == null ? 0 : children)) + "\n\n"
+        return "Гостей: " + ((adults == null ? 0 : adults) + (children == null ? 0 : children)) + "\n"
+                + "Взрослых: " + valueOrDash(adults) + "\n"
+                + "Детей: " + valueOrDash(children) + "\n\n"
                 + "Если есть промокод, отправьте его. Если нет, отправьте -";
     }
 
@@ -281,9 +317,11 @@ public class BotTextFactory {
                 .append("Заезд: ").append(formatDate(booking.checkInDate())).append("\n")
                 .append("Выезд: ").append(formatDate(booking.checkOutDate())).append("\n")
                 .append("Гостей: ").append(valueOrDash(booking.guests())).append("\n")
+                .append("Взрослых: ").append(valueOrDash(booking.adultCount())).append("\n")
+                .append("Детей: ").append(valueOrDash(booking.childrenCount())).append("\n")
                 .append("Сумма: ").append(resolveBookingAmount(booking, payment)).append("\n")
                 .append("Статус брони: ").append(bookingStatusTitle(booking.status()));
-        if (booking.holdExpiresAt() != null) {
+        if (isHoldStatus(booking.status()) && booking.holdExpiresAt() != null) {
             builder.append("\nУдержание до: ").append(formatDateTime(booking.holdExpiresAt()));
         }
         if (booking.generatedPromoCode() != null && !booking.generatedPromoCode().isBlank()) {
@@ -294,14 +332,14 @@ public class BotTextFactory {
             }
         }
         if (payment != null) {
-            if (payment.paymentInstruction() != null && !payment.paymentInstruction().isBlank()) {
+            if (shouldShowPaymentInstruction(payment)) {
                 builder.append("\n\nИнструкция: ").append(payment.paymentInstruction());
             }
             if (payment.contactPhone() != null && !payment.contactPhone().isBlank()) {
                 builder.append("\nТелефон для связи: ").append(payment.contactPhone());
             }
-            if (payment.paymentComment() != null && !payment.paymentComment().isBlank()) {
-                builder.append("\nКомментарий: ").append(payment.paymentComment());
+            if (shouldShowPaymentComment(payment)) {
+                builder.append("\nПримечание: ").append(payment.paymentComment());
             }
         }
         if (adminContact != null && !adminContact.isBlank()) {
@@ -334,25 +372,29 @@ public class BotTextFactory {
                 .append("Заезд: ").append(formatDate(booking.checkInDate())).append("\n")
                 .append("Выезд: ").append(formatDate(booking.checkOutDate())).append("\n")
                 .append("Гостей: ").append(valueOrDash(booking.guests())).append("\n")
+                .append("Взрослых: ").append(valueOrDash(booking.adultCount())).append("\n")
+                .append("Детей: ").append(valueOrDash(booking.childrenCount())).append("\n")
                 .append("Сумма: ").append(resolveBookingAmount(booking, payment));
-        if (booking.holdExpiresAt() != null) {
+        if (isHoldStatus(booking.status()) && booking.holdExpiresAt() != null) {
             builder.append("\nУдержание до: ").append(formatDateTime(booking.holdExpiresAt()));
         }
-        if (booking.cancellationReason() != null && !booking.cancellationReason().isBlank()) {
-            builder.append("\nПричина: ").append(booking.cancellationReason());
+        if (booking.cancellationReason() != null
+                && !booking.cancellationReason().isBlank()
+                && !isUserCancellationReason(booking.cancellationReason())) {
+            builder.append("\nПричина: ").append(cancellationReasonTitle(booking.cancellationReason()));
         }
         if (payment != null) {
             builder.append("\n\nОплата\n")
                     .append("Статус: ").append(paymentStatusTitle(payment.status())).append("\n")
-                    .append("Метод: ").append(valueOrDash(payment.paymentMethod()));
+                    .append("Метод: ").append(paymentMethodTitle(payment.paymentMethod()));
             if (payment.contactPhone() != null && !payment.contactPhone().isBlank()) {
                 builder.append("\nТелефон: ").append(payment.contactPhone());
             }
-            if (payment.paymentInstruction() != null && !payment.paymentInstruction().isBlank()) {
+            if (shouldShowPaymentInstruction(payment)) {
                 builder.append("\nИнструкция: ").append(payment.paymentInstruction());
             }
-            if (payment.paymentComment() != null && !payment.paymentComment().isBlank()) {
-                builder.append("\nКомментарий: ").append(payment.paymentComment());
+            if (shouldShowPaymentComment(payment)) {
+                builder.append("\nПримечание: ").append(payment.paymentComment());
             }
         }
         return builder.toString();
@@ -367,10 +409,14 @@ public class BotTextFactory {
     }
 
     public String buildBookingListLabel(int index, String roomTitle, BotBookingResponseDto booking) {
-        return "Бронь " + index
+        String label = "Бронь " + index
                 + " • " + roomTitle
                 + " • " + formatShortDate(booking.checkInDate())
                 + " • " + bookingStatusTitle(booking.status());
+        if (isInactiveBookingStatus(booking.status())) {
+            label += " • " + inactiveReasonTitle(booking);
+        }
+        return label;
     }
 
     public String buildPaymentConfirmedMessage(BotBookingResponseDto booking) {
@@ -402,7 +448,7 @@ public class BotTextFactory {
     }
 
     public String buildPastDateMessage() {
-        return "Нельзя указать дату в прошлом.";
+        return "Нельзя указать дату в прошлом. Самая ранняя дата: " + LocalDate.now(NOVOSIBIRSK_ZONE).format(DATE_FORMATTER);
     }
 
     public String buildCheckoutBeforeCheckinMessage() {
@@ -427,6 +473,10 @@ public class BotTextFactory {
         return value == null ? "—" : String.valueOf(value);
     }
 
+    private Integer availableUnits(RoomCategoryResponseDto room) {
+        return room.availableUnits() == null ? room.totalUnits() : room.availableUnits();
+    }
+
     private String formatPrice(BigDecimal value) {
         return value == null ? "—" : decimal(value) + " ₽";
     }
@@ -436,9 +486,7 @@ public class BotTextFactory {
     }
 
     private String decimal(BigDecimal value) {
-        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
-        DecimalFormat format = new DecimalFormat("0.##", symbols);
-        return format.format(value);
+        return value.stripTrailingZeros().toPlainString();
     }
 
     private String bookingStatusTitle(String status) {
@@ -469,6 +517,95 @@ public class BotTextFactory {
         };
     }
 
+    private String paymentMethodTitle(String method) {
+        if (method == null || method.isBlank()) {
+            return "—";
+        }
+        return switch (method.toUpperCase(Locale.ROOT)) {
+            case "PAY_ON_ARRIVAL" -> "Оплата при заселении";
+            default -> method;
+        };
+    }
+
+    private boolean shouldShowPaymentInstruction(BotPaymentResponseDto payment) {
+        return payment != null
+                && payment.paymentInstruction() != null
+                && !payment.paymentInstruction().isBlank()
+                && "PENDING".equalsIgnoreCase(payment.status());
+    }
+
+    private boolean shouldShowPaymentComment(BotPaymentResponseDto payment) {
+        if (payment == null
+                || payment.paymentComment() == null
+                || payment.paymentComment().isBlank()
+                || isInactivePaymentStatus(payment.status())) {
+            return false;
+        }
+        String instruction = payment.paymentInstruction() == null ? "" : payment.paymentInstruction().trim().toLowerCase(Locale.ROOT);
+        String comment = payment.paymentComment().trim().toLowerCase(Locale.ROOT);
+        return !instruction.contains(comment)
+                && !(instruction.contains("оплата производится") && comment.contains("оплата производится"));
+    }
+
+    private boolean isInactivePaymentStatus(String status) {
+        return status != null && List.of("CANCELLED", "FAILED").contains(status.toUpperCase(Locale.ROOT));
+    }
+
+    private boolean isHoldStatus(String status) {
+        return status != null && "HOLD".equalsIgnoreCase(status);
+    }
+
+    private boolean isInactiveBookingStatus(String status) {
+        return status != null && List.of("CANCELLED", "EXPIRED", "FAILED").contains(status.toUpperCase(Locale.ROOT));
+    }
+
+    private String inactiveReasonTitle(BotBookingResponseDto booking) {
+        if (booking == null || booking.status() == null) {
+            return "Причина не указана";
+        }
+        String status = booking.status().toUpperCase(Locale.ROOT);
+        if ("CANCELLED".equals(status) && isUserCancellationReason(booking.cancellationReason())) {
+            return "Отменено пользователем";
+        }
+        if ("EXPIRED".equals(status) && (booking.cancellationReason() == null || booking.cancellationReason().isBlank())) {
+            return "Истекло время";
+        }
+        if (booking.cancellationReason() == null || booking.cancellationReason().isBlank()) {
+            return "Причина не указана";
+        }
+        return cancellationReasonTitle(booking.cancellationReason());
+    }
+
+    private boolean isUserCancellationReason(String reason) {
+        if (reason == null || reason.isBlank()) {
+            return false;
+        }
+        String normalized = reason.trim().toLowerCase(Locale.ROOT);
+        return normalized.equals("отменено")
+                || normalized.startsWith("cancelled by user")
+                || normalized.startsWith("canceled by user");
+    }
+
+    private String cancellationReasonTitle(String reason) {
+        if (reason == null || reason.isBlank()) {
+            return "—";
+        }
+        String normalized = reason.trim().toLowerCase(Locale.ROOT);
+        if (normalized.startsWith("cancelled by user") || normalized.startsWith("canceled by user")) {
+            return "Отменено";
+        }
+        if (normalized.contains("hold expired")) {
+            return "Истекло время удержания";
+        }
+        if (normalized.contains("booking processing timed out")) {
+            return "Истекло время обработки";
+        }
+        if (normalized.contains("no available rooms")) {
+            return "Нет свободных номеров на выбранные даты";
+        }
+        return reason;
+    }
+
     private String formatDate(LocalDate date) {
         return date == null ? "—" : date.format(DATE_FORMATTER);
     }
@@ -478,7 +615,7 @@ public class BotTextFactory {
     }
 
     private String formatDateTime(OffsetDateTime dateTime) {
-        return dateTime == null ? "—" : dateTime.toLocalDateTime().format(DATE_TIME_FORMATTER);
+        return dateTime == null ? "—" : dateTime.atZoneSameInstant(NOVOSIBIRSK_ZONE).format(DATE_TIME_FORMATTER);
     }
 
     private String roomTypeTitle(RoomType roomType) {

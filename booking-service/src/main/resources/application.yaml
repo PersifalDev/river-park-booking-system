@@ -40,7 +40,7 @@ springdoc:
 
 openapi:
   title: River Park Booking Service API
-  description: API бронирования River Park: создание, HOLD, подтверждение, отмена, inventory, промокоды и напоминания.
+  description: "Booking API for River Park: create, hold, confirm, cancel, inventory, promo codes and reminders."
   version: 1.0.0
   security-scheme-name: bearerAuth
 
@@ -76,6 +76,7 @@ app:
       scheduler-delay: ${BOOKING_TASK_SCHEDULER_DELAY:10s}
       dispatch-batch-size: ${BOOKING_TASK_BATCH_SIZE:10}
       hold-ttl: ${BOOKING_HOLD_TTL:15m}
+      external-call-timeout: ${BOOKING_TASK_EXTERNAL_CALL_TIMEOUT:5s}
     hold-expiration-delay-ms: ${BOOKING_HOLD_EXPIRATION_DELAY_MS:60000}
 
     cleanup:

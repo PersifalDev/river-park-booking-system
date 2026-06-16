@@ -17,6 +17,7 @@ import ru.haritonenko.catalogservice.category.api.dto.filter.RoomCategoryPageFil
 import ru.haritonenko.catalogservice.category.api.dto.filter.RoomCategorySearchRequestDto;
 import ru.haritonenko.catalogservice.category.domain.mapper.RoomCategoryToDtoMapper;
 import ru.haritonenko.catalogservice.category.domain.service.RoomCategoryService;
+import ru.haritonenko.commonlibs.utils.pages.PageResponse;
 
 @Slf4j
 @Validated
@@ -32,11 +33,11 @@ public class RoomCategoryController {
     @GetMapping
     @Operation(summary = "Получить категории номеров")
     @ApiResponse(responseCode = "200", description = "Страница категорий номеров")
-    public Page<RoomCategoryResponseDto> getAllRoomCategories(
+    public PageResponse<RoomCategoryResponseDto> getAllRoomCategories(
             @Valid RoomCategoryPageFilter pageFilter
     ) {
         log.info("Request to get all room categories");
-        return roomCategoryService.getRoomCategories(pageFilter).map(mapper::toDto);
+        return toPageResponse(roomCategoryService.getRoomCategories(pageFilter).map(mapper::toDto));
 
     }
 
@@ -56,7 +57,7 @@ public class RoomCategoryController {
     @PostMapping("/search")
     @Operation(summary = "Найти категории номеров по фильтру")
     @ApiResponse(responseCode = "200", description = "Страница найденных категорий")
-    public ResponseEntity<Page<RoomCategoryResponseDto>> getRoomCategoriesWithFilter(
+    public ResponseEntity<PageResponse<RoomCategoryResponseDto>> getRoomCategoriesWithFilter(
             @Valid @RequestBody RoomCategorySearchRequestDto requestRoomsWithFilter,
             @Valid RoomCategoryPageFilter roomFilter
     ){
@@ -65,8 +66,18 @@ public class RoomCategoryController {
                 .searchRoomCategoriesWithFilter(requestRoomsWithFilter,roomFilter);
         return ResponseEntity.
                 status(HttpStatus.OK)
-                .body(foundRoomCategoriesWithFilter.map(mapper::toDto));
+                .body(toPageResponse(foundRoomCategoriesWithFilter.map(mapper::toDto)));
 
+    }
+
+    private <T> PageResponse<T> toPageResponse(Page<T> page) {
+        return new PageResponse<>(
+                page.getContent(),
+                page.getTotalPages(),
+                page.getTotalElements(),
+                page.getSize(),
+                page.getNumber()
+        );
     }
 
 }

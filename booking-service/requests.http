@@ -1,0 +1,83 @@
+@baseUrl = http://localhost:8084
+@authToken = {{auth_token}}
+@bookingId = 556bc793-c291-43d6-9a28-b48ddd928ad9
+@roomCategoryId = 2
+@checkInDate = 2026-06-15
+@checkOutDate = 2026-06-16
+@pageNumber = 0
+@pageSize = 10
+
+### Создать бронь
+# Требует JWT пользователя. Idempotency-Key можно менять для повторных тестов.
+POST {{baseUrl}}/booking
+Authorization: Bearer {{authToken}}
+Idempotency-Key: booking-test-001
+Content-Type: application/json
+
+{
+  "categoryId": {{roomCategoryId}},
+  "checkInDate": "{{checkInDate}}",
+  "checkOutDate": "{{checkOutDate}}",
+  "guests": 2,
+  "adultCount": 2,
+  "childrenCount": 0,
+  "promoCode": null
+}
+
+### Найти доступные категории номеров на даты
+POST {{baseUrl}}/booking/available/search?pageNumber={{pageNumber}}&pageSize={{pageSize}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "checkInDate": "{{checkInDate}}",
+  "checkOutDate": "{{checkOutDate}}",
+  "guests": 2,
+  "roomType": "STANDARD_DOUBLE",
+  "priceFrom": null,
+  "priceTo": null,
+  "minArea": null
+}
+
+### Найти брони пользователя по фильтру
+POST {{baseUrl}}/booking/search?pageNumber={{pageNumber}}&pageSize={{pageSize}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "status": "HOLD",
+  "active": null,
+  "adultCount": 2,
+  "childrenCount": 0,
+  "checkInDate": "{{checkInDate}}",
+  "checkOutDate": "{{checkOutDate}}"
+}
+
+### Получить бронь по UUID
+GET {{baseUrl}}/booking/{{bookingId}}
+Authorization: Bearer {{authToken}}
+
+### Получить активные брони пользователя
+GET {{baseUrl}}/booking?pageNumber={{pageNumber}}&pageSize={{pageSize}}
+Authorization: Bearer {{authToken}}
+
+### Получить неактивные брони пользователя
+GET {{baseUrl}}/booking/inactive?pageNumber={{pageNumber}}&pageSize={{pageSize}}
+Authorization: Bearer {{authToken}}
+
+### Очистить неактивные брони пользователя
+DELETE {{baseUrl}}/booking/inactive
+Authorization: Bearer {{authToken}}
+
+### Очистить завершенные брони пользователя
+DELETE {{baseUrl}}/booking/completed
+Authorization: Bearer {{authToken}}
+
+### Отменить бронь
+PATCH {{baseUrl}}/booking/{{bookingId}}/cancel
+Authorization: Bearer {{authToken}}
+
+### Подтвердить бронь
+PATCH {{baseUrl}}/booking/{{bookingId}}/confirm
+Authorization: Bearer {{authToken}}
+

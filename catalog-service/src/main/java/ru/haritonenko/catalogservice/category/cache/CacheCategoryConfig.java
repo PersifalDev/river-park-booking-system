@@ -1,6 +1,5 @@
 package ru.haritonenko.catalogservice.category.cache;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -8,8 +7,9 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import tools.jackson.databind.ObjectMapper;
 import ru.haritonenko.catalogservice.category.domain.RoomCategory;
 
 @Profile("dev")
@@ -26,7 +26,7 @@ public class CacheCategoryConfig {
         template.setConnectionFactory(connectionFactory);
 
         var keySerializer = new StringRedisSerializer();
-        var valueSerializer = new Jackson2JsonRedisSerializer<>(objectMapper, RoomCategory.class);
+        var valueSerializer = new JacksonJsonRedisSerializer<>(objectMapper, RoomCategory.class);
 
         template.setKeySerializer(keySerializer);
         template.setValueSerializer(valueSerializer);

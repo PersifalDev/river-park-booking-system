@@ -34,7 +34,7 @@ public class NotificationKafkaPaymentEventListener {
             case PAYMENT_INVOICE_CREATED -> notificationService.sendPaymentCreatedNotification(payload.bookingId(), payload.paymentId(), payload.userId(), payload.priceAmount());
             case PAYMENT_PENDING -> notificationService.sendPaymentPendingNotification(payload.bookingId(), payload.paymentId(), payload.userId(), payload.priceAmount());
             case PAYMENT_CONFIRMED -> notificationService.sendPaymentConfirmedNotification(payload.bookingId(), payload.paymentId(), payload.userId());
-            case PAYMENT_CANCELLED -> notificationService.sendPaymentCancelledNotification(payload.bookingId(), payload.paymentId(), payload.userId(), payload.cancellationReason());
+            case PAYMENT_CANCELLED -> log.info("Skip user notification for PAYMENT_CANCELLED because booking cancellation notification is enough: bookingId={}, paymentId={}", payload.bookingId(), payload.paymentId());
             case PAYMENT_FAILED -> notificationService.sendPaymentFailedNotification(payload.bookingId(), payload.paymentId(), payload.userId(), payload.cancellationReason());
         }
     }

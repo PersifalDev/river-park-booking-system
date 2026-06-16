@@ -39,7 +39,7 @@ import java.util.UUID;
         guestsRequired = true,
         adultCountRequired = true,
         childrenCountRequired = true,
-        validateComposition = true
+        compositionRequired = true
 )
 @ValidBookingEntity
 @Table(name = "booking")

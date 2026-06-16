@@ -20,7 +20,7 @@ public @interface ValidGuestCounts {
 
     boolean childrenCountRequired() default false;
 
-    boolean validateComposition() default false;
+    boolean compositionRequired() default false;
 
     Class<?>[] groups() default {};
 

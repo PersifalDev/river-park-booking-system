@@ -20,7 +20,7 @@ import java.time.LocalDate;
         guestsRequired = true,
         adultCountRequired = true,
         childrenCountRequired = true,
-        validateComposition = true
+        compositionRequired = true
 )
 @Builder
 public record BookingRequestDto(

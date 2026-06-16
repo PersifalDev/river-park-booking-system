@@ -27,7 +27,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(UserAlreadyRegisteredException.class)
     public ResponseEntity<ErrorMessageResponse> handleUserAlreadyRegisteredException(UserAlreadyRegisteredException ex) {
-        log.warn("User already registered exception", ex);
+        log.info("User already registered: {}", ex.getMessage());
         return buildErrorResponse(HttpStatus.CONFLICT, ex.getMessage(), ex.getClass().getSimpleName());
     }
 

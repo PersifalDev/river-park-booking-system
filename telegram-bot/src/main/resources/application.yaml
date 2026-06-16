@@ -1,6 +1,12 @@
 spring:
   application:
     name: telegram-bot
+  data:
+    redis:
+      host: ${TELEGRAM_BOT_REDIS_HOST:${CATALOG_SERVICE_REDIS_HOST:localhost}}
+      port: ${TELEGRAM_BOT_REDIS_PORT:${REDIS_CATALOG_SERVICE_PORT:6381}}
+      database: ${TELEGRAM_BOT_REDIS_DB:2}
+      timeout: ${TELEGRAM_BOT_REDIS_TIMEOUT:2s}
 
 server:
   port: ${TELEGRAM_BOT_PORT:8086}
@@ -30,6 +36,11 @@ telegram:
 bot:
   notification:
     poll-interval-ms: ${NOTIFICATION_POLL_INTERVAL_MS:15000}
+  photo:
+    byte-cache-max-entries: ${TELEGRAM_PHOTO_BYTE_CACHE_MAX_ENTRIES:64}
+    connect-timeout: ${TELEGRAM_PHOTO_CONNECT_TIMEOUT:2s}
+    request-timeout: ${TELEGRAM_PHOTO_REQUEST_TIMEOUT:8s}
+    telegram-file-id-ttl: ${TELEGRAM_PHOTO_FILE_ID_TTL:30d}
 
 clients:
   catalog:

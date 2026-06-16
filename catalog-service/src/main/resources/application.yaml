@@ -14,7 +14,7 @@ springdoc:
 
 openapi:
   title: River Park Catalog Service API
-  description: API справочника River Park: категории номеров, фото, услуги и правила проживания.
+  description: "Catalog API for River Park: room categories, photos, services and stay rules."
   version: 1.0.0
 
 spring:
@@ -75,6 +75,6 @@ app:
     default-ttl: ${CATEGORY_SERVICE_CACHE_DEFAULT_TTL:30s}
     categories-ttl: ${CATEGORY_SERVICE_CACHE_CATEGORIES_TTL:30s}
     services-ttl: ${CATEGORY_SERVICE_CACHE_SERVICES_TTL:30s}
-    photos-ttl: ${CATEGORY_SERVICE_CACHE_PHOTOS_TTL:30s}
+    photos-ttl: ${CATEGORY_SERVICE_CACHE_PHOTOS_TTL:24h}
   base-dir: ${APP_BASE_DIR:./data/static}
   public-base-url: ${CATALOG_PUBLIC_BASE_URL:http://localhost:8085}

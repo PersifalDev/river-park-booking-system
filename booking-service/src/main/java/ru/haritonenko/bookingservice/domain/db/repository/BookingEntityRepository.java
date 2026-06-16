@@ -32,6 +32,18 @@ public interface BookingEntityRepository extends JpaRepository<BookingEntity, UU
             Pageable pageable
     );
 
+    Page<BookingEntity> findAllByUserId(
+            Long userId,
+            Pageable pageable
+    );
+
+    Page<BookingEntity> findAllByUserIdAndStatusAndCheckOutDateBefore(
+            Long userId,
+            BookingStatus status,
+            LocalDate checkOutDate,
+            Pageable pageable
+    );
+
     @Query("""
             SELECT b from BookingEntity b
             WHERE b.status = :status
@@ -101,5 +113,40 @@ public interface BookingEntityRepository extends JpaRepository<BookingEntity, UU
     int deleteInactiveBookingsCreatedBefore(
             @Param("statuses") Collection<BookingStatus> statuses,
             @Param("threshold") OffsetDateTime threshold
+    );
+
+    @Modifying
+    @Query("""
+            DELETE FROM BookingEntity b
+            WHERE b.userId = :userId
+              AND b.status in :statuses
+            """)
+    int deleteInactiveBookingsByUserId(
+            @Param("userId") Long userId,
+            @Param("statuses") Collection<BookingStatus> statuses
+    );
+
+    @Modifying
+    @Query("""
+            DELETE FROM BookingEntity b
+            WHERE b.status = :status
+              AND b.checkOutDate < :thresholdDate
+            """)
+    int deleteCompletedBookingsCheckedOutBefore(
+            @Param("status") BookingStatus status,
+            @Param("thresholdDate") LocalDate thresholdDate
+    );
+
+    @Modifying
+    @Query("""
+            DELETE FROM BookingEntity b
+            WHERE b.userId = :userId
+              AND b.status = :status
+              AND b.checkOutDate <= :today
+            """)
+    int deleteCompletedBookingsByUserId(
+            @Param("userId") Long userId,
+            @Param("status") BookingStatus status,
+            @Param("today") LocalDate today
     );
 }
