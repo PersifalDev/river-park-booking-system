@@ -10,7 +10,7 @@ import org.springframework.web.client.support.RestClientAdapter;
 import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 import ru.haritonenko.bookingservice.external.client.catalog.CatalogServiceHttpClient;
 import ru.haritonenko.bookingservice.external.client.users.UserServiceHttpClient;
-import ru.haritonenko.bookingservice.external.circuit.ExternalCircuitBreakerProperties;
+import ru.haritonenko.bookingservice.external.circuit.props.ExternalCircuitBreakerProperties;
 import ru.haritonenko.bookingservice.external.circuit.SimpleCircuitBreaker;
 import ru.haritonenko.bookingservice.external.configuration.props.CatalogServiceHttpClientProperties;
 import ru.haritonenko.bookingservice.external.configuration.props.HttpClientProperties;

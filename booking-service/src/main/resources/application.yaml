@@ -97,6 +97,11 @@ app:
     promo:
       generated-discount-percent: ${BOOKING_PROMO_GENERATED_DISCOUNT_PERCENT:10}
 
+    tariff:
+      default-code: ${BOOKING_DEFAULT_TARIFF_CODE:ROOM_ONLY}
+      money-scale: ${BOOKING_TARIFF_MONEY_SCALE:2}
+      rounding-mode: ${BOOKING_TARIFF_ROUNDING_MODE:HALF_UP}
+
     idempotency:
       ttl: ${BOOKING_IDEMPOTENCY_TTL:24h}
 

@@ -9,6 +9,7 @@ public record BotBookingRequestDto(
         Integer guests,
         Integer adultCount,
         Integer childrenCount,
+        String tariffCode,
         String promoCode
 ) {
 }

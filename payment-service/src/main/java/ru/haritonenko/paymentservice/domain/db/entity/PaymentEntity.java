@@ -2,6 +2,8 @@ package ru.haritonenko.paymentservice.domain.db.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
@@ -51,6 +53,7 @@ public class PaymentEntity {
     private BigDecimal priceAmount;
 
     @NotNull
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
     private PaymentStatus status;
 

@@ -373,7 +373,7 @@ public class BotMessageService {
             return null;
         }
         List<org.telegram.telegrambots.meta.api.objects.photo.PhotoSize> photos = message.getPhoto();
-        return photos.getLast().getFileId();
+        return photos.get(photos.size() - 1).getFileId();
     }
 
     private String telegramFileIdKey(String photoUrl) {
@@ -528,9 +528,4 @@ public class BotMessageService {
         return false;
     }
 
-    private record CachedPhoto(byte[] bytes, String fileName) {
-        private ByteArrayInputStream bytesInputStream() {
-            return new ByteArrayInputStream(bytes);
-        }
-    }
 }

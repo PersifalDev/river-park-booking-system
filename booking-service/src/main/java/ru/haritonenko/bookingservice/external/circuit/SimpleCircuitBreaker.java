@@ -1,5 +1,7 @@
 package ru.haritonenko.bookingservice.external.circuit;
 
+import ru.haritonenko.bookingservice.external.circuit.exception.ExternalCircuitBreakerOpenException;
+
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;

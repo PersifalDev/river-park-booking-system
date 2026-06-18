@@ -61,13 +61,14 @@ public class BookingIdempotencyService {
     }
 
     public String hash(BookingRequestDto request) {
-        String canonical = "%s|%s|%s|%s|%s|%s|%s".formatted(
+        String canonical = "%s|%s|%s|%s|%s|%s|%s|%s".formatted(
                 request.categoryId(),
                 request.checkInDate(),
                 request.checkOutDate(),
                 request.guests(),
                 request.adultCount(),
                 request.childrenCount(),
+                normalizeCode(request.tariffCode()),
                 normalizePromo(request.promoCode())
         );
         try {
@@ -91,5 +92,9 @@ public class BookingIdempotencyService {
 
     private String normalizePromo(String promoCode) {
         return promoCode == null || promoCode.isBlank() ? "" : promoCode.trim().toUpperCase();
+    }
+
+    private String normalizeCode(String code) {
+        return code == null || code.isBlank() ? "" : code.trim().toUpperCase();
     }
 }

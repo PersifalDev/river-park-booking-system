@@ -11,6 +11,7 @@ public record BookingDraft(
         LocalDate checkOutDate,
         Integer adultCount,
         Integer childrenCount,
+        String tariffCode,
         String promoCode
 ) {
 

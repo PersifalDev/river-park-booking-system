@@ -1,4 +1,4 @@
-package ru.haritonenko.bookingservice.external.circuit;
+package ru.haritonenko.bookingservice.external.circuit.exception;
 
 public class ExternalCircuitBreakerOpenException extends RuntimeException {
 

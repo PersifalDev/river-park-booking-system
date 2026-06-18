@@ -6,6 +6,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
+import ru.haritonenko.bookingservice.domain.db.entity.BookingTariffEntity;
+import ru.haritonenko.bookingservice.domain.tariff.TariffCancellationPolicy;
+import ru.haritonenko.bookingservice.domain.tariff.TariffPriceModifierType;
 import ru.haritonenko.bookingservice.external.client.catalog.CatalogServiceHttpClient;
 import ru.haritonenko.commonlibs.dto.category.RoomCategoryResponseDto;
 import ru.haritonenko.commonlibs.dto.category.type.RoomType;
@@ -28,13 +31,20 @@ class BookingPricingServiceTest {
     @Mock
     private PromoCodeService promoCodeService;
 
+    @Mock
+    private BookingTariffService bookingTariffService;
+
     @InjectMocks
     private BookingPricingService bookingPricingService;
 
     @Test
     void shouldCalculatePriceForNightsAndApplyPromo() {
         BookingEntity booking = bookingEntity();
+        BookingTariffEntity tariff = roomOnlyTariff();
         when(catalogServiceHttpClient.getRoomCategoryById(1L)).thenReturn(room(BigDecimal.valueOf(5000)));
+        when(bookingTariffService.requireApplicableTariff(booking)).thenReturn(tariff);
+        when(bookingTariffService.calculateTariffPrice(BigDecimal.valueOf(15000), 3, tariff))
+                .thenReturn(BigDecimal.valueOf(15000));
         when(promoCodeService.applyPromoIfPresent(
                 booking.getId(),
                 booking.getUserId(),
@@ -71,6 +81,17 @@ class BookingPricingServiceTest {
                 .checkInDate(LocalDate.now().plusDays(1))
                 .checkOutDate(LocalDate.now().plusDays(4))
                 .appliedPromoCode("PROMO10")
+                .build();
+    }
+
+    private BookingTariffEntity roomOnlyTariff() {
+        return BookingTariffEntity.builder()
+                .code("ROOM_ONLY")
+                .title("Без завтрака")
+                .priceModifierType(TariffPriceModifierType.FIXED_PER_STAY)
+                .priceModifierValue(BigDecimal.ZERO)
+                .cancellationPolicy(TariffCancellationPolicy.FLEXIBLE)
+                .active(true)
                 .build();
     }
 

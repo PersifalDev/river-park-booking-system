@@ -34,6 +34,96 @@ telegram:
     admin-contact: ${TELEGRAM_ADMIN_CONTACT}
 
 bot:
+  flow:
+    booking:
+      max-guests: ${BOT_BOOKING_MAX_GUESTS:6}
+      max-adults: ${BOT_BOOKING_MAX_ADULTS:4}
+      max-children: ${BOT_BOOKING_MAX_CHILDREN:5}
+    filter:
+      max-guests: ${BOT_FILTER_MAX_GUESTS:6}
+      min-price: ${BOT_FILTER_MIN_PRICE:5000}
+      max-price: ${BOT_FILTER_MAX_PRICE:20000}
+      min-area: ${BOT_FILTER_MIN_AREA:10}
+      max-area: ${BOT_FILTER_MAX_AREA:60}
+    pagination:
+      room-page-size: ${BOT_ROOM_PAGE_SIZE:1}
+      service-page-size: ${BOT_SERVICE_PAGE_SIZE:4}
+      photo-page-size: ${BOT_PHOTO_PAGE_SIZE:20}
+      bookings-page-size: ${BOT_BOOKINGS_PAGE_SIZE:5}
+      notifications-page-size: ${BOT_NOTIFICATIONS_PAGE_SIZE:5}
+  messages:
+    validation:
+      booking-already-inactive: '${BOT_MESSAGE_BOOKING_ALREADY_INACTIVE:Бронь уже отменена.}'
+      date-error: '${BOT_MESSAGE_VALIDATION_DATE_ERROR:Проверьте даты: дата выезда должна быть позже даты заезда. Формат даты: 9.06.2026 или 09.06.2026.}'
+      filter-error: '${BOT_MESSAGE_VALIDATION_FILTER_ERROR:Проверьте параметры фильтра: цена и площадь должны быть положительными числами. Если фильтр не нужен, отправьте -}'
+      default-error: '${BOT_MESSAGE_VALIDATION_DEFAULT_ERROR:Проверьте введенные данные и попробуйте еще раз.}'
+      promo-ignored: '${BOT_MESSAGE_PROMO_IGNORED:Промокод не подошел, бронирование продолжено без скидки.}'
+      price-range: '${BOT_MESSAGE_PRICE_RANGE:Цена за ночь должна быть от %s до %s. Если цена не важна, отправьте -}'
+      area-range: '${BOT_MESSAGE_AREA_RANGE:Площадь должна быть от %s до %s м². Если площадь не важна, отправьте -}'
+    booking:
+      max-guests: '${BOT_MESSAGE_MAX_GUESTS:Максимум %s гостей в одной брони: до %s взрослых и до %s детей.}'
+      selected-period: '${BOT_MESSAGE_SELECTED_PERIOD:Выбранный период: %s - %s\nСвободно номеров: %s\n\nВведите количество взрослых.}'
+      cancelling: '${BOT_MESSAGE_BOOKING_CANCELLING:Отменяю бронь...}'
+      inactive-empty: '${BOT_MESSAGE_INACTIVE_BOOKINGS_EMPTY:Несостоявшихся броней пока нет.}'
+      inactive-title: '${BOT_MESSAGE_INACTIVE_BOOKINGS_TITLE:Несостоявшиеся брони.}'
+      early-empty: '${BOT_MESSAGE_EARLY_BOOKINGS_EMPTY:Ранних состоявшихся броней пока нет.}'
+      early-title: '${BOT_MESSAGE_EARLY_BOOKINGS_TITLE:Ранние состоявшиеся брони.}'
+      history-empty: '${BOT_MESSAGE_BOOKING_HISTORY_EMPTY:История бронирований пока пустая.}'
+      history-title: '${BOT_MESSAGE_BOOKING_HISTORY_TITLE:История бронирований.}'
+      room-default-title: '${BOT_MESSAGE_ROOM_DEFAULT_TITLE:Номер}'
+      next-promo-code: '${BOT_MESSAGE_NEXT_PROMO_CODE:Ваш промокод на следующее бронирование: }'
+    input:
+      room-id-must-be-number: '${BOT_MESSAGE_ROOM_ID_MUST_BE_NUMBER:Введите номер категории числом.}'
+      service-id-must-be-number: '${BOT_MESSAGE_SERVICE_ID_MUST_BE_NUMBER:Введите номер услуги числом.}'
+      guests-must-be-integer: '${BOT_MESSAGE_GUESTS_MUST_BE_INTEGER:Количество гостей должно быть целым числом.}'
+      adults-must-be-integer: '${BOT_MESSAGE_ADULTS_MUST_BE_INTEGER:Количество взрослых должно быть целым числом.}'
+      children-must-be-integer: '${BOT_MESSAGE_CHILDREN_MUST_BE_INTEGER:Количество детей должно быть целым числом.}'
+      room-type-not-recognized: '${BOT_MESSAGE_ROOM_TYPE_NOT_RECOGNIZED:Не удалось распознать категорию. Выберите её кнопками ниже или отправьте -}'
+      min-price-must-be-number: '${BOT_MESSAGE_MIN_PRICE_MUST_BE_NUMBER:Минимальная цена должна быть числом или -}'
+      max-price-must-be-number: '${BOT_MESSAGE_MAX_PRICE_MUST_BE_NUMBER:Максимальная цена должна быть числом или -}'
+      min-area-must-be-number: '${BOT_MESSAGE_MIN_AREA_MUST_BE_NUMBER:Минимальная площадь должна быть числом или -}'
+      max-price-lower-than-min: '${BOT_MESSAGE_MAX_PRICE_LOWER_THAN_MIN:Максимальная цена не может быть меньше минимальной.}'
+    notification:
+      automatic-info: '${BOT_MESSAGE_NOTIFICATION_AUTOMATIC_INFO:Уведомления приходят автоматически. Я сам пришлю сообщение, когда статус брони изменится.}'
+      none-unread: '${BOT_MESSAGE_NOTIFICATION_NONE_UNREAD:Новых уведомлений нет.}'
+      marked-read: '${BOT_MESSAGE_NOTIFICATION_MARKED_READ:Уведомление отмечено как прочитанное.}'
+      all-marked-read: '${BOT_MESSAGE_NOTIFICATION_ALL_MARKED_READ:Все уведомления отмечены как прочитанные.}'
+    service-unavailable:
+      booking: '${BOT_MESSAGE_BOOKING_SERVICE_UNAVAILABLE:Сервис бронирования сейчас недоступен. Попробуйте еще раз чуть позже.}'
+      catalog: '${BOT_MESSAGE_CATALOG_SERVICE_UNAVAILABLE:Сервис каталога сейчас недоступен. Попробуйте еще раз чуть позже.}'
+      payment: '${BOT_MESSAGE_PAYMENT_SERVICE_UNAVAILABLE:Сервис подтверждения брони сейчас недоступен. Бронь не потерялась, попробуйте еще раз чуть позже.}'
+      notification: '${BOT_MESSAGE_NOTIFICATION_SERVICE_UNAVAILABLE:Сервис уведомлений сейчас недоступен. Основное действие сохранено, уведомления появятся позже.}'
+      user: '${BOT_MESSAGE_USER_SERVICE_UNAVAILABLE:Сервис пользователей сейчас недоступен. Попробуйте еще раз чуть позже.}'
+      default-message: '${BOT_MESSAGE_DEFAULT_SERVICE_UNAVAILABLE:Один из сервисов сейчас недоступен. Попробуйте еще раз чуть позже.}'
+    keyboard:
+      pick-room: '${BOT_KEYBOARD_PICK_ROOM:Подобрать номер}'
+      all-rooms: '${BOT_KEYBOARD_ALL_ROOMS:Все номера}'
+      my-bookings: '${BOT_KEYBOARD_MY_BOOKINGS:Мои брони}'
+      notifications: '${BOT_KEYBOARD_NOTIFICATIONS:Уведомления}'
+      find-room: '${BOT_KEYBOARD_FIND_ROOM:Найти номер}'
+      services: '${BOT_KEYBOARD_SERVICES:Услуги}'
+      find-service: '${BOT_KEYBOARD_FIND_SERVICE:Найти услугу}'
+      rules: '${BOT_KEYBOARD_RULES:Правила проживания}'
+      contacts: '${BOT_KEYBOARD_CONTACTS:Контакты}'
+      site: '${BOT_KEYBOARD_SITE:Сайт}'
+      no-category: '${BOT_KEYBOARD_NO_CATEGORY:Без категории}'
+      menu: '${BOT_KEYBOARD_MENU:Меню}'
+      details: '${BOT_KEYBOARD_DETAILS:Подробнее}'
+      photo: '${BOT_KEYBOARD_PHOTO:Фото}'
+      book: '${BOT_KEYBOARD_BOOK:Забронировать}'
+      back-to-rooms: '${BOT_KEYBOARD_BACK_TO_ROOMS:К списку номеров}'
+      back-to-selection: '${BOT_KEYBOARD_BACK_TO_SELECTION:Назад к подборке}'
+      back-to-services: '${BOT_KEYBOARD_BACK_TO_SERVICES:К списку услуг}'
+      send-pdf: '${BOT_KEYBOARD_SEND_PDF:Отправить PDF}'
+      inactive-bookings: '${BOT_KEYBOARD_INACTIVE_BOOKINGS:Несостоявшиеся}'
+      early-bookings: '${BOT_KEYBOARD_EARLY_BOOKINGS:Ранние}'
+      booking-history: '${BOT_KEYBOARD_BOOKING_HISTORY:История}'
+      back-to-active-bookings: '${BOT_KEYBOARD_BACK_TO_ACTIVE_BOOKINGS:Назад к актуальным}'
+      confirm-booking: '${BOT_KEYBOARD_CONFIRM_BOOKING:Подтвердить бронь}'
+      cancel-booking: '${BOT_KEYBOARD_CANCEL_BOOKING:Отменить бронь}'
+      back-to-bookings: '${BOT_KEYBOARD_BACK_TO_BOOKINGS:К списку броней}'
+      previous: '${BOT_KEYBOARD_PREVIOUS:<}'
+      next: '${BOT_KEYBOARD_NEXT:>}'
   notification:
     poll-interval-ms: ${NOTIFICATION_POLL_INTERVAL_MS:15000}
   photo:

@@ -1,5 +1,6 @@
 package ru.haritonenko.telegrambot.bot.util;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
@@ -8,28 +9,39 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import ru.haritonenko.commonlibs.dto.service.ServiceItemResponseDto;
+import ru.haritonenko.telegrambot.bot.command.BotMenuCommand;
+import ru.haritonenko.telegrambot.config.BotMessagesProperties;
 import ru.haritonenko.telegrambot.dto.booking.BotBookingListItem;
 import ru.haritonenko.telegrambot.dto.booking.BotBookingResponseDto;
+import ru.haritonenko.telegrambot.dto.booking.BotTariffResponseDto;
 import ru.haritonenko.telegrambot.dto.payment.BotPaymentResponseDto;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Component
+@RequiredArgsConstructor
 public class BotKeyboardFactory {
+
+    private final BotMessagesProperties messages;
+
+    public Optional<BotMenuCommand> resolveMenuCommand(String text) {
+        return BotMenuCommand.fromText(text, messages.keyboard());
+    }
 
     public ReplyKeyboardMarkup mainMenu() {
         KeyboardRow row1 = new KeyboardRow();
-        row1.add(new KeyboardButton("Подобрать номер"));
-        row1.add(new KeyboardButton("Все номера"));
+        row1.add(new KeyboardButton(label(BotMenuCommand.PICK_ROOM)));
+        row1.add(new KeyboardButton(label(BotMenuCommand.ALL_ROOMS)));
 
         KeyboardRow row2 = new KeyboardRow();
-        row2.add(new KeyboardButton("Мои брони"));
-        row2.add(new KeyboardButton("Услуги"));
+        row2.add(new KeyboardButton(label(BotMenuCommand.MY_BOOKINGS)));
+        row2.add(new KeyboardButton(label(BotMenuCommand.SERVICES)));
 
         KeyboardRow row3 = new KeyboardRow();
-        row3.add(new KeyboardButton("Правила проживания"));
-        row3.add(new KeyboardButton("Контакты"));
+        row3.add(new KeyboardButton(label(BotMenuCommand.RULES)));
+        row3.add(new KeyboardButton(label(BotMenuCommand.CONTACTS)));
 
         return ReplyKeyboardMarkup.builder()
                 .resizeKeyboard(true)
@@ -41,9 +53,9 @@ public class BotKeyboardFactory {
     public InlineKeyboardMarkup inlineMainMenu() {
         return InlineKeyboardMarkup.builder()
                 .keyboard(List.of(
-                        row(button("Подобрать номер", "menu:pick-room"), button("Все номера", "menu:all-rooms")),
-                        row(button("Мои брони", "menu:my-bookings"), button("Услуги", "menu:services")),
-                        row(button("Правила проживания", "menu:rules"), button("Контакты", "menu:contacts"))
+                        row(button(label(BotMenuCommand.PICK_ROOM), "menu:pick-room"), button(label(BotMenuCommand.ALL_ROOMS), "menu:all-rooms")),
+                        row(button(label(BotMenuCommand.MY_BOOKINGS), "menu:my-bookings"), button(label(BotMenuCommand.SERVICES), "menu:services")),
+                        row(button(label(BotMenuCommand.RULES), "menu:rules"), button(label(BotMenuCommand.CONTACTS), "menu:contacts"))
                 ))
                 .build();
     }
@@ -54,8 +66,8 @@ public class BotKeyboardFactory {
                         row(button("Standard", "filter:room-type:STANDARD"), button("Standard Double", "filter:room-type:STANDARD_DOUBLE")),
                         row(button("Standard Plus", "filter:room-type:STANDARD_PLUS"), button("Studio", "filter:room-type:STUDIO")),
                         row(button("Business Studio", "filter:room-type:BUSINESS_STUDIO"), button("Economy", "filter:room-type:ECONOMY")),
-                        row(button("Без категории", "filter:room-type:skip")),
-                        row(button("Меню", "menu:main"))
+                        row(button(messages.keyboard().noCategory(), "filter:room-type:skip")),
+                        row(button(messages.keyboard().menu(), "menu:main"))
                 ))
                 .build();
     }
@@ -68,12 +80,12 @@ public class BotKeyboardFactory {
         List<InlineKeyboardRow> rows = new ArrayList<>();
         String sourceSuffix = "rooms:filter:page:".equals(pagePrefix) ? ":filter" : "";
         rows.add(row(
-                button("Подробнее", "room:view:" + roomId + ":" + pageNumber + sourceSuffix),
-                button("Фото", "room:photos:" + roomId + ":" + pageNumber + sourceSuffix)
+                button(messages.keyboard().details(), "room:view:" + roomId + ":" + pageNumber + sourceSuffix),
+                button(messages.keyboard().photo(), "room:photos:" + roomId + ":" + pageNumber + sourceSuffix)
         ));
-        rows.add(row(button("Забронировать", "booking:start:" + roomId)));
+        rows.add(row(button(messages.keyboard().book(), "booking:start:" + roomId)));
         rows.add(paginationRow(pageNumber, totalPages, pagePrefix));
-        rows.add(row(button("Меню", "menu:main")));
+        rows.add(row(button(messages.keyboard().menu(), "menu:main")));
         return InlineKeyboardMarkup.builder().keyboard(rows).build();
     }
 
@@ -86,11 +98,11 @@ public class BotKeyboardFactory {
         String sourceSuffix = filtered ? ":filter" : "";
         String pagePrefix = filtered ? "rooms:filter:page:" : "rooms:page:";
         rows.add(row(
-                button("Забронировать", "booking:start:" + roomId),
-                button("Фото", "room:photos:" + roomId + ":" + pageNumber + sourceSuffix)
+                button(messages.keyboard().book(), "booking:start:" + roomId),
+                button(messages.keyboard().photo(), "room:photos:" + roomId + ":" + pageNumber + sourceSuffix)
         ));
-        rows.add(row(button("К списку номеров", pagePrefix + pageNumber)));
-        rows.add(row(button("Меню", "menu:main")));
+        rows.add(row(button(messages.keyboard().backToRooms(), pagePrefix + pageNumber)));
+        rows.add(row(button(messages.keyboard().menu(), "menu:main")));
         return InlineKeyboardMarkup.builder().keyboard(rows).build();
     }
 
@@ -104,11 +116,11 @@ public class BotKeyboardFactory {
         String pagePrefix = filtered ? "rooms:filter:page:" : "rooms:page:";
         String sourceSuffix = filtered ? ":filter" : "";
         rows.add(row(
-                button("Подробнее", "room:view:" + roomId + ":" + roomPageNumber + sourceSuffix),
-                button("Забронировать", "booking:start:" + roomId)
+                button(messages.keyboard().details(), "room:view:" + roomId + ":" + roomPageNumber + sourceSuffix),
+                button(messages.keyboard().book(), "booking:start:" + roomId)
         ));
-        rows.add(row(button("Назад к подборке", pagePrefix + roomPageNumber)));
-        rows.add(row(button("Все номера", "menu:all-rooms"), button("Меню", "menu:main")));
+        rows.add(row(button(messages.keyboard().backToSelection(), pagePrefix + roomPageNumber)));
+        rows.add(row(button(label(BotMenuCommand.ALL_ROOMS), "menu:all-rooms"), button(messages.keyboard().menu(), "menu:main")));
         return InlineKeyboardMarkup.builder().keyboard(rows).build();
     }
 
@@ -118,22 +130,22 @@ public class BotKeyboardFactory {
             rows.add(row(button(service.title(), "service:view:" + service.id() + ":" + pageNumber)));
         }
         rows.add(simplePaginationRow(pageNumber, hasNextPage, "services:page:"));
-        rows.add(row(button("Меню", "menu:main")));
+        rows.add(row(button(messages.keyboard().menu(), "menu:main")));
         return InlineKeyboardMarkup.builder().keyboard(rows).build();
     }
 
     public InlineKeyboardMarkup serviceDetails(Long serviceId, int pageNumber) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
-        rows.add(row(button("К списку услуг", "services:page:" + pageNumber)));
-        rows.add(row(button("Меню", "menu:main")));
+        rows.add(row(button(messages.keyboard().backToServices(), "services:page:" + pageNumber)));
+        rows.add(row(button(messages.keyboard().menu(), "menu:main")));
         return InlineKeyboardMarkup.builder().keyboard(rows).build();
     }
 
     public InlineKeyboardMarkup rulesKeyboard() {
         return InlineKeyboardMarkup.builder()
                 .keyboard(List.of(
-                        row(button("Отправить PDF", "rules:file")),
-                        row(button("Меню", "menu:main"))
+                        row(button(messages.keyboard().sendPdf(), "rules:file")),
+                        row(button(messages.keyboard().menu(), "menu:main"))
                 ))
                 .build();
     }
@@ -166,25 +178,34 @@ public class BotKeyboardFactory {
         }
         rows.add(paginationRow(pageNumber, totalPages, pagePrefix));
         if (includeSections) {
-            rows.add(row(button("Несостоявшиеся", "booking:inactive"), button("Ранние", "booking:early")));
-            rows.add(row(button("История", "booking:history")));
+            rows.add(row(button(messages.keyboard().inactiveBookings(), "booking:inactive"), button(messages.keyboard().earlyBookings(), "booking:early")));
+            rows.add(row(button(messages.keyboard().bookingHistory(), "booking:history")));
         }
         if (includeBackToActive) {
-            rows.add(row(button("Назад к актуальным", "menu:my-bookings")));
+            rows.add(row(button(messages.keyboard().backToActiveBookings(), "menu:my-bookings")));
         }
-        rows.add(row(button("Меню", "menu:main")));
+        rows.add(row(button(messages.keyboard().menu(), "menu:main")));
         return InlineKeyboardMarkup.builder().keyboard(rows).build();
     }
 
     public InlineKeyboardMarkup bookingDetails(BotBookingResponseDto booking, BotPaymentResponseDto payment) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
         if (canConfirmPayment(booking, payment)) {
-            rows.add(row(button("Подтвердить бронь", "payment:confirm:" + booking.id())));
+            rows.add(row(button(messages.keyboard().confirmBooking(), "payment:confirm:" + booking.id())));
         }
         if (canCancelBooking(booking)) {
-            rows.add(row(button("Отменить бронь", "booking:cancel:" + booking.id())));
+            rows.add(row(button(messages.keyboard().cancelBooking(), "booking:cancel:" + booking.id())));
         }
-        rows.add(row(button("К списку броней", "menu:my-bookings"), button("Меню", "menu:main")));
+        rows.add(row(button(messages.keyboard().backToBookings(), "menu:my-bookings"), button(messages.keyboard().menu(), "menu:main")));
+        return InlineKeyboardMarkup.builder().keyboard(rows).build();
+    }
+
+    public InlineKeyboardMarkup tariffSelection(List<BotTariffResponseDto> tariffs) {
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+        for (BotTariffResponseDto tariff : tariffs) {
+            rows.add(row(button(tariff.title(), "booking:tariff:" + tariff.code())));
+        }
+        rows.add(row(button(messages.keyboard().menu(), "menu:main")));
         return InlineKeyboardMarkup.builder().keyboard(rows).build();
     }
 
@@ -204,10 +225,10 @@ public class BotKeyboardFactory {
     private InlineKeyboardRow paginationRow(int pageNumber, int totalPages, String prefix) {
         InlineKeyboardRow row = new InlineKeyboardRow();
         if (pageNumber > 0) {
-            row.add(button("⬅️", prefix + (pageNumber - 1)));
+            row.add(button(messages.keyboard().previous(), prefix + (pageNumber - 1)));
         }
         if (pageNumber + 1 < totalPages) {
-            row.add(button("➡️", prefix + (pageNumber + 1)));
+            row.add(button(messages.keyboard().next(), prefix + (pageNumber + 1)));
         }
         return row;
     }
@@ -220,10 +241,10 @@ public class BotKeyboardFactory {
         InlineKeyboardRow row = new InlineKeyboardRow();
         String sourceSuffix = filtered ? ":filter" : "";
         if (photoIndex > 0) {
-            row.add(button("⬅️", "room:photo:index:" + roomId + ":" + (photoIndex - 1) + ":" + roomPageNumber + sourceSuffix));
+            row.add(button(messages.keyboard().previous(), "room:photo:index:" + roomId + ":" + (photoIndex - 1) + ":" + roomPageNumber + sourceSuffix));
         }
         if (photoIndex + 1 < totalPhotos) {
-            row.add(button("➡️", "room:photo:index:" + roomId + ":" + (photoIndex + 1) + ":" + roomPageNumber + sourceSuffix));
+            row.add(button(messages.keyboard().next(), "room:photo:index:" + roomId + ":" + (photoIndex + 1) + ":" + roomPageNumber + sourceSuffix));
         }
         return row;
     }
@@ -231,10 +252,10 @@ public class BotKeyboardFactory {
     private InlineKeyboardRow simplePaginationRow(int pageNumber, boolean hasNextPage, String prefix) {
         InlineKeyboardRow row = new InlineKeyboardRow();
         if (pageNumber > 0) {
-            row.add(button("⬅️", prefix + (pageNumber - 1)));
+            row.add(button(messages.keyboard().previous(), prefix + (pageNumber - 1)));
         }
         if (hasNextPage) {
-            row.add(button("➡️", prefix + (pageNumber + 1)));
+            row.add(button(messages.keyboard().next(), prefix + (pageNumber + 1)));
         }
         return row;
     }
@@ -250,5 +271,9 @@ public class BotKeyboardFactory {
                 .text(text)
                 .callbackData(data)
                 .build();
+    }
+
+    private String label(BotMenuCommand command) {
+        return command.label(messages.keyboard());
     }
 }

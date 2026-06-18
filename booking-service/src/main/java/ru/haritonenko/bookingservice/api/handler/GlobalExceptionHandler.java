@@ -10,9 +10,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.haritonenko.bookingservice.domain.exception.BookingAvailabilityException;
 import ru.haritonenko.bookingservice.domain.exception.BookingIdempotencyConflictException;
 import ru.haritonenko.bookingservice.domain.exception.BookingNotFoundException;
+import ru.haritonenko.bookingservice.domain.exception.BookingTariffNotApplicableException;
+import ru.haritonenko.bookingservice.domain.exception.BookingTariffNotFoundException;
 import ru.haritonenko.bookingservice.domain.exception.IllegalBookingStateException;
 import ru.haritonenko.bookingservice.domain.exception.BookingHoldFailedException;
-import ru.haritonenko.bookingservice.external.circuit.ExternalCircuitBreakerOpenException;
+import ru.haritonenko.bookingservice.external.circuit.exception.ExternalCircuitBreakerOpenException;
 import ru.haritonenko.bookingservice.kafka.outbox.exception.KafkaBookingEventIllegalStateException;
 import ru.haritonenko.bookingservice.kafka.outbox.exception.KafkaEventNotFoundException;
 import ru.haritonenko.bookingservice.tasks.domain.exception.AsyncBookingTaskNotFoundException;
@@ -45,6 +47,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({
             BookingNotFoundException.class,
+            BookingTariffNotFoundException.class,
             RoomCategoryNotFoundException.class,
             AsyncBookingTaskNotFoundException.class,
             KafkaEventNotFoundException.class
@@ -57,6 +60,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({
             BookingAvailabilityException.class,
             BookingHoldFailedException.class,
+            BookingTariffNotApplicableException.class,
             BookingIdempotencyConflictException.class,
             IllegalBookingStateException.class,
             KafkaBookingEventIllegalStateException.class

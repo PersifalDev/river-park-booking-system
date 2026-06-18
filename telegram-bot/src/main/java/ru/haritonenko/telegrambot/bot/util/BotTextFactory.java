@@ -1,12 +1,15 @@
 package ru.haritonenko.telegrambot.bot.util;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import ru.haritonenko.commonlibs.dto.category.RoomCategoryResponseDto;
 import ru.haritonenko.commonlibs.dto.category.RoomCategorySearchRequestDto;
 import ru.haritonenko.commonlibs.dto.category.type.RoomType;
 import ru.haritonenko.commonlibs.dto.rule.RuleDocumentResponseDto;
 import ru.haritonenko.commonlibs.dto.service.ServiceItemResponseDto;
+import ru.haritonenko.telegrambot.config.BotMessagesProperties;
 import ru.haritonenko.telegrambot.dto.booking.BotBookingResponseDto;
+import ru.haritonenko.telegrambot.dto.booking.BotTariffResponseDto;
 import ru.haritonenko.telegrambot.dto.notification.BotNotificationResponseDto;
 import ru.haritonenko.telegrambot.dto.payment.BotPaymentResponseDto;
 
@@ -19,12 +22,14 @@ import java.util.List;
 import java.util.Locale;
 
 @Component
+@RequiredArgsConstructor
 public class BotTextFactory {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy");
     private static final DateTimeFormatter SHORT_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd.MM");
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
     private static final ZoneId NOVOSIBIRSK_ZONE = ZoneId.of("Asia/Novosibirsk");
+    private final BotMessagesProperties messages;
 
     public String buildStartMessage() {
         return "Здравствуйте. Я бот River Park.\n\n"
@@ -41,6 +46,172 @@ public class BotTextFactory {
                 + "Введите количество гостей числом или отправьте -, если количество не важно.\n"
                 + "Максимум: " + maxGuests + " гостей, до " + maxAdults + " взрослых и до " + maxChildren + " детей.\n"
                 + "Например: 2";
+    }
+
+    public String buildMaxGuestsMessage(int maxGuests, int maxAdults, int maxChildren) {
+        return messages.booking().maxGuests().formatted(maxGuests, maxAdults, maxChildren);
+    }
+
+    public String buildBookingAlreadyInactiveMessage() {
+        return messages.validation().bookingAlreadyInactive();
+    }
+
+    public String buildValidationDateErrorMessage() {
+        return messages.validation().dateError();
+    }
+
+    public String buildValidationFilterErrorMessage() {
+        return messages.validation().filterError();
+    }
+
+    public String buildPriceRangeMessage(BigDecimal minPrice, BigDecimal maxPrice) {
+        return messages.validation().priceRange().formatted(
+                minPrice.stripTrailingZeros().toPlainString(),
+                maxPrice.stripTrailingZeros().toPlainString()
+        );
+    }
+
+    public String buildAreaRangeMessage(BigDecimal minArea, BigDecimal maxArea) {
+        return messages.validation().areaRange().formatted(
+                minArea.stripTrailingZeros().toPlainString(),
+                maxArea.stripTrailingZeros().toPlainString()
+        );
+    }
+
+    public String buildValidationDefaultErrorMessage() {
+        return messages.validation().defaultError();
+    }
+
+    public String buildPromoCodeIgnoredMessage() {
+        return messages.validation().promoIgnored();
+    }
+
+    public String buildPromoCodeIgnoredPrefixMessage(String message) {
+        return messages.validation().promoIgnored() + "\n\n" + message;
+    }
+
+    public String buildBookingServiceUnavailableMessage() {
+        return messages.serviceUnavailable().booking();
+    }
+
+    public String buildCatalogServiceUnavailableMessage() {
+        return messages.serviceUnavailable().catalog();
+    }
+
+    public String buildPaymentServiceUnavailableMessage() {
+        return messages.serviceUnavailable().payment();
+    }
+
+    public String buildNotificationServiceUnavailableMessage() {
+        return messages.serviceUnavailable().notification();
+    }
+
+    public String buildUserServiceUnavailableMessage() {
+        return messages.serviceUnavailable().user();
+    }
+
+    public String buildDefaultServiceUnavailableMessage() {
+        return messages.serviceUnavailable().defaultMessage();
+    }
+
+    public String buildNotificationsAutomaticInfoMessage() {
+        return messages.notification().automaticInfo();
+    }
+
+    public String buildRoomIdMustBeNumberMessage() {
+        return messages.input().roomIdMustBeNumber();
+    }
+
+    public String buildServiceIdMustBeNumberMessage() {
+        return messages.input().serviceIdMustBeNumber();
+    }
+
+    public String buildGuestsMustBeIntegerMessage() {
+        return messages.input().guestsMustBeInteger();
+    }
+
+    public String buildRoomTypeNotRecognizedMessage() {
+        return messages.input().roomTypeNotRecognized();
+    }
+
+    public String buildMaxPriceLowerThanMinMessage() {
+        return messages.input().maxPriceLowerThanMin();
+    }
+
+    public String buildMinPriceMustBeNumberMessage() {
+        return messages.input().minPriceMustBeNumber();
+    }
+
+    public String buildMaxPriceMustBeNumberMessage() {
+        return messages.input().maxPriceMustBeNumber();
+    }
+
+    public String buildMinAreaMustBeNumberMessage() {
+        return messages.input().minAreaMustBeNumber();
+    }
+
+    public String buildBookingSelectedPeriodMessage(LocalDate checkInDate, LocalDate checkOutDate, String availableUnits) {
+        return normalizeLineBreaks(messages.booking().selectedPeriod().formatted(
+                checkInDate.format(DATE_FORMATTER),
+                checkOutDate.format(DATE_FORMATTER),
+                availableUnits
+        ));
+    }
+
+    public String buildAdultsMustBeIntegerMessage() {
+        return messages.input().adultsMustBeInteger();
+    }
+
+    public String buildChildrenMustBeIntegerMessage() {
+        return messages.input().childrenMustBeInteger();
+    }
+
+    public String buildCancellingBookingMessage() {
+        return messages.booking().cancelling();
+    }
+
+    public String buildInactiveBookingsEmptyMessage() {
+        return messages.booking().inactiveEmpty();
+    }
+
+    public String buildInactiveBookingsTitleMessage() {
+        return messages.booking().inactiveTitle();
+    }
+
+    public String buildEarlyBookingsEmptyMessage() {
+        return messages.booking().earlyEmpty();
+    }
+
+    public String buildEarlyBookingsTitleMessage() {
+        return messages.booking().earlyTitle();
+    }
+
+    public String buildBookingHistoryEmptyMessage() {
+        return messages.booking().historyEmpty();
+    }
+
+    public String buildBookingHistoryTitleMessage() {
+        return messages.booking().historyTitle();
+    }
+
+    public String buildRoomDefaultTitle() {
+        return messages.booking().roomDefaultTitle();
+    }
+
+    public String buildNoUnreadNotificationsMessage() {
+        return messages.notification().noneUnread();
+    }
+
+    public String buildNotificationMarkedReadMessage() {
+        return messages.notification().markedRead();
+    }
+
+    public String buildAllNotificationsMarkedReadMessage() {
+        return messages.notification().allMarkedRead();
+    }
+
+    private String normalizeLineBreaks(String value) {
+        return value.replace("\\n", "\n");
     }
 
     public String buildAskFilterCheckInMessage() {
@@ -305,6 +476,18 @@ public class BotTextFactory {
                 + "Если есть промокод, отправьте его. Если нет, отправьте -";
     }
 
+    public String buildTariffSelectionMessage(List<BotTariffResponseDto> tariffs) {
+        StringBuilder builder = new StringBuilder("Выберите тариф для бронирования.\n\n");
+        for (BotTariffResponseDto tariff : tariffs) {
+            builder.append(tariff.title()).append(" — ").append(formatPrice(tariff.priceAmount())).append("\n");
+            if (tariff.includedServices() != null && !tariff.includedServices().isBlank()) {
+                builder.append("Включено: ").append(tariff.includedServices()).append("\n");
+            }
+            builder.append("Отмена: ").append(tariffCancellationPolicyTitle(tariff)).append("\n\n");
+        }
+        return builder.toString().trim();
+    }
+
     public String buildBookingCreatingMessage() {
         return "Создаю бронь и проверяю доступность номера...";
     }
@@ -314,6 +497,7 @@ public class BotTextFactory {
         builder.append("Бронь создана и номер удержан.\n\n")
                 .append("Код брони: ").append(valueOrDash(booking.bookingCode())).append("\n")
                 .append("Категория: ").append(roomTypeTitle(room.name())).append("\n")
+                .append("Тариф: ").append(valueOrDash(booking.tariffTitle())).append("\n")
                 .append("Заезд: ").append(formatDate(booking.checkInDate())).append("\n")
                 .append("Выезд: ").append(formatDate(booking.checkOutDate())).append("\n")
                 .append("Гостей: ").append(valueOrDash(booking.guests())).append("\n")
@@ -325,7 +509,8 @@ public class BotTextFactory {
             builder.append("\nУдержание до: ").append(formatDateTime(booking.holdExpiresAt()));
         }
         if (booking.generatedPromoCode() != null && !booking.generatedPromoCode().isBlank()) {
-            builder.append("\n\u0412\u0430\u0448 \u043f\u0440\u043e\u043c\u043e\u043a\u043e\u0434 \u043d\u0430 \u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0435\u0435 \u0431\u0440\u043e\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435: ")
+            builder.append("\n")
+                    .append(messages.booking().nextPromoCode())
                     .append(booking.generatedPromoCode());
             if (booking.promoDiscountPercent() != null) {
                 builder.append(" (-").append(booking.promoDiscountPercent()).append("%)");
@@ -369,6 +554,7 @@ public class BotTextFactory {
                 .append("Код: ").append(valueOrDash(booking.bookingCode())).append("\n")
                 .append("Статус: ").append(bookingStatusTitle(booking.status())).append("\n")
                 .append("Категория: ").append(room == null ? valueOrDash(booking.roomCategoryId()) : roomTypeTitle(room.name())).append("\n")
+                .append("Тариф: ").append(valueOrDash(booking.tariffTitle())).append("\n")
                 .append("Заезд: ").append(formatDate(booking.checkInDate())).append("\n")
                 .append("Выезд: ").append(formatDate(booking.checkOutDate())).append("\n")
                 .append("Гостей: ").append(valueOrDash(booking.guests())).append("\n")
@@ -471,6 +657,19 @@ public class BotTextFactory {
 
     private String valueOrDash(Object value) {
         return value == null ? "—" : String.valueOf(value);
+    }
+
+    private String tariffCancellationPolicyTitle(BotTariffResponseDto tariff) {
+        if (tariff == null || tariff.cancellationPolicy() == null) {
+            return "условия уточняются";
+        }
+        return switch (tariff.cancellationPolicy().toUpperCase(Locale.ROOT)) {
+            case "NON_REFUNDABLE" -> "невозвратный тариф";
+            case "FREE_UNTIL_DEADLINE" -> "бесплатно до " + valueOrDash(tariff.freeCancellationDaysBefore()) + " дн. до заезда";
+            case "FLEXIBLE" -> "гибкая отмена";
+            case "STRICT" -> "строгие условия";
+            default -> tariff.cancellationPolicy();
+        };
     }
 
     private Integer availableUnits(RoomCategoryResponseDto room) {

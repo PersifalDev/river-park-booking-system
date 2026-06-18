@@ -216,7 +216,7 @@ public class BookingInventoryService {
                 available = inventory.getTotalUnits() - inventory.getHeldUnits() - inventory.getConfirmedUnits();
             }
 
-            minAvailable = Math.clamp(available, 0, minAvailable);
+            minAvailable = Math.max(0, Math.min(available, minAvailable));
             if (minAvailable <= 0) {
                 return 0;
             }

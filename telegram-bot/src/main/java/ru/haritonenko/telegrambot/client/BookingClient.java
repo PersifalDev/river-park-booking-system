@@ -10,6 +10,7 @@ import ru.haritonenko.commonlibs.utils.pages.PageResponse;
 import ru.haritonenko.telegrambot.dto.booking.BotAvailableRoomSearchRequestDto;
 import ru.haritonenko.telegrambot.dto.booking.BotBookingRequestDto;
 import ru.haritonenko.telegrambot.dto.booking.BotBookingResponseDto;
+import ru.haritonenko.telegrambot.dto.booking.BotTariffResponseDto;
 import ru.haritonenko.telegrambot.dto.common.BotPageResponse;
 
 import java.util.List;
@@ -23,6 +24,8 @@ public class BookingClient {
             new ParameterizedTypeReference<>() {};
 
     private static final ParameterizedTypeReference<PageResponse<RoomCategoryResponseDto>> ROOM_PAGE_TYPE =
+            new ParameterizedTypeReference<>() {};
+    private static final ParameterizedTypeReference<List<BotTariffResponseDto>> TARIFF_LIST_TYPE =
             new ParameterizedTypeReference<>() {};
 
     private final RestClient bookingRestClient;
@@ -117,6 +120,16 @@ public class BookingClient {
                 .retrieve()
                 .body(ROOM_PAGE_TYPE);
         return response == null ? new PageResponse<>(List.of(), 0, 0, pageSize, pageNumber) : response;
+    }
+
+    public List<BotTariffResponseDto> getAvailableTariffs(String jwt, BotBookingRequestDto request) {
+        List<BotTariffResponseDto> response = bookingRestClient.post()
+                .uri("/booking/tariffs/available")
+                .header(HttpHeaders.AUTHORIZATION, bearer(jwt))
+                .body(request)
+                .retrieve()
+                .body(TARIFF_LIST_TYPE);
+        return response == null ? List.of() : response;
     }
 
     public BotBookingResponseDto cancelBooking(String jwt, UUID bookingId) {

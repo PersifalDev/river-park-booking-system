@@ -1,0 +1,162 @@
+package ru.haritonenko.bookingservice.domain.service;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import ru.haritonenko.bookingservice.api.dto.BookingRequestDto;
+import ru.haritonenko.bookingservice.config.tariff.BookingTariffProperties;
+import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
+import ru.haritonenko.bookingservice.domain.db.entity.BookingTariffEntity;
+import ru.haritonenko.bookingservice.domain.db.repository.BookingTariffRepository;
+import ru.haritonenko.bookingservice.domain.exception.BookingTariffNotApplicableException;
+import ru.haritonenko.bookingservice.domain.tariff.TariffCancellationPolicy;
+import ru.haritonenko.bookingservice.domain.tariff.TariffPriceModifierType;
+import ru.haritonenko.bookingservice.domain.tariff.price.FixedPerNightTariffPriceModifierStrategy;
+import ru.haritonenko.bookingservice.domain.tariff.price.FixedPerStayTariffPriceModifierStrategy;
+import ru.haritonenko.bookingservice.domain.tariff.price.PercentTariffPriceModifierStrategy;
+import ru.haritonenko.bookingservice.domain.tariff.rule.DateWindowTariffRule;
+import ru.haritonenko.bookingservice.domain.tariff.rule.GuestCompositionTariffRule;
+import ru.haritonenko.bookingservice.domain.tariff.rule.NightCountTariffRule;
+import ru.haritonenko.bookingservice.external.client.catalog.CatalogServiceHttpClient;
+import ru.haritonenko.commonlibs.dto.category.RoomCategoryResponseDto;
+import ru.haritonenko.commonlibs.dto.category.type.RoomType;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+class BookingTariffServiceTest {
+
+    private BookingTariffRepository tariffRepository;
+    private CatalogServiceHttpClient catalogServiceHttpClient;
+    private BookingTariffService service;
+
+    @BeforeEach
+    void setUp() {
+        tariffRepository = mock(BookingTariffRepository.class);
+        catalogServiceHttpClient = mock(CatalogServiceHttpClient.class);
+        BookingTariffProperties properties = new BookingTariffProperties();
+        properties.setDefaultCode("ROOM_ONLY");
+
+        service = new BookingTariffService(
+                tariffRepository,
+                List.of(new NightCountTariffRule(), new GuestCompositionTariffRule(), new DateWindowTariffRule()),
+                List.of(
+                        new PercentTariffPriceModifierStrategy(),
+                        new FixedPerNightTariffPriceModifierStrategy(),
+                        new FixedPerStayTariffPriceModifierStrategy()
+                ),
+                catalogServiceHttpClient,
+                properties
+        );
+    }
+
+    @Test
+    void shouldReturnOnlyApplicableTariffsWithCalculatedPrice() {
+        BookingTariffEntity roomOnly = tariff("ROOM_ONLY", TariffPriceModifierType.PERCENT, BigDecimal.ZERO);
+        BookingTariffEntity family = tariff("FAMILY", TariffPriceModifierType.FIXED_PER_STAY, BigDecimal.valueOf(2500));
+        family.setMinChildren(1);
+        BookingTariffEntity longStay = tariff("LONG_STAY", TariffPriceModifierType.PERCENT, BigDecimal.valueOf(-15));
+        longStay.setMinNights(5);
+
+        when(catalogServiceHttpClient.getRoomCategoryById(1L)).thenReturn(room(BigDecimal.valueOf(5000)));
+        when(tariffRepository.findAllByActiveTrueOrderBySortOrderAscTitleAsc())
+                .thenReturn(List.of(roomOnly, family, longStay));
+
+        var result = service.findApplicableTariffs(request(3, 2, 1));
+
+        assertEquals(2, result.size());
+        assertEquals("ROOM_ONLY", result.get(0).code());
+        assertEquals(0, BigDecimal.valueOf(15000).compareTo(result.get(0).priceAmount()));
+        assertEquals("FAMILY", result.get(1).code());
+        assertEquals(0, BigDecimal.valueOf(17500).compareTo(result.get(1).priceAmount()));
+    }
+
+    @Test
+    void shouldUseDefaultTariffCodeWhenBookingHasNoTariff() {
+        BookingTariffEntity roomOnly = tariff("ROOM_ONLY", TariffPriceModifierType.PERCENT, BigDecimal.ZERO);
+        when(tariffRepository.findByCodeAndActiveTrue("ROOM_ONLY")).thenReturn(Optional.of(roomOnly));
+
+        BookingTariffEntity actual = service.requireApplicableTariff(booking(null, 1, 2, 0));
+
+        assertEquals("ROOM_ONLY", actual.getCode());
+    }
+
+    @Test
+    void shouldRejectSelectedTariffWhenRulesDoNotApply() {
+        BookingTariffEntity longStay = tariff("LONG_STAY", TariffPriceModifierType.PERCENT, BigDecimal.valueOf(-15));
+        longStay.setMinNights(5);
+        when(tariffRepository.findByCodeAndActiveTrue("LONG_STAY")).thenReturn(Optional.of(longStay));
+
+        assertThrows(
+                BookingTariffNotApplicableException.class,
+                () -> service.requireApplicableTariff(booking("LONG_STAY", 2, 2, 0))
+        );
+    }
+
+    @Test
+    void shouldApplyFixedPerNightModifier() {
+        BookingTariffEntity breakfast = tariff("BREAKFAST", TariffPriceModifierType.FIXED_PER_NIGHT, BigDecimal.valueOf(500));
+
+        BigDecimal actual = service.calculateTariffPrice(BigDecimal.valueOf(10000), 2, breakfast);
+
+        assertEquals(0, BigDecimal.valueOf(11000).compareTo(actual));
+    }
+
+    private BookingRequestDto request(int nights, int adults, int children) {
+        LocalDate checkInDate = LocalDate.now().plusDays(1);
+        return BookingRequestDto.builder()
+                .categoryId(1L)
+                .checkInDate(checkInDate)
+                .checkOutDate(checkInDate.plusDays(nights))
+                .guests(adults + children)
+                .adultCount(adults)
+                .childrenCount(children)
+                .build();
+    }
+
+    private BookingEntity booking(String tariffCode, int nights, int adults, int children) {
+        LocalDate checkInDate = LocalDate.now().plusDays(1);
+        return BookingEntity.builder()
+                .id(UUID.randomUUID())
+                .tariffCode(tariffCode)
+                .checkInDate(checkInDate)
+                .checkOutDate(checkInDate.plusDays(nights))
+                .guests(adults + children)
+                .adultCount(adults)
+                .childrenCount(children)
+                .build();
+    }
+
+    private BookingTariffEntity tariff(String code, TariffPriceModifierType modifierType, BigDecimal modifierValue) {
+        return BookingTariffEntity.builder()
+                .code(code)
+                .title(code)
+                .priceModifierType(modifierType)
+                .priceModifierValue(modifierValue)
+                .cancellationPolicy(TariffCancellationPolicy.FLEXIBLE)
+                .sortOrder(10)
+                .active(true)
+                .build();
+    }
+
+    private RoomCategoryResponseDto room(BigDecimal basePrice) {
+        return new RoomCategoryResponseDto(
+                1L,
+                RoomType.STANDARD,
+                "Standard room",
+                2,
+                basePrice,
+                20.0,
+                30,
+                null,
+                null
+        );
+    }
+}

@@ -17,7 +17,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import ru.haritonenko.bookingservice.domain.exception.BookingAvailabilityException;
 import ru.haritonenko.bookingservice.domain.exception.BookingNotFoundException;
 import ru.haritonenko.bookingservice.domain.exception.IllegalBookingStateException;
-import ru.haritonenko.bookingservice.external.circuit.ExternalCircuitBreakerOpenException;
+import ru.haritonenko.bookingservice.external.circuit.exception.ExternalCircuitBreakerOpenException;
 import ru.haritonenko.commonlibs.exception.BookingGuestsOverloadedException;
 
 import java.util.Set;

@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 import ru.haritonenko.bookingservice.cache.config.BookingCacheProperties;
+import ru.haritonenko.bookingservice.config.tariff.BookingTariffProperties;
 import ru.haritonenko.bookingservice.config.validation.BookingValidationProperties;
 import ru.haritonenko.bookingservice.tasks.domain.async.dispatcher.config.AsyncBookingTaskDispatcherProperties;
 
@@ -17,7 +18,8 @@ import java.util.concurrent.*;
 @EnableConfigurationProperties({
         BookingCacheProperties.class,
         AsyncBookingTaskDispatcherProperties.class,
-        BookingValidationProperties.class
+        BookingValidationProperties.class,
+        BookingTariffProperties.class
 })
 public class CommonApplicationConfig {
 

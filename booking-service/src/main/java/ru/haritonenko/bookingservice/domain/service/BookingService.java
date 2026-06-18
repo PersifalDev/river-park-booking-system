@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import ru.haritonenko.bookingservice.api.dto.AvailableRoomSearchRequestDto;
 import ru.haritonenko.bookingservice.api.dto.BookingRequestDto;
+import ru.haritonenko.bookingservice.api.dto.TariffResponseDto;
 import ru.haritonenko.bookingservice.api.dto.filter.BookingPageFilter;
 import ru.haritonenko.bookingservice.api.dto.filter.BookingRequestSearchFilter;
 import ru.haritonenko.bookingservice.config.validation.BookingValidationProperties;
@@ -55,6 +56,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -90,6 +92,7 @@ public class BookingService {
     private final TransactionTemplate transactionTemplate;
     private final PromoCodeService promoCodeService;
     private final BookingIdempotencyService idempotencyService;
+    private final BookingTariffService bookingTariffService;
 
     @Value("${app.booking.default-page-number}")
     private int defaultPageNumber;
@@ -130,6 +133,15 @@ public class BookingService {
             );
 
             OffsetDateTime now = OffsetDateTime.now();
+            var tariff = bookingTariffService.requireApplicableTariff(BookingEntity.builder()
+                    .roomCategoryId(bookingRequestDto.categoryId())
+                    .guests(bookingRequestDto.guests())
+                    .adultCount(bookingRequestDto.adultCount())
+                    .childrenCount(bookingRequestDto.childrenCount())
+                    .checkInDate(bookingRequestDto.checkInDate())
+                    .checkOutDate(bookingRequestDto.checkOutDate())
+                    .tariffCode(bookingRequestDto.tariffCode())
+                    .build());
             BookingEntity savedBooking = bookingRepository.save(BookingEntity.builder()
                     .userId(userId)
                     .roomCategoryId(bookingRequestDto.categoryId())
@@ -140,6 +152,11 @@ public class BookingService {
                     .checkInDate(bookingRequestDto.checkInDate())
                     .checkOutDate(bookingRequestDto.checkOutDate())
                     .priceAmount(BigDecimal.ONE)
+                    .tariffCode(tariff.getCode())
+                    .tariffTitle(tariff.getTitle())
+                    .tariffCancellationPolicy(tariff.getCancellationPolicy().name())
+                    .tariffFreeCancellationDaysBefore(tariff.getFreeCancellationDaysBefore())
+                    .tariffIncludedServices(tariff.getIncludedServices())
                     .holdExpiresAt(now.plus(holdTtl))
                     .hasPromo(bookingRequestDto.promoCode() != null && !bookingRequestDto.promoCode().isBlank())
                     .appliedPromoCode(normalizePromoCode(bookingRequestDto.promoCode()))
@@ -183,6 +200,11 @@ public class BookingService {
         cacheService.evictUserPages(userId);
 
         return mapper.toDomain(foundBooking);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TariffResponseDto> findApplicableTariffs(BookingRequestDto request) {
+        return bookingTariffService.findApplicableTariffs(request);
     }
 
     @Cacheable(
@@ -280,9 +302,17 @@ public class BookingService {
                 throw new IllegalBookingStateException("Booking already inactive id=%s".formatted(uuid));
             }
 
+            if ("NON_REFUNDABLE".equalsIgnoreCase(booking.getTariffCancellationPolicy())
+                    && booking.getStatus() == BookingStatus.CONFIRMED) {
+                log.warn("Non-refundable confirmed booking can not be cancelled by user: uuid={}, userId={}", uuid, authUserId);
+                throw new IllegalBookingStateException("Non-refundable confirmed booking can not be cancelled id=%s".formatted(uuid));
+            }
+
             switch(booking.getStatus()){
-                case BookingStatus.HOLD -> bookingInventoryService.releaseHeldInventory(booking);
-                case BookingStatus.CONFIRMED -> bookingInventoryService.releaseConfirmedInventory(booking);
+                case HOLD -> bookingInventoryService.releaseHeldInventory(booking);
+                case CONFIRMED -> bookingInventoryService.releaseConfirmedInventory(booking);
+                default -> {
+                }
             }
 
             booking.setStatus(BookingStatus.CANCELLED);
@@ -395,7 +425,7 @@ public class BookingService {
                             room.mainPhotoUrl()
                     );
                 })
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .toList();
 
         int safePageSize = pageFilter.getPageSize() == null || pageFilter.getPageSize() <= 0

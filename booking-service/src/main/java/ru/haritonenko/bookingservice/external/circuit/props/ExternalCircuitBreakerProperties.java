@@ -1,4 +1,4 @@
-package ru.haritonenko.bookingservice.external.circuit;
+package ru.haritonenko.bookingservice.external.circuit.props;
 
 import lombok.Getter;
 import lombok.Setter;

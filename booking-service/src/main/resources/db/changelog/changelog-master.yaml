@@ -57,3 +57,11 @@ databaseChangeLog:
         - sqlFile:
             path: db/changelog/007-create-booking-idempotency-table.sql
             relativeToChangelogFile: false
+
+  - changeSet:
+      id: 008-create-booking-tariff-table
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/008-create-booking-tariff-table.sql
+            relativeToChangelogFile: false

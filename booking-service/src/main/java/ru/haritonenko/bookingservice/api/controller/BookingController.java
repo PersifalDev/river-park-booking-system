@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import ru.haritonenko.bookingservice.api.dto.AvailableRoomSearchRequestDto;
 import ru.haritonenko.bookingservice.api.dto.BookingRequestDto;
 import ru.haritonenko.bookingservice.api.dto.BookingResponseDto;
+import ru.haritonenko.bookingservice.api.dto.TariffResponseDto;
 import ru.haritonenko.bookingservice.api.dto.filter.BookingPageFilter;
 import ru.haritonenko.bookingservice.api.dto.filter.BookingRequestSearchFilter;
 import ru.haritonenko.bookingservice.domain.mapper.BookingToResponseDtoMapper;
@@ -27,6 +28,7 @@ import ru.haritonenko.commonlibs.security.authorization.user.AuthUser;
 import ru.haritonenko.commonlibs.utils.pages.PageResponse;
 
 import java.util.UUID;
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -75,6 +77,20 @@ public class BookingController {
         AuthUser user = getAuthenticatedUser();
         log.info("Request for searching available rooms by dates for user with id={}", user.id());
         return ResponseEntity.ok(bookingService.searchAvailableRoomCategories(request, pageFilter));
+    }
+
+    @PostMapping("/tariffs/available")
+    @Operation(summary = "Получить доступные тарифы", description = "Возвращает тарифы, применимые к категории номера, датам и составу гостей, с рассчитанной ценой.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Тарифы найдены"),
+            @ApiResponse(responseCode = "400", description = "Некорректные параметры подбора")
+    })
+    public ResponseEntity<List<TariffResponseDto>> getAvailableTariffs(
+            @Valid @RequestBody BookingRequestDto request
+    ) {
+        Long authUserId = getAuthenticatedUser().id();
+        log.info("Request for available tariffs for categoryId={} by user={}", request.categoryId(), authUserId);
+        return ResponseEntity.ok(bookingService.findApplicableTariffs(request));
     }
 
     @PostMapping("/search")

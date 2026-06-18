@@ -39,6 +39,9 @@ public record BookingRequestDto(
 
         Integer childrenCount,
 
+        @Size(max = 64, message = "Tariff code is too long")
+        String tariffCode,
+
         @Size(max = 50, message = "Promo code is too long")
         String promoCode
 ) implements BookingDateRangeData, GuestCountData {

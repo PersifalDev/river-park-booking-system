@@ -16,6 +16,7 @@ import ru.haritonenko.bookingservice.api.controller.BookingController;
 import ru.haritonenko.bookingservice.api.dto.AvailableRoomSearchRequestDto;
 import ru.haritonenko.bookingservice.api.dto.BookingRequestDto;
 import ru.haritonenko.bookingservice.api.dto.BookingResponseDto;
+import ru.haritonenko.bookingservice.api.dto.TariffResponseDto;
 import ru.haritonenko.bookingservice.api.dto.filter.BookingPageFilter;
 import ru.haritonenko.bookingservice.api.dto.filter.BookingRequestSearchFilter;
 import ru.haritonenko.bookingservice.config.validation.BookingValidationProperties;
@@ -23,6 +24,8 @@ import ru.haritonenko.bookingservice.domain.Booking;
 import ru.haritonenko.bookingservice.domain.mapper.BookingToResponseDtoMapper;
 import ru.haritonenko.bookingservice.domain.service.BookingService;
 import ru.haritonenko.bookingservice.domain.status.BookingStatus;
+import ru.haritonenko.bookingservice.domain.tariff.TariffCancellationPolicy;
+import ru.haritonenko.bookingservice.domain.tariff.TariffPriceModifierType;
 import ru.haritonenko.bookingservice.security.service.AuthenticationService;
 import ru.haritonenko.commonlibs.dto.category.RoomCategoryResponseDto;
 import ru.haritonenko.commonlibs.dto.category.type.RoomType;
@@ -157,6 +160,38 @@ class BookingControllerWebTest {
                 .andExpect(jsonPath("$.content[0].status").value(BookingStatus.HOLD.getValue()));
 
         verify(bookingService).findAllBookingsByFilterAndByUserId(eq(USER_ID), any(BookingRequestSearchFilter.class), any(BookingPageFilter.class));
+    }
+
+    @Test
+    void shouldGetAvailableTariffs() throws Exception {
+        BookingRequestDto request = bookingRequest();
+        when(bookingService.findApplicableTariffs(any(BookingRequestDto.class)))
+                .thenReturn(List.of(new TariffResponseDto(
+                        "BREAKFAST",
+                        "С завтраком",
+                        "Тариф с завтраком",
+                        BigDecimal.valueOf(5500),
+                        TariffPriceModifierType.FIXED_PER_NIGHT,
+                        BigDecimal.valueOf(500),
+                        TariffCancellationPolicy.FREE_UNTIL_DEADLINE,
+                        2,
+                        "Проживание; завтрак",
+                        1,
+                        null,
+                        1,
+                        null
+                )));
+
+        mockMvc.perform(post("/booking/tariffs/available")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].code").value("BREAKFAST"))
+                .andExpect(jsonPath("$[0].title").value("С завтраком"))
+                .andExpect(jsonPath("$[0].priceAmount").value(5500))
+                .andExpect(jsonPath("$[0].cancellationPolicy").value("FREE_UNTIL_DEADLINE"));
+
+        verify(bookingService).findApplicableTariffs(any(BookingRequestDto.class));
     }
 
     @Test
@@ -300,6 +335,11 @@ class BookingControllerWebTest {
                 .checkInDate(checkInDate)
                 .checkOutDate(checkInDate.plusDays(1))
                 .priceAmount(BigDecimal.valueOf(5000))
+                .tariffCode("ROOM_ONLY")
+                .tariffTitle("Без завтрака")
+                .tariffCancellationPolicy("FLEXIBLE")
+                .tariffFreeCancellationDaysBefore(1)
+                .tariffIncludedServices("Проживание")
                 .holdExpiresAt(status == BookingStatus.HOLD ? OffsetDateTime.now().plusMinutes(15) : null)
                 .hasPromo(false)
                 .status(status)
@@ -321,6 +361,11 @@ class BookingControllerWebTest {
                 booking.checkInDate(),
                 booking.checkOutDate(),
                 booking.priceAmount(),
+                booking.tariffCode(),
+                booking.tariffTitle(),
+                booking.tariffCancellationPolicy(),
+                booking.tariffFreeCancellationDaysBefore(),
+                booking.tariffIncludedServices(),
                 booking.holdExpiresAt(),
                 booking.hasPromo(),
                 booking.appliedPromoCode(),

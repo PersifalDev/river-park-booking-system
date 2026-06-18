@@ -83,6 +83,21 @@ public class BookingEntity implements BookingDateRangeData, GuestCountData {
     @Column(name = "price_amount", precision = 12, scale = 2, nullable = false)
     private BigDecimal priceAmount;
 
+    @Column(name = "tariff_code", length = 64)
+    private String tariffCode;
+
+    @Column(name = "tariff_title", length = 128)
+    private String tariffTitle;
+
+    @Column(name = "tariff_cancellation_policy", length = 32)
+    private String tariffCancellationPolicy;
+
+    @Column(name = "tariff_free_cancellation_days_before")
+    private Integer tariffFreeCancellationDaysBefore;
+
+    @Column(name = "tariff_included_services", columnDefinition = "TEXT")
+    private String tariffIncludedServices;
+
     @Column(name = "hold_expires_at")
     private OffsetDateTime holdExpiresAt;
 
