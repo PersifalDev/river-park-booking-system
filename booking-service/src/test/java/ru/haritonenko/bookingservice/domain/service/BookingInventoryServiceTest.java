@@ -2,6 +2,8 @@ package ru.haritonenko.bookingservice.domain.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.TransactionTemplate;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingInventoryEntity;
 import ru.haritonenko.bookingservice.domain.db.repository.BookingInventoryRepository;
@@ -17,6 +19,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -33,16 +36,16 @@ class BookingInventoryServiceTest {
 
     private final BookingInventoryRepository inventoryRepository = mock(BookingInventoryRepository.class);
     private final CatalogServiceHttpClient catalogServiceHttpClient = mock(CatalogServiceHttpClient.class);
-    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate =
-            mock(org.springframework.transaction.support.TransactionTemplate.class);
+    private final TransactionTemplate transactionTemplate = mock(TransactionTemplate.class);
+    private final BookingRoomInventoryService roomInventoryService = mock(BookingRoomInventoryService.class);
 
     private final BookingInventoryService service =
-            new BookingInventoryService(inventoryRepository, catalogServiceHttpClient, transactionTemplate);
+            new BookingInventoryService(inventoryRepository, catalogServiceHttpClient, transactionTemplate, roomInventoryService);
 
     @BeforeEach
     void setUp() {
         doAnswer(invocation -> {
-            java.util.function.Consumer<org.springframework.transaction.TransactionStatus> callback = invocation.getArgument(0);
+            Consumer<TransactionStatus> callback = invocation.getArgument(0);
             callback.accept(null);
             return null;
         }).when(transactionTemplate).executeWithoutResult(any());
@@ -66,6 +69,7 @@ class BookingInventoryServiceTest {
         assertEquals(1, inventory.get(0).getHeldUnits());
         assertEquals(2, inventory.get(1).getHeldUnits());
         verify(inventoryRepository).insertMissingRows(1L, booking.getCheckInDate(), booking.getCheckOutDate(), 2);
+        verify(roomInventoryService).assignRoom(booking);
     }
 
     @Test
@@ -117,10 +121,33 @@ class BookingInventoryServiceTest {
     }
 
     @Test
+    void shouldReleaseConfirmedInventoryAndMarkRoomDirty() {
+        BookingEntity booking = booking();
+        BookingInventoryEntity inventory = inventory(booking.getCheckInDate(), 2, 0, 1);
+        when(inventoryRepository.findForUpdateByRoomCategoryIdAndBookingDateBetween(any(), any(), any()))
+                .thenReturn(List.of(inventory));
+
+        service.releaseConfirmedInventory(booking);
+
+        assertEquals(0, inventory.getConfirmedUnits());
+        verify(roomInventoryService).markRoomDirtyAfterDeparture(booking);
+    }
+
+    @Test
     void shouldReturnUnavailableWhenAnyDateHasNoUnits() {
         BookingEntity booking = booking();
         when(inventoryRepository.findByRoomCategoryIdAndBookingDate(eq(1L), any()))
                 .thenReturn(Optional.of(inventory(booking.getCheckInDate(), 1, 1, 0)));
+
+        assertFalse(service.isAvailable(booking));
+    }
+
+    @Test
+    void shouldReturnUnavailableWhenNoConcreteRoomAvailable() {
+        BookingEntity booking = booking();
+        when(inventoryRepository.findByRoomCategoryIdAndBookingDate(eq(1L), any()))
+                .thenReturn(Optional.empty());
+        when(roomInventoryService.isRoomAvailable(booking)).thenReturn(false);
 
         assertFalse(service.isAvailable(booking));
     }
@@ -166,6 +193,7 @@ class BookingInventoryServiceTest {
     void shouldTreatEmptyInventoryAsAvailable() {
         BookingEntity booking = booking();
         when(inventoryRepository.findByRoomCategoryIdAndBookingDate(eq(1L), any())).thenReturn(Optional.empty());
+        when(roomInventoryService.isRoomAvailable(booking)).thenReturn(true);
 
         assertTrue(service.isAvailable(booking));
     }

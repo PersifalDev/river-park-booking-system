@@ -27,6 +27,7 @@ class BookingMapperTest {
 
         assertEquals(entity.getId(), booking.id());
         assertEquals(entity.getBookingCode(), booking.bookingCode());
+        assertEquals(entity.getRoomNumberSnapshot(), booking.roomNumberSnapshot());
         assertEquals(entity.getStatus(), booking.status());
         assertEquals(entity.getAdultCount(), booking.adultCount());
     }
@@ -39,6 +40,7 @@ class BookingMapperTest {
 
         assertEquals(booking.id(), dto.id());
         assertEquals(booking.bookingCode(), dto.bookingCode());
+        assertEquals(booking.roomNumberSnapshot(), dto.roomNumberSnapshot());
         assertEquals(booking.status(), dto.status());
         assertEquals(booking.priceAmount(), dto.priceAmount());
     }
@@ -56,6 +58,7 @@ class BookingMapperTest {
                 .id(UUID.randomUUID())
                 .userId(10L)
                 .roomCategoryId(1L)
+                .roomNumberSnapshot("301")
                 .bookingCode("BK-TEST")
                 .guests(2)
                 .adultCount(2)

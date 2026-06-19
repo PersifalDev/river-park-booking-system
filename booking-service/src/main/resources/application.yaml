@@ -45,7 +45,7 @@ openapi:
   security-scheme-name: bearerAuth
 
 jwt:
-  secret-key: ${JWT_SECRET_KEY}
+  secret-key: ${JWT_SECRET_KEY:river-park-local-dev-secret-key-32}
   lifetime: ${JWT_LIFETIME:86400000}
 
 app:
@@ -87,10 +87,24 @@ app:
       hold-expiring-window: ${BOOKING_HOLD_EXPIRING_WINDOW:5m}
       check-in:
         days-before: ${BOOKING_CHECK_IN_REMINDER_DAYS_BEFORE:1}
+      texts:
+        date-zone: '${BOOKING_REMINDER_DATE_ZONE:Asia/Novosibirsk}'
+        date-pattern: '${BOOKING_REMINDER_DATE_PATTERN:dd.MM.yyyy}'
+        date-time-pattern: '${BOOKING_REMINDER_DATE_TIME_PATTERN:dd.MM.yyyy HH:mm}'
+        unknown-date: '${BOOKING_REMINDER_UNKNOWN_DATE:-}'
+        hold-expiring-title: '${BOOKING_HOLD_EXPIRING_NOTIFICATION_TITLE:Удержание скоро истечёт}'
+        hold-expiring-message: '${BOOKING_HOLD_EXPIRING_NOTIFICATION_MESSAGE:Бронь %s удерживается до %s. Подтвердите бронь, иначе удержание будет снято автоматически.}'
+        check-in-title: '${BOOKING_CHECK_IN_NOTIFICATION_TITLE:Напоминание о заезде}'
+        check-in-message: '${BOOKING_CHECK_IN_NOTIFICATION_MESSAGE:Напоминаем о брони %s. Заезд запланирован на %s. Оплата производится при заселении у администратора River Park.}'
     default-page-size: ${BOOKING_DEFAULT_PAGE_SIZE:10}
     default-page-number: ${BOOKING_DEFAULT_PAGE_NUMBER:0}
     events:
       source: ${BOOKING_EVENT_SOURCE:booking-service}
+    notifications:
+      review:
+        title: '${BOOKING_REVIEW_NOTIFICATION_TITLE:Как прошло проживание?}'
+        message: '${BOOKING_REVIEW_NOTIFICATION_MESSAGE:Спасибо, что выбрали River Park. Все понравилось? Оставьте отзыв на сайте отеля.}'
+        promo-prefix: '${BOOKING_REVIEW_NOTIFICATION_PROMO_PREFIX:Ваш промокод на следующее заселение: }'
     cache:
       page-index-ttl: ${BOOKING_PAGE_INDEX_TTL:PT1H}
 
@@ -101,6 +115,14 @@ app:
       default-code: ${BOOKING_DEFAULT_TARIFF_CODE:ROOM_ONLY}
       money-scale: ${BOOKING_TARIFF_MONEY_SCALE:2}
       rounding-mode: ${BOOKING_TARIFF_ROUNDING_MODE:HALF_UP}
+
+    price-calendar:
+      fallback-to-category-base-price: ${BOOKING_PRICE_CALENDAR_FALLBACK_TO_CATEGORY_BASE_PRICE:true}
+      money-scale: ${BOOKING_PRICE_CALENDAR_MONEY_SCALE:2}
+      rounding-mode: ${BOOKING_PRICE_CALENDAR_ROUNDING_MODE:HALF_UP}
+
+    room-inventory:
+      fallback-to-category-inventory: ${BOOKING_ROOM_INVENTORY_FALLBACK_TO_CATEGORY_INVENTORY:true}
 
     idempotency:
       ttl: ${BOOKING_IDEMPOTENCY_TTL:24h}

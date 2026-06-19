@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientResponseException;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import ru.haritonenko.commonlibs.dto.category.RoomCategoryResponseDto;
 import ru.haritonenko.telegrambot.bot.service.storage.BotConversationStore;
 import ru.haritonenko.telegrambot.bot.state.AvailableRoomSearchDraft;
@@ -296,7 +297,7 @@ public class BookingActionFlowHandler {
         return false;
     }
 
-    private void sendActionResult(Long chatId, Integer messageId, boolean photoMessage, String text, org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup keyboard) {
+    private void sendActionResult(Long chatId, Integer messageId, boolean photoMessage, String text, InlineKeyboardMarkup keyboard) {
         if (photoMessage) {
             botMessageService.deleteMessage(chatId, messageId);
             botMessageService.sendText(chatId, text, keyboard);

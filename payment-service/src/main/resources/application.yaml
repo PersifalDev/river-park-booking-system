@@ -45,7 +45,7 @@ openapi:
   security-scheme-name: bearerAuth
 
 jwt:
-  secret-key: ${JWT_SECRET_KEY:}
+  secret-key: ${JWT_SECRET_KEY:river-park-local-dev-secret-key-32}
   lifetime: ${JWT_LIFETIME:86400000}
 
 app:

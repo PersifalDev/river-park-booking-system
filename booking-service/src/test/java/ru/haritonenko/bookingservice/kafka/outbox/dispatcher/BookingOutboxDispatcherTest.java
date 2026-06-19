@@ -25,6 +25,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -38,6 +39,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@SuppressWarnings("unchecked")
 class BookingOutboxDispatcherTest {
 
     private final BookingOutboxRepository repository = mock(BookingOutboxRepository.class);
@@ -58,7 +60,7 @@ class BookingOutboxDispatcherTest {
             return callback.doInTransaction(mock(TransactionStatus.class));
         });
         doAnswer(invocation -> {
-            java.util.function.Consumer<TransactionStatus> callback = invocation.getArgument(0);
+            Consumer<TransactionStatus> callback = invocation.getArgument(0);
             callback.accept(mock(TransactionStatus.class));
             return null;
         }).when(transactionTemplate).executeWithoutResult(any());
@@ -151,7 +153,6 @@ class BookingOutboxDispatcherTest {
         assertThrows(KafkaEventNotFoundException.class, () -> dispatcher.sendOne(eventId));
     }
 
-    @SuppressWarnings("unchecked")
     private void mockRead(BookingOutboxEntity outbox, BookingKafkaEvent<BookingKafkaPayload> event) {
         try {
             when(objectMapper.readValue(eq(outbox.getPayload()), any(TypeReference.class))).thenReturn(event);

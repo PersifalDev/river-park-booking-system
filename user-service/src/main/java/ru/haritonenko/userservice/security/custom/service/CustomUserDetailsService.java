@@ -27,7 +27,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         log.info("User with login: {} was successfully loaded", username);
         return User.withUsername(username)
                 .password(user.getKey())
-                .authorities(String.valueOf(user.getUserRole()))
+                .authorities(user.getUserRole().authority())
                 .build();
     }
 }

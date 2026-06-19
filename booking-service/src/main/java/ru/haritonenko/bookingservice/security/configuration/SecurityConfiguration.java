@@ -14,6 +14,7 @@ import ru.haritonenko.bookingservice.rate.filter.BookingRateLimitFilter;
 import ru.haritonenko.bookingservice.security.custom.CustomAccessDeniedHandler;
 import ru.haritonenko.bookingservice.security.custom.CustomAuthenticationEntryPoint;
 import ru.haritonenko.bookingservice.security.jwt.filter.JwtTokenFilter;
+import ru.haritonenko.commonlibs.security.authorization.role.PlatformRole;
 
 
 @Configuration
@@ -42,6 +43,23 @@ public class SecurityConfiguration {
                         .accessDeniedHandler(customAccessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/error", "/error/**").permitAll()
+                        .requestMatchers("/booking/admin/**").hasAnyAuthority(
+                                PlatformRole.ADMIN_AUTHORITY,
+                                PlatformRole.BOOKING_MANAGER_AUTHORITY
+                        )
+                        .requestMatchers("/booking/*/confirm", "/booking/inactive", "/booking/early").hasAnyAuthority(
+                                PlatformRole.ADMIN_AUTHORITY,
+                                PlatformRole.BOOKING_MANAGER_AUTHORITY
+                        )
+                        .requestMatchers("/booking/*/cancel").hasAnyAuthority(
+                                PlatformRole.ADMIN_AUTHORITY,
+                                PlatformRole.BOOKING_MANAGER_AUTHORITY,
+                                PlatformRole.USER_AUTHORITY
+                        )
+                        .requestMatchers("/booking/completed").hasAnyAuthority(
+                                PlatformRole.ADMIN_AUTHORITY,
+                                PlatformRole.BOOKING_MANAGER_AUTHORITY
+                        )
                         .requestMatchers("/booking/**").authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(jwtTokenFilter, AnonymousAuthenticationFilter.class)

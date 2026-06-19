@@ -15,6 +15,7 @@ import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageTe
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.media.InputMediaPhoto;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
+import org.telegram.telegrambots.meta.api.objects.photo.PhotoSize;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -372,7 +373,7 @@ public class BotMessageService {
         if (message == null || message.getPhoto() == null || message.getPhoto().isEmpty()) {
             return null;
         }
-        List<org.telegram.telegrambots.meta.api.objects.photo.PhotoSize> photos = message.getPhoto();
+        List<PhotoSize> photos = message.getPhoto();
         return photos.get(photos.size() - 1).getFileId();
     }
 

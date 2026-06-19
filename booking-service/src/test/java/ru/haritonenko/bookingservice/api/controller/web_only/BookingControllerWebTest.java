@@ -355,6 +355,7 @@ class BookingControllerWebTest {
                 booking.bookingCode(),
                 booking.userId(),
                 booking.roomCategoryId(),
+                booking.roomNumberSnapshot(),
                 booking.guests(),
                 booking.adultCount(),
                 booking.childrenCount(),

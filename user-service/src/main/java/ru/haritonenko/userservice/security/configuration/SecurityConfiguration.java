@@ -16,6 +16,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
+import ru.haritonenko.commonlibs.security.authorization.role.PlatformRole;
 import ru.haritonenko.userservice.security.custom.authentification.CustomAuthenticationEntryPoint;
 import ru.haritonenko.userservice.security.custom.handler.CustomAccessDeniedHandler;
 import ru.haritonenko.userservice.security.custom.service.CustomUserDetailsService;
@@ -38,6 +39,7 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/users").permitAll()
                         .requestMatchers(HttpMethod.POST, "/users/auth").permitAll()
+                        .requestMatchers("/users/admin/**").hasAuthority(PlatformRole.ADMIN_AUTHORITY)
                         .requestMatchers(HttpMethod.GET, "/users/**").authenticated()
                         .requestMatchers("/error", "/error/**").permitAll()
                         .anyRequest().authenticated())

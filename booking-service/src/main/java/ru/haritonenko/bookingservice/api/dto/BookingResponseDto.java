@@ -14,6 +14,7 @@ public record BookingResponseDto(
         String bookingCode,
         Long userId,
         Long roomCategoryId,
+        String roomNumberSnapshot,
         Integer guests,
         Integer adultCount,
         Integer childrenCount,

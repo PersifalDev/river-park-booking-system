@@ -2,7 +2,7 @@ package ru.haritonenko.bookingservice.domain.service.reminder;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
+import ru.haritonenko.bookingservice.config.notification.BookingReminderNotificationProperties;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
 import ru.haritonenko.bookingservice.domain.service.BookingService;
 import ru.haritonenko.commonlibs.dto.kafka.event.type.NotificationEventType;
@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -23,13 +24,15 @@ import static org.mockito.Mockito.when;
 class BookingReminderServiceTest {
 
     private final BookingService bookingService = mock(BookingService.class);
+    private final BookingReminderNotificationProperties properties = new BookingReminderNotificationProperties();
+    private final BookingReminderNotificationFactory notificationFactory = new BookingReminderNotificationFactory(properties);
 
-    private final BookingReminderService service = new BookingReminderService(bookingService);
+    private final BookingReminderService service = new BookingReminderService(bookingService, properties, notificationFactory);
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(service, "holdExpiringWindow", Duration.ofMinutes(5));
-        ReflectionTestUtils.setField(service, "checkInDaysBefore", 1L);
+        properties.setHoldExpiringWindow(Duration.ofMinutes(5));
+        properties.getCheckIn().setDaysBefore(1L);
     }
 
     @Test
@@ -44,7 +47,7 @@ class BookingReminderServiceTest {
                 eq(booking),
                 eq(NotificationEventType.BOOKING_HOLD_EXPIRING),
                 any(),
-                org.mockito.ArgumentMatchers.contains(booking.getBookingCode())
+                contains(booking.getBookingCode())
         );
         verify(bookingService).markHoldReminderSent(eq(booking.getId()), any());
     }
@@ -70,7 +73,7 @@ class BookingReminderServiceTest {
                 eq(booking),
                 eq(NotificationEventType.BOOKING_CHECK_IN_REMINDER),
                 any(),
-                org.mockito.ArgumentMatchers.contains(booking.getBookingCode())
+                contains(booking.getBookingCode())
         );
         verify(bookingService).markCheckInReminderSent(eq(booking.getId()), any());
     }

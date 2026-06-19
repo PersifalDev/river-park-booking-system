@@ -38,8 +38,43 @@ openapi:
   security-scheme-name: bearerAuth
 
 jwt:
-  secret-key: ${JWT_SECRET_KEY}
+  secret-key: ${JWT_SECRET_KEY:river-park-local-dev-secret-key-32}
   lifetime: ${JWT_LIFETIME:86400000}
+
+app:
+  admin:
+    capabilities-by-role:
+      ADMIN:
+        - USERS
+        - ROLES
+        - ROOM_CATEGORIES
+        - ROOM_PHOTOS
+        - SERVICES
+        - TARIFFS
+        - PROMOTIONS
+        - STOP_SALES
+        - MANUAL_BOOKINGS
+        - BOOKING_CANCELLATIONS
+        - PAYMENT_REFUNDS
+        - USER_MESSAGES
+      BOOKING_MANAGER:
+        - MANUAL_BOOKINGS
+        - BOOKING_CONFIRMATIONS
+        - BOOKING_CANCELLATIONS
+        - STOP_SALES
+      CONTENT_MANAGER:
+        - ROOM_CATEGORIES
+        - ROOM_PHOTOS
+        - SERVICES
+        - TARIFFS
+        - PROMOTIONS
+      FINANCE_MANAGER:
+        - PAYMENTS
+        - PAYMENT_REFUNDS
+      SUPPORT_MANAGER:
+        - USER_MESSAGES
+        - BOOKING_CANCELLATIONS
+      USER: []
 
 logging:
   level:

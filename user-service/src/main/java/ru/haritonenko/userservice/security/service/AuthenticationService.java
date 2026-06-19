@@ -38,7 +38,7 @@ public class AuthenticationService {
         return jwtTokenManager.generateToken(
                 user.id(),
                 user.login(),
-                user.role().toString()
+                user.role().authority()
         );
     }
 

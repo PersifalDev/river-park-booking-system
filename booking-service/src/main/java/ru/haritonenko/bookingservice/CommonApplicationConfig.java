@@ -7,19 +7,31 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 import ru.haritonenko.bookingservice.cache.config.BookingCacheProperties;
+import ru.haritonenko.bookingservice.config.inventory.BookingRoomInventoryProperties;
+import ru.haritonenko.bookingservice.config.notification.BookingReminderNotificationProperties;
+import ru.haritonenko.bookingservice.config.notification.BookingReviewNotificationProperties;
+import ru.haritonenko.bookingservice.config.pricing.BookingPriceCalendarProperties;
 import ru.haritonenko.bookingservice.config.tariff.BookingTariffProperties;
 import ru.haritonenko.bookingservice.config.validation.BookingValidationProperties;
 import ru.haritonenko.bookingservice.tasks.domain.async.dispatcher.config.AsyncBookingTaskDispatcherProperties;
 
 import java.util.TimeZone;
-import java.util.concurrent.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 @Configuration
 @EnableConfigurationProperties({
         BookingCacheProperties.class,
         AsyncBookingTaskDispatcherProperties.class,
         BookingValidationProperties.class,
-        BookingTariffProperties.class
+        BookingTariffProperties.class,
+        BookingReviewNotificationProperties.class,
+        BookingReminderNotificationProperties.class,
+        BookingPriceCalendarProperties.class,
+        BookingRoomInventoryProperties.class
 })
 public class CommonApplicationConfig {
 

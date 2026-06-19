@@ -27,6 +27,7 @@ public class BookingInventoryService {
     private final BookingInventoryRepository inventoryRepository;
     private final CatalogServiceHttpClient catalogServiceHttpClient;
     private final TransactionTemplate transactionTemplate;
+    private final BookingRoomInventoryService roomInventoryService;
 
     public void holdInventory(BookingEntity booking) {
         if (isNull(booking)) {
@@ -74,6 +75,7 @@ public class BookingInventoryService {
                         inventory.getHeldUnits()
                 );
             }
+            roomInventoryService.assignRoom(booking);
         });
     }
 
@@ -125,6 +127,7 @@ public class BookingInventoryService {
                 );
             }
         }
+        roomInventoryService.markRoomDirtyAfterDeparture(booking);
     }
 
     @Transactional
@@ -194,7 +197,7 @@ public class BookingInventoryService {
                 booking.getId(),
                 booking.getRoomCategoryId()
         );
-        return true;
+        return roomInventoryService.isRoomAvailable(booking);
     }
 
 

@@ -35,12 +35,14 @@ class BookingTariffServiceTest {
 
     private BookingTariffRepository tariffRepository;
     private CatalogServiceHttpClient catalogServiceHttpClient;
+    private BookingPriceCalendarService priceCalendarService;
     private BookingTariffService service;
 
     @BeforeEach
     void setUp() {
         tariffRepository = mock(BookingTariffRepository.class);
         catalogServiceHttpClient = mock(CatalogServiceHttpClient.class);
+        priceCalendarService = mock(BookingPriceCalendarService.class);
         BookingTariffProperties properties = new BookingTariffProperties();
         properties.setDefaultCode("ROOM_ONLY");
 
@@ -53,7 +55,8 @@ class BookingTariffServiceTest {
                         new FixedPerStayTariffPriceModifierStrategy()
                 ),
                 catalogServiceHttpClient,
-                properties
+                properties,
+                priceCalendarService
         );
     }
 
@@ -68,6 +71,18 @@ class BookingTariffServiceTest {
         when(catalogServiceHttpClient.getRoomCategoryById(1L)).thenReturn(room(BigDecimal.valueOf(5000)));
         when(tariffRepository.findAllByActiveTrueOrderBySortOrderAscTitleAsc())
                 .thenReturn(List.of(roomOnly, family, longStay));
+        when(priceCalendarService.calculateBasePrice(
+                room(BigDecimal.valueOf(5000)),
+                roomOnly,
+                request(3, 2, 1).checkInDate(),
+                request(3, 2, 1).checkOutDate()
+        )).thenReturn(BigDecimal.valueOf(15000));
+        when(priceCalendarService.calculateBasePrice(
+                room(BigDecimal.valueOf(5000)),
+                family,
+                request(3, 2, 1).checkInDate(),
+                request(3, 2, 1).checkOutDate()
+        )).thenReturn(BigDecimal.valueOf(15000));
 
         var result = service.findApplicableTariffs(request(3, 2, 1));
 

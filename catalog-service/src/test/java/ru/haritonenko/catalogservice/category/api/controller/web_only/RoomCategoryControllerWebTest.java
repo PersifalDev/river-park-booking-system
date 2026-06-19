@@ -18,6 +18,7 @@ import ru.haritonenko.catalogservice.category.domain.RoomCategory;
 import ru.haritonenko.catalogservice.category.domain.mapper.RoomCategoryToDtoMapper;
 import ru.haritonenko.catalogservice.category.domain.service.RoomCategoryService;
 import ru.haritonenko.catalogservice.category.domain.type.RoomType;
+import ru.haritonenko.catalogservice.security.jwt.manager.JwtTokenManager;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -44,6 +45,9 @@ class RoomCategoryControllerWebTest {
 
     @MockitoBean
     private RoomCategoryToDtoMapper mapper;
+
+    @MockitoBean
+    private JwtTokenManager jwtTokenManager;
 
     private RoomCategory domain;
     private RoomCategoryResponseDto dto;

@@ -18,9 +18,12 @@ import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
@@ -51,8 +54,8 @@ class AsyncBookingTaskDispatcherTest {
             TransactionCallback<?> callback = invocation.getArgument(0);
             return callback.doInTransaction(mock(TransactionStatus.class));
         });
-        org.mockito.Mockito.doAnswer(invocation -> {
-            java.util.function.Consumer<TransactionStatus> callback = invocation.getArgument(0);
+        doAnswer(invocation -> {
+            Consumer<TransactionStatus> callback = invocation.getArgument(0);
             callback.accept(mock(TransactionStatus.class));
             return null;
         }).when(transactionTemplate).executeWithoutResult(any());
@@ -82,7 +85,7 @@ class AsyncBookingTaskDispatcherTest {
 
         dispatcher.dispatchTask(task);
 
-        verify(taskRepository, timeout(1000).atLeastOnce()).save(org.mockito.ArgumentMatchers.argThat(saved ->
+        verify(taskRepository, timeout(1000).atLeastOnce()).save(argThat(saved ->
                 saved.getStatus() == AsyncBookingTaskStatus.FAILED_RETRYABLE
                         && saved.getNextAttemptAt() != null
         ));
@@ -95,7 +98,7 @@ class AsyncBookingTaskDispatcherTest {
 
         dispatcher.dispatchTask(task);
 
-        verify(taskRepository, timeout(1000).atLeastOnce()).save(org.mockito.ArgumentMatchers.argThat(saved ->
+        verify(taskRepository, timeout(1000).atLeastOnce()).save(argThat(saved ->
                 saved.getStatus() == AsyncBookingTaskStatus.FAILED_NON_RETRYABLE
         ));
         verify(taskRepository, atLeastOnce()).save(any(AsyncBookingTaskEntity.class));

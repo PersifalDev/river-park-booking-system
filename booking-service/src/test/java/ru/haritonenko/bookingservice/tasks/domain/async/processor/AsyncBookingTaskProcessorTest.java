@@ -23,6 +23,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -62,7 +63,7 @@ class AsyncBookingTaskProcessorTest {
             return callback.doInTransaction(mock(TransactionStatus.class));
         }).when(transactionTemplate).execute(any());
         doAnswer(invocation -> {
-            java.util.function.Consumer<TransactionStatus> callback = invocation.getArgument(0);
+            Consumer<TransactionStatus> callback = invocation.getArgument(0);
             callback.accept(mock(TransactionStatus.class));
             return null;
         }).when(transactionTemplate).executeWithoutResult(any());

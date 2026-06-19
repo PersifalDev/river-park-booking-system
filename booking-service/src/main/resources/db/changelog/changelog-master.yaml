@@ -65,3 +65,19 @@ databaseChangeLog:
         - sqlFile:
             path: db/changelog/008-create-booking-tariff-table.sql
             relativeToChangelogFile: false
+
+  - changeSet:
+      id: 009-create-booking-price-calendar-table
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/009-create-booking-price-calendar-table.sql
+            relativeToChangelogFile: false
+
+  - changeSet:
+      id: 010-create-booking-room-inventory-table
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/010-create-booking-room-inventory-table.sql
+            relativeToChangelogFile: false

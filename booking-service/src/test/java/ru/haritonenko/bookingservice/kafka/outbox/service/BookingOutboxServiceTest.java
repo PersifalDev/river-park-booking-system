@@ -15,6 +15,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -34,7 +35,7 @@ class BookingOutboxServiceTest {
 
         service.saveEvent(event);
 
-        verify(repository).save(org.mockito.ArgumentMatchers.argThat(outbox ->
+        verify(repository).save(argThat(outbox ->
                 outbox.getId().equals(event.eventId())
                         && outbox.getAggregateId().equals(event.payload().bookingId())
                         && outbox.getEventType().equals(event.eventType().name())

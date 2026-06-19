@@ -24,9 +24,12 @@ import ru.haritonenko.bookingservice.domain.Booking;
 import ru.haritonenko.bookingservice.domain.BookingCreationResult;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
 import ru.haritonenko.bookingservice.domain.db.repository.BookingEntityRepository;
+import ru.haritonenko.bookingservice.domain.event.BookingEventFactory;
 import ru.haritonenko.bookingservice.domain.exception.BookingNotFoundException;
 import ru.haritonenko.bookingservice.domain.exception.IllegalBookingStateException;
 import ru.haritonenko.bookingservice.domain.mapper.BookingToDomainMapper;
+import ru.haritonenko.bookingservice.domain.notification.BookingNotificationContent;
+import ru.haritonenko.bookingservice.domain.notification.BookingReviewNotificationFactory;
 import ru.haritonenko.bookingservice.domain.status.BookingStatus;
 import ru.haritonenko.bookingservice.external.client.catalog.CatalogServiceHttpClient;
 import ru.haritonenko.bookingservice.kafka.outbox.service.BookingOutboxService;
@@ -38,15 +41,10 @@ import ru.haritonenko.bookingservice.tasks.domain.async.dispatcher.AsyncBookingT
 import ru.haritonenko.bookingservice.tasks.domain.async.status.AsyncBookingTaskStatus;
 import ru.haritonenko.bookingservice.tasks.domain.async.status.ProcessingStep;
 import ru.haritonenko.bookingservice.tasks.domain.exception.AsyncBookingTaskNotFoundException;
-import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.event.NotificationKafkaEvent;
 import ru.haritonenko.commonlibs.dto.kafka.event.type.BookingEventType;
 import ru.haritonenko.commonlibs.dto.kafka.event.type.NotificationEventType;
-import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
-import ru.haritonenko.commonlibs.dto.kafka.payload.NotificationKafkaPayload;
 import ru.haritonenko.commonlibs.dto.category.RoomCategoryResponseDto;
 import ru.haritonenko.commonlibs.dto.category.RoomCategorySearchRequestDto;
-import ru.haritonenko.commonlibs.notification.NotificationStatus;
 import ru.haritonenko.commonlibs.utils.pages.CommonPageable;
 import ru.haritonenko.commonlibs.utils.pages.PageResponse;
 
@@ -74,7 +72,6 @@ public class BookingService {
             BookingStatus.EXPIRED,
             BookingStatus.FAILED
     );
-    private static final String REVIEW_NOTIFICATION_TITLE = "Как прошло проживание?";
 
     private final BookingEntityRepository bookingRepository;
     private final AsyncBookingTaskEntityRepository taskRepository;
@@ -93,6 +90,8 @@ public class BookingService {
     private final PromoCodeService promoCodeService;
     private final BookingIdempotencyService idempotencyService;
     private final BookingTariffService bookingTariffService;
+    private final BookingReviewNotificationFactory reviewNotificationFactory;
+    private final BookingEventFactory eventFactory;
 
     @Value("${app.booking.default-page-number}")
     private int defaultPageNumber;
@@ -105,9 +104,6 @@ public class BookingService {
 
     @Value("${app.booking.cleanup.retention-period}")
     private Duration cleanupRetentionPeriod;
-
-    @Value("${app.booking.events.source}")
-    private String sourceService;
 
     public Booking createBooking(BookingRequestDto bookingRequestDto, Long userId) {
         return createBooking(bookingRequestDto, userId, null);
@@ -321,7 +317,7 @@ public class BookingService {
 
             BookingEntity saved = bookingRepository.save(booking);
 
-            bookingOutboxService.saveEvent(toKafkaEvent(saved, BookingEventType.BOOKING_CANCELLED));
+            bookingOutboxService.saveEvent(eventFactory.bookingEvent(saved, BookingEventType.BOOKING_CANCELLED));
 
             return saved;
         })).orElseThrow(() -> new IllegalBookingStateException("Booking cancellation transaction returned null result"));
@@ -365,7 +361,7 @@ public class BookingService {
         BookingEntity savedBooking = bookingRepository.save(booking);
 
         log.info("Sending event to Kafka to confirm booking: eventType={}", BookingEventType.BOOKING_CONFIRMED);
-        bookingEventSender.sendEvent(toKafkaEvent(savedBooking, BookingEventType.BOOKING_CONFIRMED));
+        bookingEventSender.sendEvent(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_CONFIRMED));
         log.info("Booking confirmed successfully: uuid={}, userId={}", uuid, authUserId);
 
         return mapper.toDomain(savedBooking);
@@ -516,7 +512,7 @@ public class BookingService {
         BookingEntity savedBooking = bookingRepository.save(booking);
 
         log.info("Sending event to Kafka to mark booking as failed: eventType={}", BookingEventType.BOOKING_FAILED);
-        bookingEventSender.sendEvent(toKafkaEvent(savedBooking, BookingEventType.BOOKING_FAILED));
+        bookingEventSender.sendEvent(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_FAILED));
         log.info("Booking status was updated to {} after starting marking: bookingId={}", booking.getStatus(), bookingId);
     }
 
@@ -549,7 +545,7 @@ public class BookingService {
         BookingEntity savedBooking = bookingRepository.save(booking);
 
         log.info("Sending event to Kafka to hold booking: eventType={}", BookingEventType.BOOKING_HOLD_CREATED);
-        bookingEventSender.sendEvent(toKafkaEvent(savedBooking, BookingEventType.BOOKING_HOLD_CREATED));
+        bookingEventSender.sendEvent(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_HOLD_CREATED));
         log.info("Booking status was updated to {} after starting holding: bookingId={}", booking.getStatus(), bookingId);
     }
 
@@ -575,7 +571,7 @@ public class BookingService {
         BookingEntity savedBooking = bookingRepository.save(booking);
 
         log.info("Sending event to Kafka to expire booking: eventType={}", BookingEventType.BOOKING_EXPIRED);
-        bookingEventSender.sendEvent(toKafkaEvent(savedBooking, BookingEventType.BOOKING_EXPIRED));
+        bookingEventSender.sendEvent(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_EXPIRED));
         log.info("Booking expired successfully: bookingId={}", bookingId);
     }
 
@@ -612,7 +608,7 @@ public class BookingService {
         BookingEntity savedBooking = bookingRepository.save(booking);
 
         log.info("Sending event to Kafka to expire created booking: eventType={}", BookingEventType.BOOKING_EXPIRED);
-        bookingEventSender.sendEvent(toKafkaEvent(savedBooking, BookingEventType.BOOKING_EXPIRED));
+        bookingEventSender.sendEvent(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_EXPIRED));
         log.info("Created booking expired successfully: bookingId={}", bookingId);
     }
 
@@ -642,11 +638,12 @@ public class BookingService {
         booking.setInventoryReleasedAt(OffsetDateTime.now());
         String promoCode = promoCodeService.generateForBooking(booking);
         BookingEntity savedBooking = bookingRepository.save(booking);
+        BookingNotificationContent reviewNotification = reviewNotificationFactory.build(savedBooking, promoCode);
         sendDirectNotification(
                 savedBooking,
                 NotificationEventType.BOOKING_REVIEW_REQUEST,
-                REVIEW_NOTIFICATION_TITLE,
-                buildReviewNotificationMessage(savedBooking, promoCode)
+                reviewNotification.title(),
+                reviewNotification.message()
         );
         cacheService.evictUserPages(booking.getUserId());
         cacheService.evictBookingByUser(booking.getUserId(), booking.getId());
@@ -678,7 +675,7 @@ public class BookingService {
 
     @Transactional
     public void sendDirectNotification(BookingEntity booking, NotificationEventType type, String title, String message) {
-        notificationEventSender.sendEvent(toNotificationKafkaEvent(booking, type, title, message));
+        notificationEventSender.sendEvent(eventFactory.notificationEvent(booking, type, title, message));
     }
 
     @Caching(evict = {
@@ -750,73 +747,7 @@ public class BookingService {
                 });
     }
 
-    private BookingKafkaEvent<BookingKafkaPayload> toKafkaEvent(BookingEntity booking, BookingEventType type) {
-        return BookingKafkaEvent.<BookingKafkaPayload>builder()
-                .eventId(UUID.randomUUID())
-                .correlationId(booking.getId().toString())
-                .source(sourceService)
-                .eventType(type)
-                .createdAt(OffsetDateTime.now())
-                .payload(BookingKafkaPayload.builder()
-                        .bookingId(booking.getId())
-                        .bookingCode(booking.getBookingCode())
-                        .userId(booking.getUserId())
-                        .roomCategoryId(booking.getRoomCategoryId())
-                        .guests(booking.getGuests())
-                        .adultCount(booking.getAdultCount())
-                        .childrenCount(booking.getChildrenCount())
-                        .checkInDate(booking.getCheckInDate())
-                        .checkOutDate(booking.getCheckOutDate())
-                        .priceAmount(booking.getPriceAmount())
-                        .bookingStatus(booking.getStatus().name())
-                        .holdExpiresAt(booking.getHoldExpiresAt())
-                        .cancellationReason(booking.getCancellationReason())
-                        .build())
-                .build();
-    }
-
-    private NotificationKafkaEvent<NotificationKafkaPayload> toNotificationKafkaEvent(
-            BookingEntity booking,
-            NotificationEventType type,
-            String title,
-            String message
-    ) {
-        UUID notificationId = UUID.randomUUID();
-        OffsetDateTime now = OffsetDateTime.now();
-        return new NotificationKafkaEvent<>(
-                UUID.randomUUID(),
-                type,
-                sourceService,
-                booking.getId().toString(),
-                now,
-                new NotificationKafkaPayload(
-                        notificationId,
-                        booking.getUserId(),
-                        booking.getId(),
-                        null,
-                        title,
-                        message,
-                        type,
-                        NotificationStatus.NEW,
-                        now
-                )
-        );
-    }
-
     private String normalizePromoCode(String promoCode) {
         return promoCode == null || promoCode.isBlank() ? null : promoCode.trim().toUpperCase();
-    }
-
-    private String buildReviewNotificationMessage(BookingEntity booking, String promoCode) {
-        StringBuilder builder = new StringBuilder()
-                .append("Спасибо, что выбрали River Park. Все понравилось? Оставьте отзыв на сайте отеля.");
-        if (promoCode != null && !promoCode.isBlank()) {
-            builder.append("\n\nВаш промокод на следующее заселение: ")
-                    .append(promoCode);
-            if (booking.getPromoDiscountPercent() != null) {
-                builder.append(" (-").append(booking.getPromoDiscountPercent()).append("%)");
-            }
-        }
-        return builder.toString();
     }
 }

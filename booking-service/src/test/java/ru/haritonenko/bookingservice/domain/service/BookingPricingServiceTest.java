@@ -34,6 +34,9 @@ class BookingPricingServiceTest {
     @Mock
     private BookingTariffService bookingTariffService;
 
+    @Mock
+    private BookingPriceCalendarService priceCalendarService;
+
     @InjectMocks
     private BookingPricingService bookingPricingService;
 
@@ -43,6 +46,12 @@ class BookingPricingServiceTest {
         BookingTariffEntity tariff = roomOnlyTariff();
         when(catalogServiceHttpClient.getRoomCategoryById(1L)).thenReturn(room(BigDecimal.valueOf(5000)));
         when(bookingTariffService.requireApplicableTariff(booking)).thenReturn(tariff);
+        when(priceCalendarService.calculateBasePrice(
+                room(BigDecimal.valueOf(5000)),
+                tariff,
+                booking.getCheckInDate(),
+                booking.getCheckOutDate()
+        )).thenReturn(BigDecimal.valueOf(15000));
         when(bookingTariffService.calculateTariffPrice(BigDecimal.valueOf(15000), 3, tariff))
                 .thenReturn(BigDecimal.valueOf(15000));
         when(promoCodeService.applyPromoIfPresent(

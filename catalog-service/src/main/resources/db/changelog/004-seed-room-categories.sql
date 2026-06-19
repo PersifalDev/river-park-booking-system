@@ -27,7 +27,7 @@ INSERT INTO room_category (
              2,
              7400.00,
              15.00,
-             30,
+             90,
              NOW(),
              NOW()
          );
@@ -51,7 +51,7 @@ INSERT INTO room_category (
              2,
              7900.00,
              15.00,
-             30,
+             120,
              NOW(),
              NOW()
          );
@@ -75,7 +75,7 @@ INSERT INTO room_category (
              3,
              8900.00,
              18.00,
-             30,
+             40,
              NOW(),
              NOW()
          );
@@ -99,7 +99,7 @@ INSERT INTO room_category (
              4,
              10900.00,
              30.00,
-             30,
+             28,
              NOW(),
              NOW()
          );
@@ -125,7 +125,7 @@ INSERT INTO room_category (
              4,
              12500.00,
              30.00,
-             30,
+             14,
              NOW(),
              NOW()
          );
@@ -147,7 +147,7 @@ INSERT INTO room_category (
              2,
              5900.00,
              14.00,
-             30,
+             20,
              NOW(),
              NOW()
          );

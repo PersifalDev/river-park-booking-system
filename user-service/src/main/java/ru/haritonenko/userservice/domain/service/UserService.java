@@ -4,11 +4,15 @@ import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import ru.haritonenko.userservice.api.dto.UserRegistration;
 import ru.haritonenko.userservice.domain.User;
+import ru.haritonenko.userservice.domain.UserRole;
 import ru.haritonenko.userservice.domain.db.repository.UserRepository;
 import ru.haritonenko.userservice.domain.exception.UserAlreadyRegisteredException;
 import ru.haritonenko.userservice.domain.exception.UserNotFoundException;
@@ -38,7 +42,14 @@ public class UserService {
         return mapper.toDomain(foundUser);
     }
 
+    @Transactional(readOnly = true)
+    public Page<User> getUsers(Pageable pageable) {
+        log.info("Getting users page: pageNumber={}, pageSize={}", pageable.getPageNumber(), pageable.getPageSize());
+        return userRepository.findAll(pageable).map(mapper::toDomain);
+    }
+
     @Transactional
+    @CacheEvict(value = "users", allEntries = true)
     public User register(UserRegistration userFromRegistration) {
 
         if(isNull(userFromRegistration)){
@@ -58,6 +69,27 @@ public class UserService {
         log.info("User successfully registered with id: {}, login: {}",
                 savedUserEntity.getId(), savedUserEntity.getLogin());
         return mapper.toDomain(savedUserEntity);
+    }
+
+    @Transactional
+    @CacheEvict(value = "users", allEntries = true)
+    public User updateUserRole(Long userId, UserRole role) {
+        if (isNull(role)) {
+            log.warn("Role update failed: role is null for userId={}", userId);
+            throw new IllegalArgumentException("User role can't be null");
+        }
+
+        log.info("Updating user role: userId={}, role={}", userId, role);
+        var userEntity = userRepository.findById(userId)
+                .orElseThrow(() -> {
+                    log.warn("Role update failed: user not found by id={}", userId);
+                    return new UserNotFoundException("No found user by id = %s".formatted(userId));
+                });
+
+        userEntity.setUserRole(role);
+        var savedUser = userRepository.save(userEntity);
+        log.info("User role successfully updated: userId={}, role={}", userId, role);
+        return mapper.toDomain(savedUser);
     }
 
     @Cacheable(value = "users", key = "'login:' + #login")

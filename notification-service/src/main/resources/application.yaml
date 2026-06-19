@@ -42,13 +42,52 @@ openapi:
   security-scheme-name: bearerAuth
 
 jwt:
-  secret-key: ${JWT_SECRET_KEY:}
+  secret-key: ${JWT_SECRET_KEY:river-park-local-dev-secret-key-32}
   lifetime: ${JWT_LIFETIME:86400000}
 
 app:
   notification:
     default-page-size: ${NOTIFICATION_DEFAULT_PAGE_SIZE:10}
     default-page-number: ${NOTIFICATION_DEFAULT_PAGE_NUMBER:0}
+    texts:
+      booking:
+        date-time-pattern: '${BOOKING_NOTIFICATION_DATE_TIME_PATTERN:dd.MM.yyyy HH:mm}'
+        created:
+          title: '${BOOKING_NOTIFICATION_CREATED_TITLE:Заявка создана}'
+          message: '${BOOKING_NOTIFICATION_CREATED_MESSAGE:Заявка %s создана и передана в обработку.}'
+        hold-created:
+          title: '${BOOKING_NOTIFICATION_HOLD_CREATED_TITLE:Бронь удержана}'
+          message: '${BOOKING_NOTIFICATION_HOLD_CREATED_MESSAGE:Бронь %s удержана%s. Подтвердите бронирование в боте. Оплата производится при заселении у администратора.}'
+        confirmed:
+          title: '${BOOKING_NOTIFICATION_CONFIRMED_TITLE:Бронь подтверждена}'
+          message: '${BOOKING_NOTIFICATION_CONFIRMED_MESSAGE:Бронь %s подтверждена. Оплата производится в день заезда у администратора отеля River Park.}'
+        cancelled:
+          title: '${BOOKING_NOTIFICATION_CANCELLED_TITLE:Бронь отменена}'
+          message: '${BOOKING_NOTIFICATION_CANCELLED_MESSAGE:Бронь %s отменена.}'
+        expired:
+          title: '${BOOKING_NOTIFICATION_EXPIRED_TITLE:Удержание истекло}'
+          message: '${BOOKING_NOTIFICATION_EXPIRED_MESSAGE:Удержание по брони %s истекло. Бронь отменена автоматически.}'
+        failed:
+          title: '${BOOKING_NOTIFICATION_FAILED_TITLE:Ошибка бронирования}'
+          message: '${BOOKING_NOTIFICATION_FAILED_MESSAGE:Во время создания брони %s произошла ошибка.}'
+          message-with-reason: '${BOOKING_NOTIFICATION_FAILED_MESSAGE_WITH_REASON:Во время создания брони %s произошла ошибка. %s}'
+      payment:
+        unknown-amount: '${PAYMENT_NOTIFICATION_UNKNOWN_AMOUNT:уточняется}'
+        invoice-created:
+          title: '${PAYMENT_NOTIFICATION_INVOICE_CREATED_TITLE:Инструкция по бронированию}'
+          message: '${PAYMENT_NOTIFICATION_INVOICE_CREATED_MESSAGE:Сумма проживания рассчитана: %s. Подтвердите намерение приехать. Оплата производится при заселении у администратора.}'
+        pending:
+          title: '${PAYMENT_NOTIFICATION_PENDING_TITLE:Ожидается подтверждение}'
+          message: '${PAYMENT_NOTIFICATION_PENDING_MESSAGE:Сумма проживания: %s. Нажмите подтверждение в боте, чтобы зафиксировать бронирование.}'
+        confirmed:
+          title: '${PAYMENT_NOTIFICATION_CONFIRMED_TITLE:Подтверждение получено}'
+          message: '${PAYMENT_NOTIFICATION_CONFIRMED_MESSAGE:Подтверждение намерения оплатить на месте получено. Ожидайте итогового подтверждения брони.}'
+        cancelled:
+          title: '${PAYMENT_NOTIFICATION_CANCELLED_TITLE:Подтверждение отменено}'
+          message: '${PAYMENT_NOTIFICATION_CANCELLED_MESSAGE:Подтверждение оплаты на месте было отменено.}'
+        failed:
+          title: '${PAYMENT_NOTIFICATION_FAILED_TITLE:Ошибка подтверждения}'
+          message: '${PAYMENT_NOTIFICATION_FAILED_MESSAGE:Во время обработки подтверждения возникла ошибка.}'
   kafka:
     consumer:
       topics:

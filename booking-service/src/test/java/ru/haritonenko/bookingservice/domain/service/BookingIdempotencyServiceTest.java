@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -79,7 +80,7 @@ class BookingIdempotencyServiceTest {
 
         service.remember(1L, " key ", "hash", bookingId);
 
-        verify(repository).save(org.mockito.ArgumentMatchers.argThat(entity ->
+        verify(repository).save(argThat(entity ->
                 entity.getUserId().equals(1L)
                         && entity.getIdempotencyKey().equals("key")
                         && entity.getRequestHash().equals("hash")

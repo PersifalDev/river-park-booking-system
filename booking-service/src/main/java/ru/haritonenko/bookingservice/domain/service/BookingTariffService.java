@@ -31,16 +31,23 @@ public class BookingTariffService {
     private final List<TariffPriceModifierStrategy> priceModifierStrategies;
     private final CatalogServiceHttpClient catalogServiceHttpClient;
     private final BookingTariffProperties properties;
+    private final BookingPriceCalendarService priceCalendarService;
 
     @Transactional(readOnly = true)
     public List<TariffResponseDto> findApplicableTariffs(BookingRequestDto request) {
         RoomCategoryResponseDto category = loadCategory(request.categoryId());
         TariffSearchContext context = context(request);
-        BigDecimal basePrice = category.basePrice().multiply(BigDecimal.valueOf(context.nights()));
 
         return tariffRepository.findAllByActiveTrueOrderBySortOrderAscTitleAsc().stream()
                 .filter(tariff -> applies(tariff, context))
-                .map(tariff -> toDto(tariff, calculateTariffPrice(basePrice, context.nights(), tariff)))
+                .map(tariff -> toDto(
+                        tariff,
+                        calculateTariffPrice(
+                                priceCalendarService.calculateBasePrice(category, tariff, request.checkInDate(), request.checkOutDate()),
+                                context.nights(),
+                                tariff
+                        )
+                ))
                 .toList();
     }
 

@@ -20,6 +20,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -65,7 +66,7 @@ class BookingTaskStateServiceTest {
         assertEquals(BookingStatus.FAILED, booking.getStatus());
         assertEquals("reason", booking.getCancellationReason());
         assertNull(booking.getHoldExpiresAt());
-        verify(bookingEventSender).sendEvent(org.mockito.ArgumentMatchers.argThat(event ->
+        verify(bookingEventSender).sendEvent(argThat(event ->
                 ((BookingKafkaEvent<?>) event).eventType() == BookingEventType.BOOKING_FAILED
         ));
     }
@@ -93,7 +94,7 @@ class BookingTaskStateServiceTest {
         assertEquals(BookingStatus.HOLD, booking.getStatus());
         assertEquals(0, BigDecimal.valueOf(10000).compareTo(booking.getPriceAmount()));
         assertEquals(holdExpiresAt, booking.getHoldExpiresAt());
-        verify(bookingEventSender).sendEvent(org.mockito.ArgumentMatchers.argThat(event ->
+        verify(bookingEventSender).sendEvent(argThat(event ->
                 ((BookingKafkaEvent<?>) event).eventType() == BookingEventType.BOOKING_HOLD_CREATED
         ));
     }

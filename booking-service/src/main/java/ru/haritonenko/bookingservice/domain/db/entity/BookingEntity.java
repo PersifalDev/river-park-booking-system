@@ -59,6 +59,13 @@ public class BookingEntity implements BookingDateRangeData, GuestCountData {
     @Column(name = "room_category_id", nullable = false)
     private Long roomCategoryId;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "room_id")
+    private BookingRoomEntity room;
+
+    @Column(name = "room_number_snapshot", length = 32)
+    private String roomNumberSnapshot;
+
     @NotBlank(message = "Booking code can not be blank")
     @Column(name = "booking_code", nullable = false, unique = true, updatable = false, length = 64)
     private String bookingCode;

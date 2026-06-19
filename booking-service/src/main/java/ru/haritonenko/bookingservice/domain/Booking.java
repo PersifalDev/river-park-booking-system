@@ -12,6 +12,7 @@ public record Booking(
         UUID id,
         Long userId,
         Long roomCategoryId,
+        String roomNumberSnapshot,
         String bookingCode,
         Integer guests,
         Integer adultCount,

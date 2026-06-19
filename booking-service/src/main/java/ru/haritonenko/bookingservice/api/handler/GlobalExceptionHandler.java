@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.haritonenko.bookingservice.domain.exception.BookingAvailabilityException;
 import ru.haritonenko.bookingservice.domain.exception.BookingIdempotencyConflictException;
 import ru.haritonenko.bookingservice.domain.exception.BookingNotFoundException;
+import ru.haritonenko.bookingservice.domain.exception.BookingPriceCalendarMissingException;
+import ru.haritonenko.bookingservice.domain.exception.BookingPriceCalendarUnavailableException;
 import ru.haritonenko.bookingservice.domain.exception.BookingTariffNotApplicableException;
 import ru.haritonenko.bookingservice.domain.exception.BookingTariffNotFoundException;
 import ru.haritonenko.bookingservice.domain.exception.IllegalBookingStateException;
@@ -61,6 +63,8 @@ public class GlobalExceptionHandler {
             BookingAvailabilityException.class,
             BookingHoldFailedException.class,
             BookingTariffNotApplicableException.class,
+            BookingPriceCalendarMissingException.class,
+            BookingPriceCalendarUnavailableException.class,
             BookingIdempotencyConflictException.class,
             IllegalBookingStateException.class,
             KafkaBookingEventIllegalStateException.class

@@ -83,6 +83,20 @@ class UserServiceTest {
         );
     }
 
+    @Test
+    void shouldUpdateUserRole() {
+        UserEntity entity = userEntity();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(userRepository.save(entity)).thenReturn(entity);
+        when(mapper.toDomain(entity)).thenReturn(new User(1L, "watson", UserRole.BOOKING_MANAGER));
+
+        User actual = userService.updateUserRole(1L, UserRole.BOOKING_MANAGER);
+
+        assertEquals(UserRole.BOOKING_MANAGER, actual.role());
+        assertEquals(UserRole.BOOKING_MANAGER, entity.getUserRole());
+        verify(userRepository).save(entity);
+    }
+
     private UserEntity userEntity() {
         return UserEntity.builder()
                 .id(1L)

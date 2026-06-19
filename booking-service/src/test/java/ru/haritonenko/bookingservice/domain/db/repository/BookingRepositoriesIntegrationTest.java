@@ -10,7 +10,10 @@ import ru.haritonenko.bookingservice.domain.service.AbstractIntegrationTest;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingIdempotencyKeyEntity;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingInventoryEntity;
+import ru.haritonenko.bookingservice.domain.db.entity.BookingRoomEntity;
 import ru.haritonenko.bookingservice.domain.db.entity.PromoCodeEntity;
+import ru.haritonenko.bookingservice.domain.room.RoomHousekeepingStatus;
+import ru.haritonenko.bookingservice.domain.room.RoomOperationalStatus;
 import ru.haritonenko.bookingservice.domain.status.BookingStatus;
 import ru.haritonenko.bookingservice.external.client.catalog.CatalogServiceHttpClient;
 import ru.haritonenko.bookingservice.external.client.users.UserServiceHttpClient;
@@ -39,6 +42,12 @@ class BookingRepositoriesIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private BookingInventoryRepository inventoryRepository;
+
+    @Autowired
+    private BookingRoomRepository roomRepository;
+
+    @Autowired
+    private BookingRoomBlockRepository roomBlockRepository;
 
     @Autowired
     private BookingIdempotencyKeyRepository idempotencyKeyRepository;
@@ -71,6 +80,8 @@ class BookingRepositoriesIntegrationTest extends AbstractIntegrationTest {
         promoCodeRepository.deleteAll();
         inventoryRepository.deleteAll();
         bookingRepository.deleteAll();
+        roomBlockRepository.deleteAll();
+        roomRepository.deleteAll();
         bookingRepository.flush();
     }
 
@@ -129,6 +140,33 @@ class BookingRepositoriesIntegrationTest extends AbstractIntegrationTest {
         assertEquals(3, rows.size());
         assertEquals(checkInDate, rows.getFirst().getBookingDate());
         assertEquals(10, rows.getFirst().getTotalUnits());
+    }
+
+    @Test
+    void shouldFindAvailableConcreteRoomsForPeriod() {
+        LocalDate checkInDate = LocalDate.now().plusDays(1);
+        BookingRoomEntity occupiedRoom = room("301");
+        BookingRoomEntity availableRoom = room("302");
+        roomRepository.saveAllAndFlush(List.of(occupiedRoom, availableRoom));
+
+        BookingEntity booking = booking(1L, BookingStatus.HOLD, OffsetDateTime.now().plusMinutes(15));
+        booking.setRoom(occupiedRoom);
+        booking.setRoomNumberSnapshot(occupiedRoom.getRoomNumber());
+        booking.setCheckInDate(checkInDate);
+        booking.setCheckOutDate(checkInDate.plusDays(2));
+        bookingRepository.saveAndFlush(booking);
+
+        List<BookingRoomEntity> availableRooms = roomRepository.findAvailableRoomsForUpdate(
+                1L,
+                RoomOperationalStatus.ACTIVE,
+                List.of(BookingStatus.HOLD, BookingStatus.CONFIRMED),
+                checkInDate,
+                checkInDate.plusDays(2),
+                UUID.randomUUID()
+        );
+
+        assertEquals(1, availableRooms.size());
+        assertEquals("302", availableRooms.getFirst().getRoomNumber());
     }
 
     @Test
@@ -219,6 +257,16 @@ class BookingRepositoriesIntegrationTest extends AbstractIntegrationTest {
                 .processingStep(ProcessingStep.VALIDATE_REQUEST)
                 .attempts(0)
                 .nextAttemptAt(nextAttemptAt)
+                .build();
+    }
+
+    private BookingRoomEntity room(String roomNumber) {
+        return BookingRoomEntity.builder()
+                .roomCategoryId(1L)
+                .roomNumber(roomNumber)
+                .floor(3)
+                .status(RoomOperationalStatus.ACTIVE)
+                .housekeepingStatus(RoomHousekeepingStatus.CLEAN)
                 .build();
     }
 }

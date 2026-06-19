@@ -10,6 +10,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
+import ru.haritonenko.commonlibs.security.authorization.role.PlatformRole;
 import ru.haritonenko.paymentservice.security.custom.CustomAccessDeniedHandler;
 import ru.haritonenko.paymentservice.security.custom.CustomAuthenticationEntryPoint;
 import ru.haritonenko.paymentservice.security.jwt.filter.JwtTokenFilter;
@@ -35,7 +36,19 @@ public class SecurityConfiguration {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(customAuthenticationEntryPoint).accessDeniedHandler(customAccessDeniedHandler))
-                .authorizeHttpRequests(auth -> auth.requestMatchers("/error", "/error/**").permitAll().requestMatchers("/payments/**").authenticated().anyRequest().permitAll())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/error", "/error/**").permitAll()
+                        .requestMatchers("/payments/admin/**").hasAnyAuthority(
+                                PlatformRole.ADMIN_AUTHORITY,
+                                PlatformRole.FINANCE_MANAGER_AUTHORITY
+                        )
+                        .requestMatchers("/payments/booking/*/cancel").hasAnyAuthority(
+                                PlatformRole.ADMIN_AUTHORITY,
+                                PlatformRole.FINANCE_MANAGER_AUTHORITY,
+                                PlatformRole.USER_AUTHORITY
+                        )
+                        .requestMatchers("/payments/**").authenticated()
+                        .anyRequest().permitAll())
                 .addFilterBefore(jwtTokenFilter, AnonymousAuthenticationFilter.class)
                 .build();
     }
