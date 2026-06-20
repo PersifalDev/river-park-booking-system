@@ -9,6 +9,8 @@ import java.time.LocalDate;
 @Builder(toBuilder = true)
 public record AvailableRoomSearchDraft(
         Integer guests,
+        Integer adultCount,
+        Integer childrenCount,
         LocalDate checkInDate,
         LocalDate checkOutDate,
         RoomType roomType,

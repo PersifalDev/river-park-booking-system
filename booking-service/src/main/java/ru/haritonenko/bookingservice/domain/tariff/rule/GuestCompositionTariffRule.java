@@ -9,6 +9,9 @@ public class GuestCompositionTariffRule implements TariffApplicabilityRule {
 
     @Override
     public boolean applies(BookingTariffEntity tariff, TariffSearchContext context) {
+        if (context.adultCount() == null && context.childrenCount() == null) {
+            return true;
+        }
         if (tariff.getMinAdults() != null && safe(context.adultCount()) < tariff.getMinAdults()) {
             return false;
         }

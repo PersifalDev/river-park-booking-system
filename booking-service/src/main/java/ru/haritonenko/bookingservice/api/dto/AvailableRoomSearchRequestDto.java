@@ -27,6 +27,10 @@ public record AvailableRoomSearchRequestDto(
 
         Integer guests,
 
+        Integer adultCount,
+
+        Integer childrenCount,
+
         RoomType roomType,
 
         BigDecimal priceFrom,

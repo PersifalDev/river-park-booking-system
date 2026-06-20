@@ -30,6 +30,13 @@ public record BotKeyboardMessagesProperties(
         @NotBlank String cancelBooking,
         @NotBlank String backToBookings,
         @NotBlank String previous,
-        @NotBlank String next
+        @NotBlank String next,
+        @NotBlank String filterGuests,
+        @NotBlank String filterDates,
+        @NotBlank String filterRoomType,
+        @NotBlank String filterPrice,
+        @NotBlank String filterArea,
+        @NotBlank String filterSearch,
+        @NotBlank String filterReset
 ) {
 }

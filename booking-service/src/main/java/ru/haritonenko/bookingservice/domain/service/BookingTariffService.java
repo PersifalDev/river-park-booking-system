@@ -3,6 +3,8 @@ package ru.haritonenko.bookingservice.domain.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
+import ru.haritonenko.bookingservice.api.dto.AvailableRoomSearchRequestDto;
 import ru.haritonenko.bookingservice.api.dto.BookingRequestDto;
 import ru.haritonenko.bookingservice.api.dto.TariffResponseDto;
 import ru.haritonenko.bookingservice.config.tariff.BookingTariffProperties;
@@ -10,6 +12,8 @@ import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingTariffEntity;
 import ru.haritonenko.bookingservice.domain.db.repository.BookingTariffRepository;
 import ru.haritonenko.bookingservice.domain.exception.BookingTariffNotApplicableException;
+import ru.haritonenko.bookingservice.domain.exception.BookingPriceCalendarMissingException;
+import ru.haritonenko.bookingservice.domain.exception.BookingPriceCalendarUnavailableException;
 import ru.haritonenko.bookingservice.domain.exception.BookingTariffNotFoundException;
 import ru.haritonenko.bookingservice.domain.tariff.TariffSearchContext;
 import ru.haritonenko.bookingservice.domain.tariff.price.TariffPriceModifierStrategy;
@@ -32,13 +36,13 @@ public class BookingTariffService {
     private final CatalogServiceHttpClient catalogServiceHttpClient;
     private final BookingTariffProperties properties;
     private final BookingPriceCalendarService priceCalendarService;
+    private final TransactionTemplate transactionTemplate;
 
-    @Transactional(readOnly = true)
     public List<TariffResponseDto> findApplicableTariffs(BookingRequestDto request) {
         RoomCategoryResponseDto category = loadCategory(request.categoryId());
         TariffSearchContext context = context(request);
 
-        return tariffRepository.findAllByActiveTrueOrderBySortOrderAscTitleAsc().stream()
+        return transactionTemplate.execute(status -> tariffRepository.findAllByActiveTrueOrderBySortOrderAscTitleAsc().stream()
                 .filter(tariff -> applies(tariff, context))
                 .map(tariff -> toDto(
                         tariff,
@@ -48,7 +52,22 @@ public class BookingTariffService {
                                 tariff
                         )
                 ))
-                .toList();
+                .toList());
+    }
+
+    public boolean hasAvailableTariff(RoomCategoryResponseDto category, AvailableRoomSearchRequestDto request) {
+        TariffSearchContext context = new TariffSearchContext(
+                request.checkInDate(),
+                request.checkOutDate(),
+                request.guests(),
+                request.adultCount(),
+                request.childrenCount(),
+                ChronoUnit.DAYS.between(request.checkInDate(), request.checkOutDate())
+        );
+
+        return Boolean.TRUE.equals(transactionTemplate.execute(status -> tariffRepository.findAllByActiveTrueOrderBySortOrderAscTitleAsc().stream()
+                .filter(tariff -> applies(tariff, context))
+                .anyMatch(tariff -> hasAvailableCalendarRate(category, tariff, request))));
     }
 
     @Transactional(readOnly = true)
@@ -96,6 +115,19 @@ public class BookingTariffService {
     private boolean applies(BookingTariffEntity tariff, TariffSearchContext context) {
         return Boolean.TRUE.equals(tariff.getActive())
                 && applicabilityRules.stream().allMatch(rule -> rule.applies(tariff, context));
+    }
+
+    private boolean hasAvailableCalendarRate(
+            RoomCategoryResponseDto category,
+            BookingTariffEntity tariff,
+            AvailableRoomSearchRequestDto request
+    ) {
+        try {
+            priceCalendarService.calculateBasePrice(category, tariff, request.checkInDate(), request.checkOutDate());
+            return true;
+        } catch (BookingPriceCalendarMissingException | BookingPriceCalendarUnavailableException exception) {
+            return false;
+        }
     }
 
     private TariffSearchContext context(BookingRequestDto request) {

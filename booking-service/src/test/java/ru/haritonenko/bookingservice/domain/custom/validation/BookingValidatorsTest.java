@@ -54,6 +54,8 @@ class BookingValidatorsTest {
                 checkInDate,
                 checkInDate.plusDays(1),
                 2,
+                2,
+                0,
                 RoomType.STANDARD,
                 BigDecimal.valueOf(9000),
                 BigDecimal.valueOf(5000),
@@ -69,6 +71,8 @@ class BookingValidatorsTest {
         AvailableRoomSearchRequestDto request = new AvailableRoomSearchRequestDto(
                 checkInDate,
                 checkInDate.plusDays(1),
+                null,
+                null,
                 null,
                 null,
                 null,

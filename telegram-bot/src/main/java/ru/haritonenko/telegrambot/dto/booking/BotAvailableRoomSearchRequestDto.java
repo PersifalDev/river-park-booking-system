@@ -9,6 +9,8 @@ public record BotAvailableRoomSearchRequestDto(
         LocalDate checkInDate,
         LocalDate checkOutDate,
         Integer guests,
+        Integer adultCount,
+        Integer childrenCount,
         RoomType roomType,
         BigDecimal priceFrom,
         BigDecimal priceTo,

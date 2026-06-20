@@ -11,6 +11,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.Keyboard
 import ru.haritonenko.commonlibs.dto.service.ServiceItemResponseDto;
 import ru.haritonenko.telegrambot.bot.command.BotMenuCommand;
 import ru.haritonenko.telegrambot.config.BotMessagesProperties;
+import ru.haritonenko.telegrambot.bot.state.AvailableRoomSearchDraft;
 import ru.haritonenko.telegrambot.dto.booking.BotBookingListItem;
 import ru.haritonenko.telegrambot.dto.booking.BotBookingResponseDto;
 import ru.haritonenko.telegrambot.dto.booking.BotTariffResponseDto;
@@ -67,6 +68,18 @@ public class BotKeyboardFactory {
                         row(button("Standard Plus", "filter:room-type:STANDARD_PLUS"), button("Studio", "filter:room-type:STUDIO")),
                         row(button("Business Studio", "filter:room-type:BUSINESS_STUDIO"), button("Economy", "filter:room-type:ECONOMY")),
                         row(button(messages.keyboard().noCategory(), "filter:room-type:skip")),
+                        row(button(messages.keyboard().filterSearch(), "filter:search"), button(messages.keyboard().menu(), "menu:main"))
+                ))
+                .build();
+    }
+
+    public InlineKeyboardMarkup roomFilterMenu(AvailableRoomSearchDraft draft) {
+        return InlineKeyboardMarkup.builder()
+                .keyboard(List.of(
+                        row(button(messages.keyboard().filterGuests(), "filter:guests"), button(messages.keyboard().filterDates(), "filter:dates")),
+                        row(button(messages.keyboard().filterRoomType(), "filter:room-type:open"), button(messages.keyboard().filterPrice(), "filter:price")),
+                        row(button(messages.keyboard().filterArea(), "filter:area")),
+                        row(button(messages.keyboard().filterSearch(), "filter:search"), button(messages.keyboard().filterReset(), "filter:reset")),
                         row(button(messages.keyboard().menu(), "menu:main"))
                 ))
                 .build();

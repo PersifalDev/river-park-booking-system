@@ -2,6 +2,10 @@ package ru.haritonenko.bookingservice.domain.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
+import ru.haritonenko.bookingservice.api.dto.AvailableRoomSearchRequestDto;
 import ru.haritonenko.bookingservice.api.dto.BookingRequestDto;
 import ru.haritonenko.bookingservice.config.tariff.BookingTariffProperties;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
@@ -28,7 +32,10 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
 class BookingTariffServiceTest {
@@ -36,6 +43,7 @@ class BookingTariffServiceTest {
     private BookingTariffRepository tariffRepository;
     private CatalogServiceHttpClient catalogServiceHttpClient;
     private BookingPriceCalendarService priceCalendarService;
+    private TransactionTemplate transactionTemplate;
     private BookingTariffService service;
 
     @BeforeEach
@@ -43,8 +51,13 @@ class BookingTariffServiceTest {
         tariffRepository = mock(BookingTariffRepository.class);
         catalogServiceHttpClient = mock(CatalogServiceHttpClient.class);
         priceCalendarService = mock(BookingPriceCalendarService.class);
+        transactionTemplate = mock(TransactionTemplate.class);
         BookingTariffProperties properties = new BookingTariffProperties();
         properties.setDefaultCode("ROOM_ONLY");
+        doAnswer(invocation -> {
+            TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        }).when(transactionTemplate).execute(any());
 
         service = new BookingTariffService(
                 tariffRepository,
@@ -56,7 +69,8 @@ class BookingTariffServiceTest {
                 ),
                 catalogServiceHttpClient,
                 properties,
-                priceCalendarService
+                priceCalendarService,
+                transactionTemplate
         );
     }
 
@@ -122,6 +136,30 @@ class BookingTariffServiceTest {
         BigDecimal actual = service.calculateTariffPrice(BigDecimal.valueOf(10000), 2, breakfast);
 
         assertEquals(0, BigDecimal.valueOf(11000).compareTo(actual));
+    }
+
+    @Test
+    void shouldTreatUnknownGuestCompositionAsApplicableForAvailableSearch() {
+        BookingTariffEntity roomOnly = tariff("ROOM_ONLY", TariffPriceModifierType.PERCENT, BigDecimal.ZERO);
+        roomOnly.setMinAdults(1);
+        LocalDate checkInDate = LocalDate.now().plusDays(1);
+        AvailableRoomSearchRequestDto request = new AvailableRoomSearchRequestDto(
+                checkInDate,
+                checkInDate.plusDays(1),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
+        when(tariffRepository.findAllByActiveTrueOrderBySortOrderAscTitleAsc()).thenReturn(List.of(roomOnly));
+        when(priceCalendarService.calculateBasePrice(room(BigDecimal.valueOf(5000)), roomOnly, request.checkInDate(), request.checkOutDate()))
+                .thenReturn(BigDecimal.valueOf(5000));
+
+        assertTrue(service.hasAvailableTariff(room(BigDecimal.valueOf(5000)), request));
     }
 
     private BookingRequestDto request(int nights, int adults, int children) {

@@ -26,7 +26,13 @@ public class BookingPriceCalendarService {
     private final BookingPriceCalendarRepository priceCalendarRepository;
     private final BookingPriceCalendarProperties properties;
 
-    @Transactional(readOnly = true)
+    @Transactional(
+            readOnly = true,
+            noRollbackFor = {
+                    BookingPriceCalendarMissingException.class,
+                    BookingPriceCalendarUnavailableException.class
+            }
+    )
     public BigDecimal calculateBasePrice(
             RoomCategoryResponseDto category,
             BookingTariffEntity ratePlan,

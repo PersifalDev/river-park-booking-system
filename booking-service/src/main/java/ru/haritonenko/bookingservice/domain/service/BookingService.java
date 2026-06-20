@@ -198,7 +198,6 @@ public class BookingService {
         return mapper.toDomain(foundBooking);
     }
 
-    @Transactional(readOnly = true)
     public List<TariffResponseDto> findApplicableTariffs(BookingRequestDto request) {
         return bookingTariffService.findApplicableTariffs(request);
     }
@@ -367,13 +366,12 @@ public class BookingService {
         return mapper.toDomain(savedBooking);
     }
 
-    @Transactional(readOnly = true)
     public PageResponse<RoomCategoryResponseDto> searchAvailableRoomCategories(
             AvailableRoomSearchRequestDto request,
            BookingPageFilter pageFilter
     ) {
-        log.info("Searching available room categories by dates: checkIn={}, checkOut={}, guests={}",
-                request.checkInDate(), request.checkOutDate(), request.guests());
+        log.info("Searching available room categories by dates: checkIn={}, checkOut={}, guests={}, adultCount={}, childrenCount={}",
+                request.checkInDate(), request.checkOutDate(), request.guests(), request.adultCount(), request.childrenCount());
 
         if (request.checkInDate() == null || request.checkOutDate() == null || !request.checkOutDate().isAfter(request.checkInDate())) {
             throw new IllegalArgumentException("Check-out date must be after check-in date");
@@ -398,7 +396,7 @@ public class BookingService {
                 : catalogServiceHttpClient.getRoomCategories(0, 100);
 
         List<RoomCategoryResponseDto> allRooms = rawPage == null || rawPage.content() == null ? List.of() : rawPage.content();
-        List<RoomCategoryResponseDto> availableRooms = allRooms.stream()
+        List<RoomCategoryResponseDto> availableRooms = transactionTemplate.execute(status -> allRooms.stream()
                 .map(room -> {
                     int availableUnits = bookingInventoryService.getAvailableUnitsForCategory(
                             room.id(),
@@ -406,7 +404,7 @@ public class BookingService {
                             request.checkOutDate(),
                             room.totalUnits()
                     );
-                    if (hasAnyFilter && availableUnits <= 0) {
+                    if (availableUnits <= 0 || !bookingTariffService.hasAvailableTariff(room, request)) {
                         return null;
                     }
                     return new RoomCategoryResponseDto(
@@ -422,7 +420,7 @@ public class BookingService {
                     );
                 })
                 .filter(Objects::nonNull)
-                .toList();
+                .toList());
 
         int safePageSize = pageFilter.getPageSize() == null || pageFilter.getPageSize() <= 0
                 ? defaultPageSize

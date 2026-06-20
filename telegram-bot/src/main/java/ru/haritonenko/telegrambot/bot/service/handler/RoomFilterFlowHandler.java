@@ -2,6 +2,8 @@ package ru.haritonenko.telegrambot.bot.service.handler;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard;
 import ru.haritonenko.commonlibs.dto.category.type.RoomType;
 import ru.haritonenko.telegrambot.bot.service.storage.BotConversationStore;
 import ru.haritonenko.telegrambot.bot.state.AvailableRoomSearchDraft;
@@ -39,15 +41,77 @@ public class RoomFilterFlowHandler {
     public void startRoomFilter(Long chatId) {
         chatStateService.reset(chatId);
         conversationStore.removeAvailableRooms(chatId);
-        chatStateService.setType(chatId, ChatStateType.WAITING_FILTER_GUESTS);
-        botMessageService.sendText(chatId, botTextFactory.buildFilterStartMessage(
-                botFlowProperties.filter().maxGuests(),
+        chatStateService.updateAvailableRoomSearchDraft(chatId, AvailableRoomSearchDraft.empty());
+        sendFilterMenu(chatId);
+    }
+
+    public void requestGuests(Long chatId, Integer messageId, boolean photoMessage) {
+        AvailableRoomSearchDraft draft = chatStateService.get(chatId).availableRoomSearchDraft().toBuilder()
+                .guests(null)
+                .adultCount(null)
+                .childrenCount(null)
+                .build();
+        chatStateService.updateAvailableRoomSearchDraft(chatId, draft);
+        chatStateService.setType(chatId, ChatStateType.WAITING_FILTER_ADULTS);
+        sendPrompt(chatId, messageId, photoMessage, botTextFactory.buildAskBookingAdultsMessage(
+                draft.checkInDate(),
+                draft.checkOutDate(),
                 botFlowProperties.booking().maxAdults(),
-                botFlowProperties.booking().maxChildren()
-        ), botKeyboardFactory.mainMenu());
+                botFlowProperties.booking().maxGuests()
+        ));
+    }
+
+    public void requestDates(Long chatId, Integer messageId, boolean photoMessage) {
+        AvailableRoomSearchDraft draft = chatStateService.get(chatId).availableRoomSearchDraft().toBuilder()
+                .checkInDate(null)
+                .checkOutDate(null)
+                .build();
+        chatStateService.updateAvailableRoomSearchDraft(chatId, draft);
+        chatStateService.setType(chatId, ChatStateType.WAITING_FILTER_CHECK_IN);
+        sendPrompt(chatId, messageId, photoMessage, botTextFactory.buildAskFilterCheckInButtonMessage());
+    }
+
+    public void requestPrice(Long chatId, Integer messageId, boolean photoMessage) {
+        AvailableRoomSearchDraft draft = chatStateService.get(chatId).availableRoomSearchDraft().toBuilder()
+                .priceFrom(null)
+                .priceTo(null)
+                .build();
+        chatStateService.updateAvailableRoomSearchDraft(chatId, draft);
+        chatStateService.setType(chatId, ChatStateType.WAITING_FILTER_PRICE_FROM);
+        sendPrompt(chatId, messageId, photoMessage, botTextFactory.buildAskPriceFromButtonMessage());
+    }
+
+    public void requestArea(Long chatId, Integer messageId, boolean photoMessage) {
+        chatStateService.setType(chatId, ChatStateType.WAITING_FILTER_MIN_AREA);
+        sendPrompt(chatId, messageId, photoMessage, botTextFactory.buildAskMinAreaButtonMessage());
+    }
+
+    public void search(Long chatId, Integer messageId, boolean photoMessage) {
+        chatStateService.setType(chatId, ChatStateType.IDLE);
+        if (photoMessage && messageId != null) {
+            botMessageService.deleteMessage(chatId, messageId);
+            catalogFlowHandler.sendRoomsPage(chatId, 0, null, null, true);
+            return;
+        }
+        if (messageId != null) {
+            botMessageService.deleteMessage(chatId, messageId);
+        }
+        catalogFlowHandler.sendRoomsPage(chatId, 0, null, null, true);
+    }
+
+    public void resetFilter(Long chatId, Integer messageId, boolean photoMessage) {
+        conversationStore.removeAvailableRooms(chatId);
+        chatStateService.updateAvailableRoomSearchDraft(chatId, AvailableRoomSearchDraft.empty());
+        chatStateService.setType(chatId, ChatStateType.IDLE);
+        showFilterMenu(chatId, messageId, photoMessage);
     }
 
     public void handleRoomTypeSelection(Long chatId, Integer messageId, String data, boolean photoMessage) {
+        if ("filter:room-type:open".equalsIgnoreCase(data)) {
+            sendPrompt(chatId, messageId, photoMessage, botTextFactory.buildAskRoomTypeButtonMessage(), botKeyboardFactory.roomTypeSelection());
+            return;
+        }
+
         AvailableRoomSearchDraft.AvailableRoomSearchDraftBuilder builder = chatStateService.get(chatId).availableRoomSearchDraft().toBuilder();
         String rawValue = data.substring("filter:room-type:".length());
         if ("skip".equalsIgnoreCase(rawValue)) {
@@ -57,42 +121,86 @@ public class RoomFilterFlowHandler {
         }
 
         chatStateService.updateAvailableRoomSearchDraft(chatId, builder.build());
-        chatStateService.setType(chatId, ChatStateType.WAITING_FILTER_PRICE_FROM);
-
-        if (photoMessage) {
-            botMessageService.deleteMessage(chatId, messageId);
-        } else if (messageId != null) {
-            botMessageService.deleteMessage(chatId, messageId);
-        }
-        botMessageService.sendText(chatId, botTextFactory.buildAskPriceFromMessage(), botKeyboardFactory.mainMenu());
+        chatStateService.setType(chatId, ChatStateType.IDLE);
+        showFilterMenu(chatId, messageId, photoMessage);
     }
 
     public void handleGuests(Long chatId, String text) {
+        handleAdults(chatId, text);
+    }
+
+    public void handleAdults(Long chatId, String text) {
         if (isSkip(text)) {
             AvailableRoomSearchDraft draft = chatStateService.get(chatId).availableRoomSearchDraft().toBuilder()
                     .guests(null)
+                    .adultCount(null)
+                    .childrenCount(null)
                     .build();
             chatStateService.updateAvailableRoomSearchDraft(chatId, draft);
-            chatStateService.setType(chatId, ChatStateType.WAITING_FILTER_CHECK_IN);
-            botMessageService.sendText(chatId, botTextFactory.buildAskFilterCheckInMessage(), botKeyboardFactory.mainMenu());
+            chatStateService.setType(chatId, ChatStateType.IDLE);
+            sendFilterMenu(chatId);
             return;
         }
 
-        Integer guests = parsePositiveInteger(text, botTextFactory.buildGuestsMustBeIntegerMessage(), chatId, botTextFactory.buildPositiveGuestsMessage());
-        if (guests == null) {
+        Integer adults = parsePositiveInteger(text, botTextFactory.buildAdultsMustBeIntegerMessage(), chatId, botTextFactory.buildPositiveAdultsMessage());
+        if (adults == null) {
             return;
         }
-        if (guests > botFlowProperties.filter().maxGuests()) {
+        if (adults > botFlowProperties.booking().maxAdults() || adults > botFlowProperties.booking().maxGuests()) {
             botMessageService.sendText(chatId, maxGuestsMessage(), botKeyboardFactory.mainMenu());
             return;
         }
 
         AvailableRoomSearchDraft draft = chatStateService.get(chatId).availableRoomSearchDraft().toBuilder()
-                .guests(guests)
+                .adultCount(adults)
+                .childrenCount(null)
+                .guests(null)
                 .build();
         chatStateService.updateAvailableRoomSearchDraft(chatId, draft);
-        chatStateService.setType(chatId, ChatStateType.WAITING_FILTER_CHECK_IN);
-        botMessageService.sendText(chatId, botTextFactory.buildAskFilterCheckInMessage(), botKeyboardFactory.mainMenu());
+        chatStateService.setType(chatId, ChatStateType.WAITING_FILTER_CHILDREN);
+        botMessageService.sendText(chatId, botTextFactory.buildAskBookingChildrenMessage(
+                adults,
+                botFlowProperties.booking().maxChildren(),
+                botFlowProperties.booking().maxGuests()
+        ), botKeyboardFactory.mainMenu());
+    }
+
+    public void handleChildren(Long chatId, String text) {
+        if (isSkip(text)) {
+            AvailableRoomSearchDraft draft = chatStateService.get(chatId).availableRoomSearchDraft().toBuilder()
+                    .guests(null)
+                    .adultCount(null)
+                    .childrenCount(null)
+                    .build();
+            chatStateService.updateAvailableRoomSearchDraft(chatId, draft);
+            chatStateService.setType(chatId, ChatStateType.IDLE);
+            sendFilterMenu(chatId);
+            return;
+        }
+
+        Integer children = parseNonNegativeInteger(text, botTextFactory.buildChildrenMustBeIntegerMessage(), chatId, botTextFactory.buildChildrenCountMessage());
+        if (children == null) {
+            return;
+        }
+        if (children > botFlowProperties.booking().maxChildren()) {
+            botMessageService.sendText(chatId, maxGuestsMessage(), botKeyboardFactory.mainMenu());
+            return;
+        }
+
+        AvailableRoomSearchDraft currentDraft = chatStateService.get(chatId).availableRoomSearchDraft();
+        int totalGuests = safeInt(currentDraft.adultCount()) + children;
+        if (totalGuests > botFlowProperties.booking().maxGuests()) {
+            botMessageService.sendText(chatId, maxGuestsMessage(), botKeyboardFactory.mainMenu());
+            return;
+        }
+
+        AvailableRoomSearchDraft draft = currentDraft.toBuilder()
+                .childrenCount(children)
+                .guests(totalGuests)
+                .build();
+        chatStateService.updateAvailableRoomSearchDraft(chatId, draft);
+        chatStateService.setType(chatId, ChatStateType.IDLE);
+        sendFilterMenu(chatId);
     }
 
     public void handleFilterCheckIn(Long chatId, String text) {
@@ -102,8 +210,8 @@ public class RoomFilterFlowHandler {
                     .checkOutDate(null)
                     .build();
             chatStateService.updateAvailableRoomSearchDraft(chatId, draft);
-            chatStateService.setType(chatId, ChatStateType.WAITING_FILTER_ROOM_TYPE);
-            botMessageService.sendText(chatId, botTextFactory.buildAskRoomTypeMessage(), botKeyboardFactory.roomTypeSelection());
+            chatStateService.setType(chatId, ChatStateType.IDLE);
+            sendFilterMenu(chatId);
             return;
         }
 
@@ -120,7 +228,7 @@ public class RoomFilterFlowHandler {
                 .build();
         chatStateService.updateAvailableRoomSearchDraft(chatId, draft);
         chatStateService.setType(chatId, ChatStateType.WAITING_FILTER_CHECK_OUT);
-        botMessageService.sendText(chatId, botTextFactory.buildAskFilterCheckOutMessage(checkInDate), botKeyboardFactory.mainMenu());
+        botMessageService.sendText(chatId, botTextFactory.buildAskFilterCheckOutButtonMessage(checkInDate), botKeyboardFactory.mainMenu());
     }
 
     public void handleFilterCheckOut(Long chatId, String text) {
@@ -131,8 +239,8 @@ public class RoomFilterFlowHandler {
                     .checkOutDate(null)
                     .build();
             chatStateService.updateAvailableRoomSearchDraft(chatId, draft);
-            chatStateService.setType(chatId, ChatStateType.WAITING_FILTER_ROOM_TYPE);
-            botMessageService.sendText(chatId, botTextFactory.buildAskRoomTypeMessage(), botKeyboardFactory.roomTypeSelection());
+            chatStateService.setType(chatId, ChatStateType.IDLE);
+            sendFilterMenu(chatId);
             return;
         }
 
@@ -150,8 +258,8 @@ public class RoomFilterFlowHandler {
                 .build();
         chatStateService.updateAvailableRoomSearchDraft(chatId, draft);
         rememberAvailabilityDraft(chatId, draft);
-        chatStateService.setType(chatId, ChatStateType.WAITING_FILTER_ROOM_TYPE);
-        botMessageService.sendText(chatId, botTextFactory.buildAskRoomTypeMessage(), botKeyboardFactory.roomTypeSelection());
+        chatStateService.setType(chatId, ChatStateType.IDLE);
+        sendFilterMenu(chatId);
     }
 
     public void handleRoomType(Long chatId, String text) {
@@ -169,8 +277,8 @@ public class RoomFilterFlowHandler {
         }
 
         chatStateService.updateAvailableRoomSearchDraft(chatId, builder.build());
-        chatStateService.setType(chatId, ChatStateType.WAITING_FILTER_PRICE_FROM);
-        botMessageService.sendText(chatId, botTextFactory.buildAskPriceFromMessage(), botKeyboardFactory.mainMenu());
+        chatStateService.setType(chatId, ChatStateType.IDLE);
+        sendFilterMenu(chatId);
     }
 
     public void handlePriceFrom(Long chatId, String text) {
@@ -190,8 +298,15 @@ public class RoomFilterFlowHandler {
                 .priceFrom(value)
                 .build();
         chatStateService.updateAvailableRoomSearchDraft(chatId, draft);
+
+        if (value != null) {
+            chatStateService.setType(chatId, ChatStateType.IDLE);
+            sendFilterMenu(chatId);
+            return;
+        }
+
         chatStateService.setType(chatId, ChatStateType.WAITING_FILTER_PRICE_TO);
-        botMessageService.sendText(chatId, botTextFactory.buildAskPriceToMessage(), botKeyboardFactory.mainMenu());
+        botMessageService.sendText(chatId, botTextFactory.buildAskPriceToButtonMessage(), botKeyboardFactory.mainMenu());
     }
 
     public void handlePriceTo(Long chatId, String text) {
@@ -216,8 +331,8 @@ public class RoomFilterFlowHandler {
                 .priceTo(value)
                 .build();
         chatStateService.updateAvailableRoomSearchDraft(chatId, draft);
-        chatStateService.setType(chatId, ChatStateType.WAITING_FILTER_MIN_AREA);
-        botMessageService.sendText(chatId, botTextFactory.buildAskMinAreaMessage(), botKeyboardFactory.mainMenu());
+        chatStateService.setType(chatId, ChatStateType.IDLE);
+        sendFilterMenu(chatId);
     }
 
     public void handleMinArea(Long chatId, String text) {
@@ -238,7 +353,60 @@ public class RoomFilterFlowHandler {
                 .build();
         chatStateService.updateAvailableRoomSearchDraft(chatId, draft);
         chatStateService.setType(chatId, ChatStateType.IDLE);
-        catalogFlowHandler.sendRoomsPage(chatId, 0, null, null, true);
+        sendFilterMenu(chatId);
+    }
+
+    private void sendPrompt(Long chatId, Integer messageId, boolean photoMessage, String text) {
+        sendPrompt(chatId, messageId, photoMessage, text, botKeyboardFactory.mainMenu());
+    }
+
+    private void sendPrompt(Long chatId, Integer messageId, boolean photoMessage, String text, ReplyKeyboard keyboard) {
+        if (messageId != null) {
+            botMessageService.deleteMessage(chatId, messageId);
+        }
+        botMessageService.sendText(chatId, text, keyboard);
+    }
+
+    private void sendPrompt(Long chatId, Integer messageId, boolean photoMessage, String text, InlineKeyboardMarkup keyboard) {
+        if (photoMessage && messageId != null) {
+            botMessageService.deleteMessage(chatId, messageId);
+            botMessageService.sendText(chatId, text, keyboard);
+            return;
+        }
+        if (messageId != null) {
+            botMessageService.editText(chatId, messageId, text, keyboard);
+            return;
+        }
+        botMessageService.sendText(chatId, text, keyboard);
+    }
+
+    private void sendFilterMenu(Long chatId) {
+        AvailableRoomSearchDraft draft = chatStateService.get(chatId).availableRoomSearchDraft();
+        botMessageService.sendText(chatId, filterMenuText(draft), botKeyboardFactory.roomFilterMenu(draft));
+    }
+
+    private void showFilterMenu(Long chatId, Integer messageId, boolean photoMessage) {
+        AvailableRoomSearchDraft draft = chatStateService.get(chatId).availableRoomSearchDraft();
+        String text = filterMenuText(draft);
+        if (photoMessage && messageId != null) {
+            botMessageService.deleteMessage(chatId, messageId);
+            botMessageService.sendText(chatId, text, botKeyboardFactory.roomFilterMenu(draft));
+            return;
+        }
+        if (messageId != null) {
+            botMessageService.editText(chatId, messageId, text, botKeyboardFactory.roomFilterMenu(draft));
+            return;
+        }
+        botMessageService.sendText(chatId, text, botKeyboardFactory.roomFilterMenu(draft));
+    }
+
+    private String filterMenuText(AvailableRoomSearchDraft draft) {
+        return botTextFactory.buildFilterMenuMessage(
+                draft,
+                botFlowProperties.filter().maxGuests(),
+                botFlowProperties.booking().maxAdults(),
+                botFlowProperties.booking().maxChildren()
+        );
     }
 
     private void rememberAvailabilityDraft(Long chatId, AvailableRoomSearchDraft draft) {
@@ -278,6 +446,24 @@ public class RoomFilterFlowHandler {
             botMessageService.sendText(chatId, errorMessage, botKeyboardFactory.mainMenu());
             return null;
         }
+    }
+
+    private Integer parseNonNegativeInteger(String text, String errorMessage, Long chatId, String negativeMessage) {
+        try {
+            int value = Integer.parseInt(text.trim());
+            if (value < 0) {
+                botMessageService.sendText(chatId, negativeMessage, botKeyboardFactory.mainMenu());
+                return null;
+            }
+            return value;
+        } catch (NumberFormatException exception) {
+            botMessageService.sendText(chatId, errorMessage, botKeyboardFactory.mainMenu());
+            return null;
+        }
+    }
+
+    private int safeInt(Integer value) {
+        return value == null ? 0 : value;
     }
 
     private BigDecimal parseOptionalDecimalInRange(

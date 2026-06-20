@@ -124,6 +124,13 @@ bot:
       back-to-bookings: '${BOT_KEYBOARD_BACK_TO_BOOKINGS:К списку броней}'
       previous: '${BOT_KEYBOARD_PREVIOUS:<}'
       next: '${BOT_KEYBOARD_NEXT:>}'
+      filter-guests: '${BOT_KEYBOARD_FILTER_GUESTS:Гости}'
+      filter-dates: '${BOT_KEYBOARD_FILTER_DATES:Даты}'
+      filter-room-type: '${BOT_KEYBOARD_FILTER_ROOM_TYPE:Категория}'
+      filter-price: '${BOT_KEYBOARD_FILTER_PRICE:Цена}'
+      filter-area: '${BOT_KEYBOARD_FILTER_AREA:Площадь}'
+      filter-search: '${BOT_KEYBOARD_FILTER_SEARCH:Найти}'
+      filter-reset: '${BOT_KEYBOARD_FILTER_RESET:Сбросить}'
   notification:
     poll-interval-ms: ${NOTIFICATION_POLL_INTERVAL_MS:15000}
   photo:

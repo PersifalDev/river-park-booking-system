@@ -195,6 +195,12 @@ public class BotUpdateService {
             }
             botMessageService.editText(context.chatId(), context.messageId(), contacts, botKeyboardFactory.inlineMainMenu());
         });
+        callbackActions.put(BotCallbackCommand.FILTER_GUESTS, context -> roomFilterFlowHandler.requestGuests(context.chatId(), context.messageId(), context.photoMessage()));
+        callbackActions.put(BotCallbackCommand.FILTER_DATES, context -> roomFilterFlowHandler.requestDates(context.chatId(), context.messageId(), context.photoMessage()));
+        callbackActions.put(BotCallbackCommand.FILTER_PRICE, context -> roomFilterFlowHandler.requestPrice(context.chatId(), context.messageId(), context.photoMessage()));
+        callbackActions.put(BotCallbackCommand.FILTER_AREA, context -> roomFilterFlowHandler.requestArea(context.chatId(), context.messageId(), context.photoMessage()));
+        callbackActions.put(BotCallbackCommand.FILTER_SEARCH, context -> roomFilterFlowHandler.search(context.chatId(), context.messageId(), context.photoMessage()));
+        callbackActions.put(BotCallbackCommand.FILTER_RESET, context -> roomFilterFlowHandler.resetFilter(context.chatId(), context.messageId(), context.photoMessage()));
         callbackActions.put(BotCallbackCommand.FILTER_ROOM_TYPE, context -> roomFilterFlowHandler.handleRoomTypeSelection(context.chatId(), context.messageId(), context.data(), context.photoMessage()));
         callbackActions.put(BotCallbackCommand.ROOMS_PAGE, context -> {
             int pageNumber = parseSuffixInt(context.data(), "rooms:page:");
@@ -318,6 +324,8 @@ public class BotUpdateService {
             case WAITING_ROOM_ID -> catalogFlowHandler.handleRoomId(chatId, text);
             case WAITING_SERVICE_ID -> catalogFlowHandler.handleServiceId(chatId, text);
             case WAITING_FILTER_GUESTS -> roomFilterFlowHandler.handleGuests(chatId, text);
+            case WAITING_FILTER_ADULTS -> roomFilterFlowHandler.handleAdults(chatId, text);
+            case WAITING_FILTER_CHILDREN -> roomFilterFlowHandler.handleChildren(chatId, text);
             case WAITING_FILTER_CHECK_IN -> roomFilterFlowHandler.handleFilterCheckIn(chatId, text);
             case WAITING_FILTER_CHECK_OUT -> roomFilterFlowHandler.handleFilterCheckOut(chatId, text);
             case WAITING_FILTER_ROOM_TYPE -> roomFilterFlowHandler.handleRoomType(chatId, text);

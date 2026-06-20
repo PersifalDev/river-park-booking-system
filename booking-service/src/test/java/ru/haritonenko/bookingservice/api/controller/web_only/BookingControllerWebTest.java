@@ -114,6 +114,8 @@ class BookingControllerWebTest {
                 checkInDate,
                 checkOutDate,
                 2,
+                2,
+                0,
                 RoomType.STANDARD,
                 BigDecimal.valueOf(5000),
                 BigDecimal.valueOf(7000),

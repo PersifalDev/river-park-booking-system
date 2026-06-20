@@ -128,6 +128,8 @@ public class CatalogFlowHandler {
                             draft.checkInDate(),
                             draft.checkOutDate(),
                             draft.guests(),
+                            draft.adultCount(),
+                            draft.childrenCount(),
                             draft.roomType(),
                             draft.priceFrom(),
                             draft.priceTo(),

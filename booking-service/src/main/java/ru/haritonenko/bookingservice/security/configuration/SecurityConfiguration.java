@@ -3,6 +3,7 @@ package ru.haritonenko.bookingservice.security.configuration;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -47,10 +48,11 @@ public class SecurityConfiguration {
                                 PlatformRole.ADMIN_AUTHORITY,
                                 PlatformRole.BOOKING_MANAGER_AUTHORITY
                         )
-                        .requestMatchers("/booking/*/confirm", "/booking/inactive", "/booking/early").hasAnyAuthority(
+                        .requestMatchers(HttpMethod.PATCH, "/booking/*/confirm").hasAnyAuthority(
                                 PlatformRole.ADMIN_AUTHORITY,
                                 PlatformRole.BOOKING_MANAGER_AUTHORITY
                         )
+                        .requestMatchers(HttpMethod.GET, "/booking/inactive", "/booking/early").authenticated()
                         .requestMatchers("/booking/*/cancel").hasAnyAuthority(
                                 PlatformRole.ADMIN_AUTHORITY,
                                 PlatformRole.BOOKING_MANAGER_AUTHORITY,

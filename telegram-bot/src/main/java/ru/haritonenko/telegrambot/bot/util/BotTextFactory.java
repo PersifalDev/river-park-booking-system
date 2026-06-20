@@ -8,6 +8,7 @@ import ru.haritonenko.commonlibs.dto.category.type.RoomType;
 import ru.haritonenko.commonlibs.dto.rule.RuleDocumentResponseDto;
 import ru.haritonenko.commonlibs.dto.service.ServiceItemResponseDto;
 import ru.haritonenko.telegrambot.config.BotMessagesProperties;
+import ru.haritonenko.telegrambot.bot.state.AvailableRoomSearchDraft;
 import ru.haritonenko.telegrambot.dto.booking.BotBookingResponseDto;
 import ru.haritonenko.telegrambot.dto.booking.BotTariffResponseDto;
 import ru.haritonenko.telegrambot.dto.notification.BotNotificationResponseDto;
@@ -50,6 +51,49 @@ public class BotTextFactory {
 
     public String buildMaxGuestsMessage(int maxGuests, int maxAdults, int maxChildren) {
         return messages.booking().maxGuests().formatted(maxGuests, maxAdults, maxChildren);
+    }
+
+    public String buildFilterMenuMessage(AvailableRoomSearchDraft draft, int maxGuests, int maxAdults, int maxChildren) {
+        AvailableRoomSearchDraft safeDraft = draft == null ? AvailableRoomSearchDraft.empty() : draft;
+        return "Подбор номера.\n\n"
+                + "Выберите нужные фильтры кнопками ниже. Можно заполнить их в любом порядке и нажать «Найти» после любого выбранного параметра.\n"
+                + "Максимум: " + maxGuests + " гостей, до " + maxAdults + " взрослых и до " + maxChildren + " детей.\n\n"
+                + "Текущие фильтры:\n"
+                + "Гости: " + readableGuestComposition(safeDraft) + "\n"
+                + "Даты: " + readableDateRangeOrDash(safeDraft.checkInDate(), safeDraft.checkOutDate()) + "\n"
+                + "Категория: " + (safeDraft.roomType() == null ? "любая" : roomTypeTitle(safeDraft.roomType())) + "\n"
+                + "Цена: " + readablePriceRangeOrDash(safeDraft.priceFrom(), safeDraft.priceTo()) + "\n"
+                + "Площадь от: " + readableValueOrDash(safeDraft.minArea());
+    }
+
+    public String buildAskFilterGuestsMessage(int maxGuests) {
+        return "Введите количество гостей числом от 1 до " + maxGuests + ".";
+    }
+
+    public String buildAskFilterCheckInButtonMessage() {
+        return "Введите дату заезда в формате ДД.ММ.ГГГГ.\n"
+                + "Самая ранняя дата: " + LocalDate.now(NOVOSIBIRSK_ZONE).format(DATE_FORMATTER);
+    }
+
+    public String buildAskFilterCheckOutButtonMessage(LocalDate checkInDate) {
+        return "Дата заезда: " + formatDate(checkInDate) + "\n\n"
+                + "Введите дату выезда в формате ДД.ММ.ГГГГ.";
+    }
+
+    public String buildAskRoomTypeButtonMessage() {
+        return "Выберите категорию номера кнопками ниже.";
+    }
+
+    public String buildAskPriceFromButtonMessage() {
+        return "Введите минимальную цену за ночь.";
+    }
+
+    public String buildAskPriceToButtonMessage() {
+        return "Введите максимальную цену за ночь.";
+    }
+
+    public String buildAskMinAreaButtonMessage() {
+        return "Введите минимальную площадь номера.";
     }
 
     public String buildBookingAlreadyInactiveMessage() {
@@ -657,6 +701,33 @@ public class BotTextFactory {
 
     private String valueOrDash(Object value) {
         return value == null ? "—" : String.valueOf(value);
+    }
+
+    private String readableValueOrDash(Object value) {
+        return value == null ? "—" : String.valueOf(value);
+    }
+
+    private String readableGuestComposition(AvailableRoomSearchDraft draft) {
+        if (draft.guests() == null && draft.adultCount() == null && draft.childrenCount() == null) {
+            return readableValueOrDash(null);
+        }
+        return readableValueOrDash(draft.guests())
+                + " (взрослых: " + readableValueOrDash(draft.adultCount())
+                + ", детей: " + readableValueOrDash(draft.childrenCount()) + ")";
+    }
+
+    private String readableDateRangeOrDash(LocalDate checkInDate, LocalDate checkOutDate) {
+        if (checkInDate == null || checkOutDate == null) {
+            return "—";
+        }
+        return formatDate(checkInDate) + " - " + formatDate(checkOutDate);
+    }
+
+    private String readablePriceRangeOrDash(BigDecimal priceFrom, BigDecimal priceTo) {
+        if (priceFrom == null && priceTo == null) {
+            return "—";
+        }
+        return readableValueOrDash(priceFrom) + " - " + readableValueOrDash(priceTo);
     }
 
     private String tariffCancellationPolicyTitle(BotTariffResponseDto tariff) {

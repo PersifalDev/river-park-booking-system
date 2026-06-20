@@ -26,6 +26,7 @@ databaseChangeLog:
   - changeSet:
       id: 004-seed-room-categories
       author: haritonenko
+      validCheckSum: 9:d9b2214d813101a6a070583d2e06780a
       changes:
         - sqlFile:
             path: db/changelog/004-seed-room-categories.sql

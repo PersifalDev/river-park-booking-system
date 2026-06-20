@@ -19,6 +19,12 @@ public enum BotCallbackCommand {
     SERVICES,
     RULES,
     CONTACTS,
+    FILTER_GUESTS,
+    FILTER_DATES,
+    FILTER_PRICE,
+    FILTER_AREA,
+    FILTER_SEARCH,
+    FILTER_RESET,
     FILTER_ROOM_TYPE,
     ROOMS_PAGE,
     FILTERED_ROOMS_PAGE,
@@ -58,6 +64,12 @@ public enum BotCallbackCommand {
             case "menu:services" -> SERVICES;
             case "menu:rules" -> RULES;
             case "menu:contacts" -> CONTACTS;
+            case "filter:guests" -> FILTER_GUESTS;
+            case "filter:dates" -> FILTER_DATES;
+            case "filter:price" -> FILTER_PRICE;
+            case "filter:area" -> FILTER_AREA;
+            case "filter:search" -> FILTER_SEARCH;
+            case "filter:reset" -> FILTER_RESET;
             case "notification:read-all" -> NOTIFICATION_READ_ALL;
             case "rules:file" -> RULES_FILE;
             default -> fromPrefix(data);

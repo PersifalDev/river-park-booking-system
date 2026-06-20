@@ -1,6 +1,5 @@
 package ru.haritonenko.catalogservice.category.api.controller.web_only;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,8 +36,6 @@ class RoomCategoryControllerWebTest {
 
     @Autowired
     private MockMvc mockMvc;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @MockitoBean
     private RoomCategoryService roomCategoryService;
