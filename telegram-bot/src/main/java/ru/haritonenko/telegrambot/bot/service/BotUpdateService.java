@@ -198,6 +198,9 @@ public class BotUpdateService {
         callbackActions.put(BotCallbackCommand.FILTER_GUESTS, context -> roomFilterFlowHandler.requestGuests(context.chatId(), context.messageId(), context.photoMessage()));
         callbackActions.put(BotCallbackCommand.FILTER_DATES, context -> roomFilterFlowHandler.requestDates(context.chatId(), context.messageId(), context.photoMessage()));
         callbackActions.put(BotCallbackCommand.FILTER_PRICE, context -> roomFilterFlowHandler.requestPrice(context.chatId(), context.messageId(), context.photoMessage()));
+        callbackActions.put(BotCallbackCommand.FILTER_PRICE_FROM, context -> roomFilterFlowHandler.requestPriceFrom(context.chatId(), context.messageId(), context.photoMessage()));
+        callbackActions.put(BotCallbackCommand.FILTER_PRICE_TO, context -> roomFilterFlowHandler.requestPriceTo(context.chatId(), context.messageId(), context.photoMessage()));
+        callbackActions.put(BotCallbackCommand.FILTER_PRICE_CLEAR, context -> roomFilterFlowHandler.clearPrice(context.chatId(), context.messageId(), context.photoMessage()));
         callbackActions.put(BotCallbackCommand.FILTER_AREA, context -> roomFilterFlowHandler.requestArea(context.chatId(), context.messageId(), context.photoMessage()));
         callbackActions.put(BotCallbackCommand.FILTER_SEARCH, context -> roomFilterFlowHandler.search(context.chatId(), context.messageId(), context.photoMessage()));
         callbackActions.put(BotCallbackCommand.FILTER_RESET, context -> roomFilterFlowHandler.resetFilter(context.chatId(), context.messageId(), context.photoMessage()));

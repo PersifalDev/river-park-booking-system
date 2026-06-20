@@ -72,13 +72,28 @@ public class RoomFilterFlowHandler {
     }
 
     public void requestPrice(Long chatId, Integer messageId, boolean photoMessage) {
+        chatStateService.setType(chatId, ChatStateType.IDLE);
+        sendPrompt(chatId, messageId, photoMessage, botTextFactory.buildAskPriceBoundaryButtonMessage(), botKeyboardFactory.priceFilterMenu());
+    }
+
+    public void requestPriceFrom(Long chatId, Integer messageId, boolean photoMessage) {
+        chatStateService.setType(chatId, ChatStateType.WAITING_FILTER_PRICE_FROM);
+        sendPrompt(chatId, messageId, photoMessage, botTextFactory.buildAskPriceFromButtonMessage());
+    }
+
+    public void requestPriceTo(Long chatId, Integer messageId, boolean photoMessage) {
+        chatStateService.setType(chatId, ChatStateType.WAITING_FILTER_PRICE_TO);
+        sendPrompt(chatId, messageId, photoMessage, botTextFactory.buildAskPriceToButtonMessage());
+    }
+
+    public void clearPrice(Long chatId, Integer messageId, boolean photoMessage) {
         AvailableRoomSearchDraft draft = chatStateService.get(chatId).availableRoomSearchDraft().toBuilder()
                 .priceFrom(null)
                 .priceTo(null)
                 .build();
         chatStateService.updateAvailableRoomSearchDraft(chatId, draft);
-        chatStateService.setType(chatId, ChatStateType.WAITING_FILTER_PRICE_FROM);
-        sendPrompt(chatId, messageId, photoMessage, botTextFactory.buildAskPriceFromButtonMessage());
+        chatStateService.setType(chatId, ChatStateType.IDLE);
+        showFilterMenu(chatId, messageId, photoMessage);
     }
 
     public void requestArea(Long chatId, Integer messageId, boolean photoMessage) {

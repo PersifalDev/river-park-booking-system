@@ -85,6 +85,16 @@ public class BotKeyboardFactory {
                 .build();
     }
 
+    public InlineKeyboardMarkup priceFilterMenu() {
+        return InlineKeyboardMarkup.builder()
+                .keyboard(List.of(
+                        row(button("Мин. цена", "filter:price:from"), button("Макс. цена", "filter:price:to")),
+                        row(button("Очистить цену", "filter:price:clear")),
+                        row(button(messages.keyboard().filterSearch(), "filter:search"), button(messages.keyboard().menu(), "menu:main"))
+                ))
+                .build();
+    }
+
     public InlineKeyboardMarkup roomCard(Long roomId, int pageNumber, int totalPages) {
         return roomCard(roomId, pageNumber, totalPages, "rooms:page:");
     }

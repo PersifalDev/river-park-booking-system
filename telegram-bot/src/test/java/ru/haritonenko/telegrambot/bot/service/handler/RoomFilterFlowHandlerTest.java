@@ -117,6 +117,17 @@ class RoomFilterFlowHandlerTest {
     }
 
     @Test
+    void shouldOpenPriceBoundaryMenuFromPriceButton() {
+        when(botTextFactory.buildAskPriceBoundaryButtonMessage()).thenReturn("price boundary");
+        when(botKeyboardFactory.priceFilterMenu()).thenReturn(inlineKeyboard);
+
+        handler.requestPrice(CHAT_ID, MESSAGE_ID, false);
+
+        assertEquals(ChatStateType.IDLE, chatStateService.get(CHAT_ID).type());
+        verify(botMessageService).editText(CHAT_ID, MESSAGE_ID, "price boundary", inlineKeyboard);
+    }
+
+    @Test
     void shouldReturnToFilterMenuAfterMinPriceWithoutMaxPrice() {
         when(botTextFactory.buildFilterMenuMessage(any(AvailableRoomSearchDraft.class), anyInt(), anyInt(), anyInt()))
                 .thenReturn("filter menu");
@@ -127,6 +138,21 @@ class RoomFilterFlowHandlerTest {
         AvailableRoomSearchDraft draft = chatStateService.get(CHAT_ID).availableRoomSearchDraft();
         assertEquals(0, BigDecimal.valueOf(7900).compareTo(draft.priceFrom()));
         assertNull(draft.priceTo());
+        assertEquals(ChatStateType.IDLE, chatStateService.get(CHAT_ID).type());
+        verify(botMessageService).sendText(CHAT_ID, "filter menu", inlineKeyboard);
+    }
+
+    @Test
+    void shouldReturnToFilterMenuAfterMaxPriceWithoutMinPrice() {
+        when(botTextFactory.buildFilterMenuMessage(any(AvailableRoomSearchDraft.class), anyInt(), anyInt(), anyInt()))
+                .thenReturn("filter menu");
+        when(botKeyboardFactory.roomFilterMenu(any(AvailableRoomSearchDraft.class))).thenReturn(inlineKeyboard);
+
+        handler.handlePriceTo(CHAT_ID, "10000");
+
+        AvailableRoomSearchDraft draft = chatStateService.get(CHAT_ID).availableRoomSearchDraft();
+        assertNull(draft.priceFrom());
+        assertEquals(0, BigDecimal.valueOf(10000).compareTo(draft.priceTo()));
         assertEquals(ChatStateType.IDLE, chatStateService.get(CHAT_ID).type());
         verify(botMessageService).sendText(CHAT_ID, "filter menu", inlineKeyboard);
     }

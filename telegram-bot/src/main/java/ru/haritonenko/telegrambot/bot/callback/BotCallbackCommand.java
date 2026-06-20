@@ -22,6 +22,9 @@ public enum BotCallbackCommand {
     FILTER_GUESTS,
     FILTER_DATES,
     FILTER_PRICE,
+    FILTER_PRICE_FROM,
+    FILTER_PRICE_TO,
+    FILTER_PRICE_CLEAR,
     FILTER_AREA,
     FILTER_SEARCH,
     FILTER_RESET,
@@ -67,6 +70,9 @@ public enum BotCallbackCommand {
             case "filter:guests" -> FILTER_GUESTS;
             case "filter:dates" -> FILTER_DATES;
             case "filter:price" -> FILTER_PRICE;
+            case "filter:price:from" -> FILTER_PRICE_FROM;
+            case "filter:price:to" -> FILTER_PRICE_TO;
+            case "filter:price:clear" -> FILTER_PRICE_CLEAR;
             case "filter:area" -> FILTER_AREA;
             case "filter:search" -> FILTER_SEARCH;
             case "filter:reset" -> FILTER_RESET;

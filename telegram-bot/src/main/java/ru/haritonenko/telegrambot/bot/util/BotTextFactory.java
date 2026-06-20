@@ -88,6 +88,10 @@ public class BotTextFactory {
         return "Введите минимальную цену за ночь.";
     }
 
+    public String buildAskPriceBoundaryButtonMessage() {
+        return "Выберите, какую границу цены изменить.";
+    }
+
     public String buildAskPriceToButtonMessage() {
         return "Введите максимальную цену за ночь.";
     }
