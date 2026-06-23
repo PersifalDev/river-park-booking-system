@@ -16,6 +16,7 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
         UserClientProperties.class,
         NotificationClientProperties.class,
         PhotoDeliveryProperties.class,
+        BotWelcomeProperties.class,
         BotFlowProperties.class,
         BotMessagesProperties.class
 })

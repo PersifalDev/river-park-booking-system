@@ -33,9 +33,17 @@ public class BotTextFactory {
     private final BotMessagesProperties messages;
 
     public String buildStartMessage() {
-        return "Здравствуйте. Я бот River Park.\n\n"
-                + "Помогу подобрать номер, оформить бронь, показать услуги и прислать уведомления по заявке.\n\n"
-                + "Команда /site — официальный сайт отеля.";
+        return "Добро пожаловать в River Park Hotel.\n\n"
+                + "Я помогу подобрать номер, показать фото, оформить бронь и напомнить о важных статусах.\n\n"
+                + "Основные разделы:\n"
+                + "• Подобрать номер — поиск по гостям, датам, цене и площади\n"
+                + "• Все номера — каталог с фото и подробностями\n"
+                + "• Мои брони — актуальные бронирования и история\n"
+                + "• Услуги — дополнительные возможности отеля\n\n"
+                + "Команды:\n"
+                + "/start — главное меню\n"
+                + "/help — помощь по боту\n"
+                + "/site — официальный сайт отеля";
     }
 
     public String buildMenuMessage() {
@@ -61,7 +69,7 @@ public class BotTextFactory {
                 + "Текущие фильтры:\n"
                 + "Гости: " + readableGuestComposition(safeDraft) + "\n"
                 + "Даты: " + readableDateRangeOrDash(safeDraft.checkInDate(), safeDraft.checkOutDate()) + "\n"
-                + "Категория: " + (safeDraft.roomType() == null ? "любая" : roomTypeTitle(safeDraft.roomType())) + "\n"
+                + "Тип номера: " + (safeDraft.roomType() == null ? "любой" : roomTypeTitle(safeDraft.roomType())) + "\n"
                 + "Цена: " + readablePriceRangeOrDash(safeDraft.priceFrom(), safeDraft.priceTo()) + "\n"
                 + "Площадь от: " + readableValueOrDash(safeDraft.minArea());
     }
@@ -81,7 +89,7 @@ public class BotTextFactory {
     }
 
     public String buildAskRoomTypeButtonMessage() {
-        return "Выберите категорию номера кнопками ниже.";
+        return "Выберите тип номера кнопками ниже.";
     }
 
     public String buildAskPriceFromButtonMessage() {
@@ -273,7 +281,7 @@ public class BotTextFactory {
     }
 
     public String buildAskRoomTypeMessage() {
-        return "Выберите категорию номера кнопками ниже.\n\nМожно выбрать конкретную категорию или продолжить без неё.";
+        return "Выберите тип номера кнопками ниже.\n\nМожно выбрать конкретный тип или продолжить без него.";
     }
 
     public String buildAskPriceFromMessage() {
@@ -291,7 +299,7 @@ public class BotTextFactory {
     public String buildFilterSummary(RoomCategorySearchRequestDto filter) {
         return "Параметры подбора:\n\n"
                 + "Гости: " + valueOrDash(filter.guests()) + "\n"
-                + "Категория: " + (filter.roomType() == null ? "Любая" : roomTypeTitle(filter.roomType())) + "\n"
+                + "Тип номера: " + (filter.roomType() == null ? "Любой" : roomTypeTitle(filter.roomType())) + "\n"
                 + "Цена от: " + valueOrDash(filter.priceFrom()) + "\n"
                 + "Цена до: " + valueOrDash(filter.priceTo()) + "\n"
                 + "Мин. площадь: " + valueOrDash(filter.minArea());
@@ -300,12 +308,11 @@ public class BotTextFactory {
     public String buildRoomSelectionMessage(List<RoomCategoryResponseDto> rooms) {
         StringBuilder builder = new StringBuilder("Доступные номера River Park:\n\n");
         for (RoomCategoryResponseDto room : rooms) {
-            builder.append(room.id())
-                    .append(". ")
+            builder.append("• ")
                     .append(roomTypeTitle(room.name()))
                     .append("\n");
         }
-        builder.append("\nВведите номер нужной категории.");
+        builder.append("\nОткройте карточку нужного номера кнопками в каталоге.");
         return builder.toString();
     }
 
@@ -335,8 +342,7 @@ public class BotTextFactory {
         builder.append("\n")
                 .append(roomTypeTitle(room.name()))
                 .append("\n")
-                .append("Категория: ").append(room.id()).append("\n")
-                .append("Гостей: ").append(valueOrDash(room.maxGuests())).append("\n")
+                .append("Гостей: до ").append(valueOrDash(room.maxGuests())).append("\n")
                 .append("Цена: ").append(formatPrice(room.basePrice())).append(" за ночь\n")
                 .append("Площадь: ").append(formatArea(room.areaSquare())).append("\n")
                 .append("Всего номеров: ").append(valueOrDash(room.totalUnits())).append("\n")
@@ -347,8 +353,7 @@ public class BotTextFactory {
     public String buildRoomDetails(RoomCategoryResponseDto room) {
         StringBuilder builder = new StringBuilder();
         builder.append(roomTypeTitle(room.name())).append("\n")
-                .append("Категория: ").append(room.id()).append("\n")
-                .append("Гостей: ").append(valueOrDash(room.maxGuests())).append("\n")
+                .append("Гостей: до ").append(valueOrDash(room.maxGuests())).append("\n")
                 .append("Цена за ночь: ").append(formatPrice(room.basePrice())).append("\n")
                 .append("Площадь: ").append(formatArea(room.areaSquare())).append("\n")
                 .append("Всего номеров: ").append(valueOrDash(room.totalUnits())).append("\n")
@@ -362,8 +367,7 @@ public class BotTextFactory {
     public String buildAvailableRoomDetails(RoomCategoryResponseDto room) {
         StringBuilder builder = new StringBuilder();
         builder.append(roomTypeTitle(room.name())).append("\n")
-                .append("Категория: ").append(room.id()).append("\n")
-                .append("Гостей: ").append(valueOrDash(room.maxGuests())).append("\n")
+                .append("Гостей: до ").append(valueOrDash(room.maxGuests())).append("\n")
                 .append("Цена за ночь: ").append(formatPrice(room.basePrice())).append("\n")
                 .append("Площадь: ").append(formatArea(room.areaSquare())).append("\n")
                 .append("Всего номеров: ").append(valueOrDash(room.totalUnits())).append("\n")
@@ -381,7 +385,6 @@ public class BotTextFactory {
     public String buildPhotosCaption(RoomCategoryResponseDto room, int currentIndex, int totalPhotos) {
         return "Фотографии номера\n\n"
                 + roomTypeTitle(room.name()) + "\n"
-                + "Категория: " + room.id() + "\n"
                 + "Фото " + (currentIndex + 1) + " из " + Math.max(totalPhotos, 1);
     }
 
@@ -473,11 +476,11 @@ public class BotTextFactory {
     }
 
     public String buildNoRoomsAvailableForDatesMessage() {
-        return "Номера не найдены на выбранные даты. Попробуйте другие даты или категорию.";
+        return "Номера не найдены на выбранные даты. Попробуйте другие даты или тип номера.";
     }
 
     public String buildNoPhotosMessage() {
-        return "Фотографии для этой категории пока недоступны.";
+        return "Фотографии для этого номера пока недоступны.";
     }
 
     public String buildNegativeValueMessage() {
@@ -544,7 +547,7 @@ public class BotTextFactory {
         StringBuilder builder = new StringBuilder();
         builder.append("Бронь создана и номер удержан.\n\n")
                 .append("Код брони: ").append(valueOrDash(booking.bookingCode())).append("\n")
-                .append("Категория: ").append(roomTypeTitle(room.name())).append("\n")
+                .append("Номер: ").append(roomTypeTitle(room.name())).append("\n")
                 .append("Тариф: ").append(valueOrDash(booking.tariffTitle())).append("\n")
                 .append("Заезд: ").append(formatDate(booking.checkInDate())).append("\n")
                 .append("Выезд: ").append(formatDate(booking.checkOutDate())).append("\n")
@@ -601,7 +604,7 @@ public class BotTextFactory {
         builder.append("Бронирование\n\n")
                 .append("Код: ").append(valueOrDash(booking.bookingCode())).append("\n")
                 .append("Статус: ").append(bookingStatusTitle(booking.status())).append("\n")
-                .append("Категория: ").append(room == null ? valueOrDash(booking.roomCategoryId()) : roomTypeTitle(room.name())).append("\n")
+                .append("Номер: ").append(room == null ? messages.booking().roomDefaultTitle() : roomTypeTitle(room.name())).append("\n")
                 .append("Тариф: ").append(valueOrDash(booking.tariffTitle())).append("\n")
                 .append("Заезд: ").append(formatDate(booking.checkInDate())).append("\n")
                 .append("Выезд: ").append(formatDate(booking.checkOutDate())).append("\n")
@@ -639,7 +642,7 @@ public class BotTextFactory {
     }
 
     public String buildMyBookingsMessage(List<BotBookingResponseDto> bookings) {
-        return "Ваши брони и заявки.\n\nВыберите нужную бронь по категории, дате заезда и статусу.";
+        return "Ваши брони и заявки.\n\nВыберите нужную бронь по номеру, дате заезда и статусу.";
     }
 
     public String buildBookingListLabel(int index, String roomTitle, BotBookingResponseDto booking) {
@@ -690,7 +693,7 @@ public class BotTextFactory {
     }
 
     public String buildGuestOverflowMessage(RoomCategoryResponseDto room) {
-        return "Для категории «" + roomTypeTitle(room.name()) + "» доступно максимум " + valueOrDash(room.maxGuests()) + " гостя(ей).";
+        return "Для номера «" + roomTypeTitle(room.name()) + "» доступно максимум " + valueOrDash(room.maxGuests()) + " гостя(ей).";
     }
 
     private String resolveBookingAmount(BotBookingResponseDto booking, BotPaymentResponseDto payment) {

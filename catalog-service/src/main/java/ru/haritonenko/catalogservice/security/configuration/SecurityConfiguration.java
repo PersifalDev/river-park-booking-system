@@ -10,6 +10,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
+import ru.haritonenko.catalogservice.rate.filter.CatalogRateLimitFilter;
 import ru.haritonenko.catalogservice.security.jwt.filter.JwtTokenFilter;
 import ru.haritonenko.commonlibs.security.authorization.role.PlatformRole;
 
@@ -18,6 +19,7 @@ import ru.haritonenko.commonlibs.security.authorization.role.PlatformRole;
 public class SecurityConfiguration {
 
     private final JwtTokenFilter jwtTokenFilter;
+    private final CatalogRateLimitFilter catalogRateLimitFilter;
 
     @Bean
     public UserDetailsService userDetailsService() {
@@ -38,6 +40,7 @@ public class SecurityConfiguration {
                         )
                         .anyRequest().permitAll())
                 .addFilterBefore(jwtTokenFilter, AnonymousAuthenticationFilter.class)
+                .addFilterAfter(catalogRateLimitFilter, JwtTokenFilter.class)
                 .build();
     }
 }

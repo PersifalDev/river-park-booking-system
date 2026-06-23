@@ -20,6 +20,9 @@ public class RedisDistributedLockService {
     private final BookingLockProperties properties;
 
     public <T> T execute(String lockKey, Supplier<T> action) {
+        if (!properties.isEnabled()) {
+            return action.get();
+        }
         return execute(lockKey, properties.getWaitTime(), properties.getLeaseTime(), action);
     }
 

@@ -13,11 +13,11 @@ import org.springframework.validation.annotation.Validated;
 public class BookingReviewNotificationProperties {
 
     @NotBlank
-    private String title = "Как прошло проживание?";
+    private String title;
 
     @NotBlank
-    private String message = "Спасибо, что выбрали River Park. Все понравилось? Оставьте отзыв на сайте отеля.";
+    private String message;
 
     @NotBlank
-    private String promoPrefix = "Ваш промокод на следующее заселение: ";
+    private String promoPrefix;
 }

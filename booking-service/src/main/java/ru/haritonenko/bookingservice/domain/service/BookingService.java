@@ -14,6 +14,7 @@ import ru.haritonenko.bookingservice.api.dto.BookingRequestDto;
 import ru.haritonenko.bookingservice.api.dto.TariffResponseDto;
 import ru.haritonenko.bookingservice.api.dto.filter.BookingPageFilter;
 import ru.haritonenko.bookingservice.api.dto.filter.BookingRequestSearchFilter;
+import ru.haritonenko.bookingservice.config.cancellation.BookingCancellationProperties;
 import ru.haritonenko.bookingservice.config.validation.BookingValidationProperties;
 import ru.haritonenko.bookingservice.cache.service.BookingCacheService;
 import ru.haritonenko.bookingservice.config.page.BookingPageProperties;
@@ -93,6 +94,7 @@ public class BookingService {
     private final RedisDistributedLockService lockService;
     private final BookingPageProperties pageProperties;
     private final AsyncBookingTaskDispatcherProperties taskProperties;
+    private final BookingCancellationProperties cancellationProperties;
 
     public Booking createBooking(BookingRequestDto bookingRequestDto, Long userId) {
         return createBooking(bookingRequestDto, userId, null);
@@ -308,7 +310,7 @@ public class BookingService {
 
             booking.setStatus(BookingStatus.CANCELLED);
             booking.setHoldExpiresAt(null);
-            booking.setCancellationReason("Отменено");
+            booking.setCancellationReason(cancellationProperties.getUserReason());
 
             BookingEntity saved = bookingRepository.save(booking);
 

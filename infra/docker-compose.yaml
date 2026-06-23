@@ -30,6 +30,11 @@ services:
       timeout: 30s
       retries: 20
       start_period: 120s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   user-postgres:
     image: postgres:16
@@ -262,6 +267,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      catalog-service-redis:
+        condition: service_healthy
       user-service:
         condition: service_started
       catalog-service:
@@ -281,6 +288,9 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       USER_SERVICE_BASE_URL: http://user-service:${USER_SERVER_PORT}
       CATALOG_SERVICE_BASE_URL: http://catalog-service:${CATALOG_SERVICE_PORT}
+      BOOKING_SERVICE_REDIS_HOST: catalog-service-redis
+      BOOKING_SERVICE_REDIS_PORT: 6379
+      BOOKING_SERVICE_REDIS_DB: 3
     logging:
       driver: json-file
       options:
@@ -295,6 +305,8 @@ services:
     restart: unless-stopped
     depends_on:
       payment-postgres:
+        condition: service_healthy
+      catalog-service-redis:
         condition: service_healthy
       kafka:
         condition: service_healthy
@@ -311,6 +323,9 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_LIFETIME: ${JWT_LIFETIME}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      PAYMENT_SERVICE_REDIS_HOST: catalog-service-redis
+      PAYMENT_SERVICE_REDIS_PORT: 6379
+      PAYMENT_SERVICE_REDIS_DB: 4
     logging:
       driver: json-file
       options:

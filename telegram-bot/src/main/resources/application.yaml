@@ -34,6 +34,11 @@ telegram:
     admin-contact: ${TELEGRAM_ADMIN_CONTACT}
 
 bot:
+  welcome:
+    enabled: ${BOT_WELCOME_ENABLED:true}
+    photo-path: ${BOT_WELCOME_PHOTO_PATH:classpath:welcome-river-park.png}
+    photo-file-name: ${BOT_WELCOME_PHOTO_FILE_NAME:welcome-river-park.png}
+    sticker-file-id: ${BOT_WELCOME_STICKER_FILE_ID:}
   flow:
     booking:
       max-guests: ${BOT_BOOKING_MAX_GUESTS:6}
@@ -73,7 +78,7 @@ bot:
       room-default-title: '${BOT_MESSAGE_ROOM_DEFAULT_TITLE:Номер}'
       next-promo-code: '${BOT_MESSAGE_NEXT_PROMO_CODE:Ваш промокод на следующее бронирование: }'
     input:
-      room-id-must-be-number: '${BOT_MESSAGE_ROOM_ID_MUST_BE_NUMBER:Введите номер категории числом.}'
+      room-id-must-be-number: '${BOT_MESSAGE_ROOM_ID_MUST_BE_NUMBER:Выберите номер из каталога кнопками ниже.}'
       service-id-must-be-number: '${BOT_MESSAGE_SERVICE_ID_MUST_BE_NUMBER:Введите номер услуги числом.}'
       guests-must-be-integer: '${BOT_MESSAGE_GUESTS_MUST_BE_INTEGER:Количество гостей должно быть целым числом.}'
       adults-must-be-integer: '${BOT_MESSAGE_ADULTS_MUST_BE_INTEGER:Количество взрослых должно быть целым числом.}'
@@ -96,18 +101,18 @@ bot:
       user: '${BOT_MESSAGE_USER_SERVICE_UNAVAILABLE:Сервис пользователей сейчас недоступен. Попробуйте еще раз чуть позже.}'
       default-message: '${BOT_MESSAGE_DEFAULT_SERVICE_UNAVAILABLE:Один из сервисов сейчас недоступен. Попробуйте еще раз чуть позже.}'
     keyboard:
-      pick-room: '${BOT_KEYBOARD_PICK_ROOM:Подобрать номер}'
-      all-rooms: '${BOT_KEYBOARD_ALL_ROOMS:Все номера}'
-      my-bookings: '${BOT_KEYBOARD_MY_BOOKINGS:Мои брони}'
-      notifications: '${BOT_KEYBOARD_NOTIFICATIONS:Уведомления}'
-      find-room: '${BOT_KEYBOARD_FIND_ROOM:Найти номер}'
-      services: '${BOT_KEYBOARD_SERVICES:Услуги}'
-      find-service: '${BOT_KEYBOARD_FIND_SERVICE:Найти услугу}'
-      rules: '${BOT_KEYBOARD_RULES:Правила проживания}'
-      contacts: '${BOT_KEYBOARD_CONTACTS:Контакты}'
-      site: '${BOT_KEYBOARD_SITE:Сайт}'
+      pick-room: '${BOT_KEYBOARD_PICK_ROOM:🔎 Подобрать номер}'
+      all-rooms: '${BOT_KEYBOARD_ALL_ROOMS:🛏 Все номера}'
+      my-bookings: '${BOT_KEYBOARD_MY_BOOKINGS:📋 Мои брони}'
+      notifications: '${BOT_KEYBOARD_NOTIFICATIONS:🔔 Уведомления}'
+      find-room: '${BOT_KEYBOARD_FIND_ROOM:🔎 Найти номер}'
+      services: '${BOT_KEYBOARD_SERVICES:✨ Услуги}'
+      find-service: '${BOT_KEYBOARD_FIND_SERVICE:✨ Найти услугу}'
+      rules: '${BOT_KEYBOARD_RULES:📄 Правила проживания}'
+      contacts: '${BOT_KEYBOARD_CONTACTS:☎ Контакты}'
+      site: '${BOT_KEYBOARD_SITE:🌐 Сайт}'
       no-category: '${BOT_KEYBOARD_NO_CATEGORY:Без категории}'
-      menu: '${BOT_KEYBOARD_MENU:Меню}'
+      menu: '${BOT_KEYBOARD_MENU:🏠 Меню}'
       details: '${BOT_KEYBOARD_DETAILS:Подробнее}'
       photo: '${BOT_KEYBOARD_PHOTO:Фото}'
       book: '${BOT_KEYBOARD_BOOK:Забронировать}'
@@ -122,11 +127,11 @@ bot:
       confirm-booking: '${BOT_KEYBOARD_CONFIRM_BOOKING:Подтвердить бронь}'
       cancel-booking: '${BOT_KEYBOARD_CANCEL_BOOKING:Отменить бронь}'
       back-to-bookings: '${BOT_KEYBOARD_BACK_TO_BOOKINGS:К списку броней}'
-      previous: '${BOT_KEYBOARD_PREVIOUS:<}'
-      next: '${BOT_KEYBOARD_NEXT:>}'
+      previous: '${BOT_KEYBOARD_PREVIOUS:◀ Назад}'
+      next: '${BOT_KEYBOARD_NEXT:Вперед ▶}'
       filter-guests: '${BOT_KEYBOARD_FILTER_GUESTS:Гости}'
       filter-dates: '${BOT_KEYBOARD_FILTER_DATES:Даты}'
-      filter-room-type: '${BOT_KEYBOARD_FILTER_ROOM_TYPE:Категория}'
+      filter-room-type: '${BOT_KEYBOARD_FILTER_ROOM_TYPE:Тип номера}'
       filter-price: '${BOT_KEYBOARD_FILTER_PRICE:Цена}'
       filter-area: '${BOT_KEYBOARD_FILTER_AREA:Площадь}'
       filter-search: '${BOT_KEYBOARD_FILTER_SEARCH:Найти}'

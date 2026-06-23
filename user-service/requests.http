@@ -1,28 +1,47 @@
 @baseUrl = http://localhost:8083
 @userId = 1
+@userLogin = test-user
+@userPassword = test-password
+@adminLogin = admin
+@adminPassword = admin-password
 
 ### Зарегистрировать пользователя
 POST {{baseUrl}}/users
 Content-Type: application/json
 
 {
-  "login": "test-user",
-  "key": "test-password"
+  "login": "{{userLogin}}",
+  "key": "{{userPassword}}"
 }
 
-### Получить JWT токен
-# После успешного запроса токен сохранится в переменную auth_token для следующих запросов.
+### Получить JWT токен пользователя
+# После успешного запроса токен сохранится в глобальную переменную userJwt для следующих requests.http.
 POST {{baseUrl}}/users/auth
 Content-Type: application/json
 
 {
-  "login": "test-user",
-  "password": "test-password"
+  "login": "{{userLogin}}",
+  "password": "{{userPassword}}"
 }
 
-> {% client.global.set("auth_token", response.body.jwt); %}
+> {%
+    client.global.set("userJwt", response.body.jwt);
+%}
+
+### Получить JWT токен администратора
+# Нужен пользователь с ролью ADMIN в БД. После успешного запроса токен сохранится в adminJwt.
+POST {{baseUrl}}/users/auth
+Content-Type: application/json
+
+{
+  "login": "{{adminLogin}}",
+  "password": "{{adminPassword}}"
+}
+
+> {%
+    client.global.set("adminJwt", response.body.jwt);
+%}
 
 ### Получить пользователя по id
 GET {{baseUrl}}/users/{{userId}}
-Authorization: Bearer {{auth_token}}
-
+Authorization: Bearer {{userJwt}}

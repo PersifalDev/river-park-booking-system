@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 import ru.haritonenko.bookingservice.cache.config.BookingCacheProperties;
+import ru.haritonenko.bookingservice.config.cancellation.BookingCancellationProperties;
 import ru.haritonenko.bookingservice.config.code.BookingCodeProperties;
 import ru.haritonenko.bookingservice.config.idempotency.BookingIdempotencyProperties;
 import ru.haritonenko.bookingservice.config.inventory.BookingRoomInventoryProperties;
@@ -43,6 +44,7 @@ import java.util.concurrent.TimeUnit;
         BookingIdempotencyProperties.class,
         BookingLockProperties.class,
         BookingOutboxProperties.class,
+        BookingCancellationProperties.class,
         BookingCodeProperties.class
 })
 public class CommonApplicationConfig {

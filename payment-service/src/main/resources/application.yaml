@@ -20,8 +20,8 @@ spring:
 
   data:
     redis:
-      host: ${PAYMENT_SERVICE_REDIS_HOST:${REDIS_HOST:localhost}}
-      port: ${PAYMENT_SERVICE_REDIS_PORT:${REDIS_PORT:6379}}
+      host: ${PAYMENT_SERVICE_REDIS_HOST:${CATALOG_SERVICE_REDIS_HOST:${REDIS_HOST:localhost}}}
+      port: ${PAYMENT_SERVICE_REDIS_PORT:${REDIS_CATALOG_SERVICE_PORT:${REDIS_PORT:6381}}}
       database: ${PAYMENT_SERVICE_REDIS_DB:4}
       timeout: ${PAYMENT_SERVICE_REDIS_TIMEOUT:2s}
       repositories:

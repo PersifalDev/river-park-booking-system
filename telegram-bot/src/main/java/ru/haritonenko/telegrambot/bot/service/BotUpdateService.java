@@ -3,13 +3,14 @@ package ru.haritonenko.telegrambot.bot.service;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientResponseException;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
-import ru.haritonenko.commonlibs.dto.category.RoomCategoryResponseDto;
 import ru.haritonenko.commonlibs.dto.error.ErrorMessageResponse;
 import ru.haritonenko.commonlibs.dto.service.ServiceItemResponseDto;
 import ru.haritonenko.telegrambot.bot.callback.BotCallbackCommand;
@@ -48,6 +49,7 @@ public class BotUpdateService {
     private final BotTextFactory botTextFactory;
     private final ChatStateService chatStateService;
     private final BotProperties botProperties;
+    private final BotWelcomeProperties botWelcomeProperties;
     private final BotFlowProperties botFlowProperties;
     private final BookingClientProperties bookingClientProperties;
     private final CatalogClientProperties catalogClientProperties;
@@ -60,6 +62,7 @@ public class BotUpdateService {
     private final CatalogFlowHandler catalogFlowHandler;
     private final RoomFilterFlowHandler roomFilterFlowHandler;
     private final BookingCreationFlowHandler bookingCreationFlowHandler;
+    private final ResourceLoader resourceLoader;
 
     private final Map<BotMenuCommand, MenuActionStrategy> menuActions = new EnumMap<>(BotMenuCommand.class);
     private final Map<BotCallbackCommand, CallbackActionStrategy> callbackActions = new EnumMap<>(BotCallbackCommand.class);
@@ -88,9 +91,7 @@ public class BotUpdateService {
         });
         menuActions.put(BotMenuCommand.FIND_ROOM, (chatId, text) -> {
             chatStateService.reset(chatId);
-            chatStateService.setType(chatId, ChatStateType.WAITING_ROOM_ID);
-            List<RoomCategoryResponseDto> rooms = catalogClient.getRooms(0, botFlowProperties.pagination().roomPageSize()).content();
-            botMessageService.sendText(chatId, botTextFactory.buildRoomSelectionMessage(rooms), botKeyboardFactory.mainMenu());
+            catalogFlowHandler.sendRoomsPage(chatId, 0, null, null);
         });
         menuActions.put(BotMenuCommand.SERVICES, (chatId, text) -> {
             chatStateService.reset(chatId);
@@ -270,12 +271,12 @@ public class BotUpdateService {
             String text = update.getMessage().getText().trim();
             log.info("Received message chatId={}, text={}", chatId, text);
 
-        if ("/start".equalsIgnoreCase(text) || "/help".equalsIgnoreCase(text)) {
-            chatStateService.reset(chatId);
-            conversationStore.removeLastAvailabilityDraft(chatId);
-            botMessageService.sendText(chatId, botTextFactory.buildStartMessage(), botKeyboardFactory.mainMenu());
-            return;
-        }
+            if ("/start".equalsIgnoreCase(text) || "/help".equalsIgnoreCase(text)) {
+                chatStateService.reset(chatId);
+                conversationStore.removeLastAvailabilityDraft(chatId);
+                sendWelcome(chatId);
+                return;
+            }
 
             if ("/site".equalsIgnoreCase(text)) {
                 chatStateService.reset(chatId);
@@ -318,6 +319,38 @@ public class BotUpdateService {
                     return true;
                 })
                 .orElse(false);
+    }
+
+    private void sendWelcome(Long chatId) {
+        if (botWelcomeProperties.stickerFileId() != null && !botWelcomeProperties.stickerFileId().isBlank()) {
+            botMessageService.sendSticker(chatId, botWelcomeProperties.stickerFileId());
+        }
+
+        if (!botWelcomeProperties.enabled()
+                || botWelcomeProperties.photoPath() == null
+                || botWelcomeProperties.photoPath().isBlank()) {
+            botMessageService.sendText(chatId, botTextFactory.buildStartMessage(), botKeyboardFactory.mainMenu());
+            return;
+        }
+
+        try {
+            Resource resource = resourceLoader.getResource(botWelcomeProperties.photoPath());
+            if (!resource.exists()) {
+                log.warn("Welcome photo resource does not exist: {}", botWelcomeProperties.photoPath());
+                botMessageService.sendText(chatId, botTextFactory.buildStartMessage(), botKeyboardFactory.mainMenu());
+                return;
+            }
+            botMessageService.sendResourcePhoto(
+                    chatId,
+                    resource.getInputStream(),
+                    botWelcomeProperties.photoFileName(),
+                    botTextFactory.buildStartMessage(),
+                    botKeyboardFactory.mainMenu()
+            );
+        } catch (Exception exception) {
+            log.warn("Failed to send welcome photo. chatId={}", chatId, exception);
+            botMessageService.sendText(chatId, botTextFactory.buildStartMessage(), botKeyboardFactory.mainMenu());
+        }
     }
 
     private void handleStateInput(Long chatId, String text) {

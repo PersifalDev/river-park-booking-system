@@ -3,6 +3,7 @@ package ru.haritonenko.telegrambot.bot.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.core.io.ResourceLoader;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
@@ -23,6 +24,7 @@ import ru.haritonenko.telegrambot.client.CatalogClient;
 import ru.haritonenko.telegrambot.config.BookingClientProperties;
 import ru.haritonenko.telegrambot.config.BotFlowProperties;
 import ru.haritonenko.telegrambot.config.BotProperties;
+import ru.haritonenko.telegrambot.config.BotWelcomeProperties;
 import ru.haritonenko.telegrambot.config.CatalogClientProperties;
 import ru.haritonenko.telegrambot.config.NotificationClientProperties;
 import ru.haritonenko.telegrambot.config.PaymentClientProperties;
@@ -54,6 +56,8 @@ class BotUpdateServiceFilterCallbackTest {
     @Mock
     private BotProperties botProperties;
     @Mock
+    private BotWelcomeProperties botWelcomeProperties;
+    @Mock
     private BotFlowProperties botFlowProperties;
     @Mock
     private BookingClientProperties bookingClientProperties;
@@ -78,6 +82,8 @@ class BotUpdateServiceFilterCallbackTest {
     @Mock
     private BookingCreationFlowHandler bookingCreationFlowHandler;
     @Mock
+    private ResourceLoader resourceLoader;
+    @Mock
     private BotConversationStore conversationStore;
 
     private BotUpdateService service;
@@ -93,6 +99,7 @@ class BotUpdateServiceFilterCallbackTest {
                 botTextFactory,
                 chatStateService,
                 botProperties,
+                botWelcomeProperties,
                 botFlowProperties,
                 bookingClientProperties,
                 catalogClientProperties,
@@ -105,6 +112,7 @@ class BotUpdateServiceFilterCallbackTest {
                 catalogFlowHandler,
                 roomFilterFlowHandler,
                 bookingCreationFlowHandler,
+                resourceLoader,
                 conversationStore
         );
         service.initActionStrategies();

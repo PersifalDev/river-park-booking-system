@@ -9,26 +9,26 @@ import lombok.Setter;
 public class BookingReminderTextProperties {
 
     @NotBlank
-    private String dateZone = "Asia/Novosibirsk";
+    private String dateZone;
 
     @NotBlank
-    private String datePattern = "dd.MM.yyyy";
+    private String datePattern;
 
     @NotBlank
-    private String dateTimePattern = "dd.MM.yyyy HH:mm";
+    private String dateTimePattern;
 
     @NotBlank
-    private String unknownDate = "-";
+    private String unknownDate;
 
     @NotBlank
-    private String holdExpiringTitle = "Удержание скоро истечёт";
+    private String holdExpiringTitle;
 
     @NotBlank
-    private String holdExpiringMessage = "Бронь %s удерживается до %s. Подтвердите бронь, иначе удержание будет снято автоматически.";
+    private String holdExpiringMessage;
 
     @NotBlank
-    private String checkInTitle = "Напоминание о заезде";
+    private String checkInTitle;
 
     @NotBlank
-    private String checkInMessage = "Напоминаем о брони %s. Заезд запланирован на %s. Оплата производится при заселении у администратора River Park.";
+    private String checkInMessage;
 }

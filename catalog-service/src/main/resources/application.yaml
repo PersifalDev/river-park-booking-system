@@ -67,6 +67,12 @@ logging:
     org.hibernate.orm.jdbc.bind: ${LOGGING_LEVEL_ORG_HIBERNATE_BIND:TRACE}
 
 app:
+  rate-limit:
+    enabled: ${CATALOG_RATE_LIMIT_ENABLED:true}
+    window: ${CATALOG_RATE_LIMIT_WINDOW:1m}
+    max-requests-per-window: ${CATALOG_RATE_LIMIT_MAX_REQUESTS_PER_WINDOW:60}
+    max-search-requests-per-window: ${CATALOG_RATE_LIMIT_MAX_SEARCH_REQUESTS_PER_WINDOW:30}
+
   roomCategory:
     default-page-size: ${CATALOG_ROOM_CATEGORY_DEFAULT_PAGE_SIZE:5}
     default-page-number: ${CATALOG_ROOM_CATEGORY_DEFAULT_PAGE_NUMBER:0}

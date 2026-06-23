@@ -1,5 +1,6 @@
 @baseUrl = http://localhost:8084
-@authToken = {{auth_token}}
+@userToken = {{userJwt}}
+@adminToken = {{adminJwt}}
 @bookingId = 556bc793-c291-43d6-9a28-b48ddd928ad9
 @roomCategoryId = 2
 @checkInDate = 2026-06-15
@@ -10,7 +11,7 @@
 ### Создать бронь
 # Требует JWT пользователя. Idempotency-Key можно менять для повторных тестов.
 POST {{baseUrl}}/booking
-Authorization: Bearer {{authToken}}
+Authorization: Bearer {{userToken}}
 Idempotency-Key: booking-test-001
 Content-Type: application/json
 
@@ -26,7 +27,7 @@ Content-Type: application/json
 
 ### Найти доступные категории номеров на даты
 POST {{baseUrl}}/booking/available/search?pageNumber={{pageNumber}}&pageSize={{pageSize}}
-Authorization: Bearer {{authToken}}
+Authorization: Bearer {{userToken}}
 Content-Type: application/json
 
 {
@@ -41,7 +42,7 @@ Content-Type: application/json
 
 ### Найти брони пользователя по фильтру
 POST {{baseUrl}}/booking/search?pageNumber={{pageNumber}}&pageSize={{pageSize}}
-Authorization: Bearer {{authToken}}
+Authorization: Bearer {{userToken}}
 Content-Type: application/json
 
 {
@@ -55,29 +56,28 @@ Content-Type: application/json
 
 ### Получить бронь по UUID
 GET {{baseUrl}}/booking/{{bookingId}}
-Authorization: Bearer {{authToken}}
+Authorization: Bearer {{userToken}}
 
 ### Получить активные брони пользователя
 GET {{baseUrl}}/booking?pageNumber={{pageNumber}}&pageSize={{pageSize}}
-Authorization: Bearer {{authToken}}
+Authorization: Bearer {{userToken}}
 
 ### Получить неактивные брони пользователя
 GET {{baseUrl}}/booking/inactive?pageNumber={{pageNumber}}&pageSize={{pageSize}}
-Authorization: Bearer {{authToken}}
+Authorization: Bearer {{userToken}}
 
 ### Очистить неактивные брони пользователя
 DELETE {{baseUrl}}/booking/inactive
-Authorization: Bearer {{authToken}}
+Authorization: Bearer {{userToken}}
 
 ### Очистить завершенные брони пользователя
 DELETE {{baseUrl}}/booking/completed
-Authorization: Bearer {{authToken}}
+Authorization: Bearer {{adminToken}}
 
 ### Отменить бронь
 PATCH {{baseUrl}}/booking/{{bookingId}}/cancel
-Authorization: Bearer {{authToken}}
+Authorization: Bearer {{userToken}}
 
 ### Подтвердить бронь
 PATCH {{baseUrl}}/booking/{{bookingId}}/confirm
-Authorization: Bearer {{authToken}}
-
+Authorization: Bearer {{adminToken}}

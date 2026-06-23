@@ -8,6 +8,7 @@ import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.send.SendDocument;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
+import org.telegram.telegrambots.meta.api.methods.send.SendSticker;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageCaption;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageMedia;
@@ -33,6 +34,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.SocketTimeoutException;
 import java.net.http.HttpClient;
@@ -146,6 +148,43 @@ public class BotMessageService {
         }
     }
 
+    public Message sendPhoto(Long chatId, byte[] photoBytes, String fileName, String caption, ReplyKeyboard keyboard) {
+        if (photoBytes == null || photoBytes.length == 0) {
+            return sendText(chatId, caption, keyboard);
+        }
+
+        try {
+            byte[] optimizedBytes = optimizeImageIfPossible(photoBytes);
+            String resolvedFileName = fileName == null || fileName.isBlank() ? "welcome-photo.jpg" : fileName;
+            String uploadFileName = optimizedBytes == photoBytes ? resolvedFileName : toJpgFileName(resolvedFileName);
+
+            return telegramClient.execute(SendPhoto.builder()
+                    .chatId(chatId)
+                    .photo(new InputFile(new ByteArrayInputStream(optimizedBytes), uploadFileName))
+                    .caption(caption)
+                    .replyMarkup(keyboard)
+                    .build());
+        } catch (Exception exception) {
+            logTelegramPhotoFailure("local send", chatId, null, fileName, exception);
+            return sendText(chatId, caption, keyboard);
+        }
+    }
+
+    public void sendSticker(Long chatId, String stickerFileId) {
+        if (stickerFileId == null || stickerFileId.isBlank()) {
+            return;
+        }
+
+        try {
+            telegramClient.execute(SendSticker.builder()
+                    .chatId(chatId)
+                    .sticker(new InputFile(stickerFileId))
+                    .build());
+        } catch (TelegramApiException exception) {
+            log.warn("Failed to send welcome sticker chatId={}", chatId, exception);
+        }
+    }
+
     public boolean editPhoto(Long chatId, Integer messageId, String photoUrl, String caption, InlineKeyboardMarkup keyboard) {
         String cachedFileId = getCachedTelegramFileId(photoUrl);
         if (cachedFileId != null && editPhotoByFileId(chatId, messageId, cachedFileId, caption, keyboard)) {
@@ -247,6 +286,15 @@ public class BotMessageService {
                     .build());
         } catch (TelegramApiException e) {
             log.error("Failed to send document chatId={}, fileName={}", chatId, fileName, e);
+        }
+    }
+
+    public Message sendResourcePhoto(Long chatId, InputStream inputStream, String fileName, String caption, ReplyKeyboard keyboard) {
+        try (InputStream stream = inputStream) {
+            return sendPhoto(chatId, stream.readAllBytes(), fileName, caption, keyboard);
+        } catch (IOException exception) {
+            log.warn("Failed to read local photo. chatId={}, fileName={}", chatId, fileName, exception);
+            return sendText(chatId, caption, keyboard);
         }
     }
 
