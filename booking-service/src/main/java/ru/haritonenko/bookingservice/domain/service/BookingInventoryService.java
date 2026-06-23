@@ -11,6 +11,7 @@ import ru.haritonenko.bookingservice.domain.db.repository.BookingInventoryReposi
 import ru.haritonenko.bookingservice.domain.exception.BookingAvailabilityException;
 import ru.haritonenko.bookingservice.domain.exception.BookingNotFoundException;
 import ru.haritonenko.bookingservice.external.client.catalog.CatalogServiceHttpClient;
+import ru.haritonenko.bookingservice.lock.RedisDistributedLockService;
 import ru.haritonenko.commonlibs.exception.RoomCategoryNotFoundException;
 
 import java.time.LocalDate;
@@ -28,6 +29,7 @@ public class BookingInventoryService {
     private final CatalogServiceHttpClient catalogServiceHttpClient;
     private final TransactionTemplate transactionTemplate;
     private final BookingRoomInventoryService roomInventoryService;
+    private final RedisDistributedLockService lockService;
 
     public void holdInventory(BookingEntity booking) {
         if (isNull(booking)) {
@@ -45,6 +47,11 @@ public class BookingInventoryService {
             log.warn("Booking not found to hold inventory");
             throw new BookingNotFoundException("Booking not found");
         }
+
+        lockService.execute(inventoryLockKey(booking), () -> holdInventoryLocked(booking, totalUnits));
+    }
+
+    private void holdInventoryLocked(BookingEntity booking, Integer totalUnits) {
 
         log.info("Holding inventory for booking: bookingId={}, userId={}, roomCategoryId={}, bookingCode={}",
                 booking.getId(),
@@ -81,6 +88,10 @@ public class BookingInventoryService {
 
     @Transactional
     public void releaseHeldInventory(BookingEntity booking) {
+        lockService.execute(inventoryLockKey(booking), () -> releaseHeldInventoryLocked(booking));
+    }
+
+    private void releaseHeldInventoryLocked(BookingEntity booking) {
         log.info("Releasing held inventory for booking: bookingId={}, roomCategoryId={}",
                 booking.getId(),
                 booking.getRoomCategoryId()
@@ -106,6 +117,10 @@ public class BookingInventoryService {
 
     @Transactional
     public void releaseConfirmedInventory(BookingEntity booking) {
+        lockService.execute(inventoryLockKey(booking), () -> releaseConfirmedInventoryLocked(booking));
+    }
+
+    private void releaseConfirmedInventoryLocked(BookingEntity booking) {
         log.info("Releasing confirmed inventory for booking: bookingId={}, roomCategoryId={}",
                 booking.getId(),
                 booking.getRoomCategoryId()
@@ -132,6 +147,10 @@ public class BookingInventoryService {
 
     @Transactional
     public void confirmHeldInventory(BookingEntity booking) {
+        lockService.execute(inventoryLockKey(booking), () -> confirmHeldInventoryLocked(booking));
+    }
+
+    private void confirmHeldInventoryLocked(BookingEntity booking) {
         log.info("Confirming held inventory for booking: bookingId={}, roomCategoryId={}",
                 booking.getId(),
                 booking.getRoomCategoryId()
@@ -267,5 +286,13 @@ public class BookingInventoryService {
 
         log.info("Extracting total units from room category with id={}", roomCategoryId);
         return category.totalUnits() != null ? category.totalUnits() : 0;
+    }
+
+    private String inventoryLockKey(BookingEntity booking) {
+        return "inventory:category:%s:from:%s:to:%s".formatted(
+                booking.getRoomCategoryId(),
+                booking.getCheckInDate(),
+                booking.getCheckOutDate()
+        );
     }
 }

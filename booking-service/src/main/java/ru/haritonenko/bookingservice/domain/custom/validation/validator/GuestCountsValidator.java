@@ -22,10 +22,6 @@ public class GuestCountsValidator implements ConstraintValidator<ValidGuestCount
 
     private boolean compositionRequired;
 
-    public GuestCountsValidator() {
-        this(new BookingValidationProperties());
-    }
-
     @Autowired
     public GuestCountsValidator(BookingValidationProperties properties) {
         this.properties = properties;

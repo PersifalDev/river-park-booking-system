@@ -16,10 +16,6 @@ public class AvailableRoomSearchRequestValidator
 
     private final BookingValidationProperties properties;
 
-    public AvailableRoomSearchRequestValidator() {
-        this(new BookingValidationProperties());
-    }
-
     public AvailableRoomSearchRequestValidator(BookingValidationProperties properties) {
         this.properties = properties;
     }

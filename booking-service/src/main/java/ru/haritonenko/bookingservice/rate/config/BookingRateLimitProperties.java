@@ -15,9 +15,9 @@ import java.util.List;
 public class BookingRateLimitProperties {
 
     private boolean enabled = true;
-    private Duration window = Duration.ofMinutes(1);
-    private int maxRequestsPerWindow = 120;
-    private int maxCreateBookingRequestsPerWindow = 20;
+    private Duration window;
+    private int maxRequestsPerWindow;
+    private int maxCreateBookingRequestsPerWindow;
     private List<String> excludedPathPrefixes = List.of(
             "/actuator",
             "/swagger-ui",

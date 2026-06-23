@@ -11,7 +11,9 @@ import ru.haritonenko.paymentservice.domain.exception.IllegalPaymentStateExcepti
 import ru.haritonenko.paymentservice.domain.exception.PaymentNotFoundException;
 import ru.haritonenko.paymentservice.domain.mapper.PaymentMapper;
 import ru.haritonenko.paymentservice.domain.status.PaymentStatus;
+import ru.haritonenko.paymentservice.cache.PaymentCacheService;
 import ru.haritonenko.paymentservice.kafka.producer.sender.KafkaPaymentEventSender;
+import ru.haritonenko.paymentservice.lock.RedisDistributedLockService;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -20,6 +22,8 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -28,13 +32,19 @@ class PaymentServiceTest {
 
     private PaymentEntityRepository repository;
     private KafkaPaymentEventSender sender;
+    private PaymentCacheService cacheService;
+    private RedisDistributedLockService lockService;
     private PaymentService service;
 
     @BeforeEach
     void setUp() {
         repository = mock(PaymentEntityRepository.class);
         sender = mock(KafkaPaymentEventSender.class);
-        service = new PaymentService(repository, new PaymentMapper(), sender);
+        cacheService = mock(PaymentCacheService.class);
+        lockService = mock(RedisDistributedLockService.class);
+        doAnswer(invocation -> invocation.<java.util.function.Supplier<?>>getArgument(1).get())
+                .when(lockService).execute(anyString(), any(java.util.function.Supplier.class));
+        service = new PaymentService(repository, new PaymentMapper(), sender, cacheService, lockService);
         ReflectionTestUtils.setField(service, "sourceService", "payment-service");
         ReflectionTestUtils.setField(service, "contactPhone", "+7 383 000-00-00");
         ReflectionTestUtils.setField(service, "defaultComment", "Оплата при заселении");

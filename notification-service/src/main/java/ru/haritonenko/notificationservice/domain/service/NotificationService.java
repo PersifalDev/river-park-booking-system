@@ -3,6 +3,7 @@ package ru.haritonenko.notificationservice.domain.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -11,6 +12,7 @@ import ru.haritonenko.commonlibs.dto.kafka.event.type.NotificationEventType;
 import ru.haritonenko.commonlibs.notification.NotificationStatus;
 import ru.haritonenko.commonlibs.utils.pages.CommonPageable;
 import ru.haritonenko.notificationservice.api.dto.filter.NotificationPageFilter;
+import ru.haritonenko.notificationservice.cache.NotificationCacheService;
 import ru.haritonenko.notificationservice.domain.db.entity.NotificationEntity;
 import ru.haritonenko.notificationservice.domain.db.repository.NotificationEntityRepository;
 
@@ -22,6 +24,7 @@ import java.util.UUID;
 public class NotificationService {
 
     private final NotificationEntityRepository notificationRepository;
+    private final NotificationCacheService cacheService;
 
     @Value("${app.notification.default-page-number}")
     private int defaultPageNumber;
@@ -43,9 +46,14 @@ public class NotificationService {
                 .read(false)
                 .build());
         log.info("Notification created successfully: notificationId={}, userId={}", entity.getId(), entity.getUserId());
+        cacheService.evictUserPages(userId);
         return entity;
     }
 
+    @Cacheable(
+            value = "notificationPages",
+            key = "@notificationCacheService.registerAllPageKey(#userId, #pageFilter)"
+    )
     @Transactional(readOnly = true)
     public Page<NotificationEntity> getAllNotificationsByUserId(Long userId, NotificationPageFilter pageFilter) {
         log.info("Getting all notifications by userId={}", userId);
@@ -53,6 +61,10 @@ public class NotificationService {
         return notificationRepository.findAllByUserIdOrderByCreatedAtDesc(userId, pageable);
     }
 
+    @Cacheable(
+            value = "unreadNotificationPages",
+            key = "@notificationCacheService.registerUnreadPageKey(#userId, #pageFilter)"
+    )
     @Transactional(readOnly = true)
     public Page<NotificationEntity> getUnreadNotificationsByUserId(Long userId, NotificationPageFilter pageFilter) {
         log.info("Getting unread notifications by userId={}", userId);
@@ -72,6 +84,7 @@ public class NotificationService {
         entity.setStatus(NotificationStatus.READ);
         NotificationEntity savedEntity = notificationRepository.save(entity);
         log.info("Notification marked as read successfully: notificationId={}, userId={}", savedEntity.getId(), userId);
+        cacheService.evictUserPages(userId);
         return savedEntity;
     }
 
@@ -84,5 +97,6 @@ public class NotificationService {
             notificationRepository.save(entity);
         });
         log.info("All unread notifications were marked as read for userId={}", userId);
+        cacheService.evictUserPages(userId);
     }
 }

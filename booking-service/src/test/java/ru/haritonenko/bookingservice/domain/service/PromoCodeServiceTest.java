@@ -2,7 +2,7 @@ package ru.haritonenko.bookingservice.domain.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
+import ru.haritonenko.bookingservice.config.promo.BookingPromoProperties;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
 import ru.haritonenko.bookingservice.domain.db.entity.PromoCodeEntity;
 import ru.haritonenko.bookingservice.domain.db.repository.BookingEntityRepository;
@@ -10,6 +10,7 @@ import ru.haritonenko.bookingservice.domain.db.repository.PromoCodeRepository;
 import ru.haritonenko.bookingservice.domain.exception.IllegalBookingStateException;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,12 +28,19 @@ class PromoCodeServiceTest {
 
     private final PromoCodeRepository promoCodeRepository = mock(PromoCodeRepository.class);
     private final BookingEntityRepository bookingRepository = mock(BookingEntityRepository.class);
+    private final BookingPromoProperties properties = new BookingPromoProperties();
 
-    private final PromoCodeService service = new PromoCodeService(promoCodeRepository, bookingRepository);
+    private final PromoCodeService service = new PromoCodeService(promoCodeRepository, bookingRepository, properties);
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(service, "generatedDiscountPercent", 10);
+        properties.setGeneratedDiscountPercent(10);
+        properties.setMaxGenerationAttempts(16);
+        properties.setGeneratedCodeRandomLength(10);
+        properties.setPercentDenominator(100);
+        properties.setDiscountCalculationScale(4);
+        properties.setMoneyScale(2);
+        properties.setRoundingMode(RoundingMode.HALF_UP);
         when(promoCodeRepository.save(any(PromoCodeEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
     }
 

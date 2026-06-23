@@ -12,6 +12,6 @@ import java.math.RoundingMode;
 public class BookingPriceCalendarProperties {
 
     private boolean fallbackToCategoryBasePrice = true;
-    private int moneyScale = 2;
+    private int moneyScale;
     private RoundingMode roundingMode = RoundingMode.HALF_UP;
 }

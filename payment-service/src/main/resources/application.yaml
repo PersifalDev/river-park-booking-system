@@ -18,6 +18,15 @@ spring:
   liquibase:
     change-log: classpath:db/changelog/changelog-master.yaml
 
+  data:
+    redis:
+      host: ${PAYMENT_SERVICE_REDIS_HOST:${REDIS_HOST:localhost}}
+      port: ${PAYMENT_SERVICE_REDIS_PORT:${REDIS_PORT:6379}}
+      database: ${PAYMENT_SERVICE_REDIS_DB:4}
+      timeout: ${PAYMENT_SERVICE_REDIS_TIMEOUT:2s}
+      repositories:
+        enabled: false
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:${KAFKA_HOST_PORT:9094}}
     producer:
@@ -54,6 +63,9 @@ app:
     default-page-number: ${PAYMENT_DEFAULT_PAGE_NUMBER:0}
     events:
       source: ${PAYMENT_EVENT_SOURCE:payment-service}
+    lock:
+      wait-time: ${PAYMENT_LOCK_WAIT_TIME:3s}
+      lease-time: ${PAYMENT_LOCK_LEASE_TIME:30s}
     contact-phone: ${PAYMENT_CONTACT_PHONE:+7 (383) 349-50-50}
     default-comment: ${PAYMENT_CONTACT_COMMENT:Оплата производится в день заселения у администратора отеля.}
     default-instruction: ${PAYMENT_DEFAULT_INSTRUCTION:Подтвердите бронирование. Оплата производится в день заселения у администратора.}

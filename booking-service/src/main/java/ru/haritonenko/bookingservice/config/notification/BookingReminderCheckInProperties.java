@@ -6,5 +6,5 @@ import lombok.Setter;
 @Getter
 @Setter
 public class BookingReminderCheckInProperties {
-    private long daysBefore = 1;
+    private long daysBefore;
 }

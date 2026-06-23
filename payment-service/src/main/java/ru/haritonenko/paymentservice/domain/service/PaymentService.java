@@ -3,6 +3,7 @@ package ru.haritonenko.paymentservice.domain.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,7 @@ import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
 import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentKafkaPayload;
 import ru.haritonenko.commonlibs.utils.pages.CommonPageable;
 import ru.haritonenko.paymentservice.api.dto.filter.PaymentPageFilter;
+import ru.haritonenko.paymentservice.cache.PaymentCacheService;
 import ru.haritonenko.paymentservice.domain.Payment;
 import ru.haritonenko.paymentservice.domain.db.entity.PaymentEntity;
 import ru.haritonenko.paymentservice.domain.db.repository.PaymentEntityRepository;
@@ -21,6 +23,7 @@ import ru.haritonenko.paymentservice.domain.exception.PaymentNotFoundException;
 import ru.haritonenko.paymentservice.domain.mapper.PaymentMapper;
 import ru.haritonenko.paymentservice.domain.status.PaymentStatus;
 import ru.haritonenko.paymentservice.kafka.producer.sender.KafkaPaymentEventSender;
+import ru.haritonenko.paymentservice.lock.RedisDistributedLockService;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -33,6 +36,8 @@ public class PaymentService {
     private final PaymentEntityRepository paymentRepository;
     private final PaymentMapper paymentMapper;
     private final KafkaPaymentEventSender kafkaPaymentEventSender;
+    private final PaymentCacheService cacheService;
+    private final RedisDistributedLockService lockService;
 
     @Value("${app.payment.default-page-number}")
     private int defaultPageNumber;
@@ -54,6 +59,13 @@ public class PaymentService {
 
     @Transactional
     public Payment createPendingPayment(BookingKafkaPayload payload) {
+        if (payload == null || payload.bookingId() == null) {
+            throw new IllegalArgumentException("Booking payload is invalid");
+        }
+        return lockService.execute(paymentLockKey(payload.bookingId()), () -> createPendingPaymentLocked(payload));
+    }
+
+    private Payment createPendingPaymentLocked(BookingKafkaPayload payload) {
         if (payload == null || payload.bookingId() == null || payload.userId() == null) {
             log.warn("Skip creating payment because booking payload is invalid: payload={}", payload);
             throw new IllegalArgumentException("Booking payload is invalid");
@@ -72,6 +84,7 @@ public class PaymentService {
             existingPayment.setPaymentInstruction(defaultInstruction);
             PaymentEntity refreshedPayment = paymentRepository.save(existingPayment);
             log.info("Pending payment refreshed for bookingId={}, paymentId={}, amount={}", payload.bookingId(), refreshedPayment.getId(), refreshedPayment.getPriceAmount());
+            evictPaymentCaches(refreshedPayment);
             return paymentMapper.toDomain(refreshedPayment);
         }
         PaymentEntity savedPayment = paymentRepository.save(PaymentEntity.builder()
@@ -87,9 +100,14 @@ public class PaymentService {
                 .build());
         log.info("Pending payment created successfully: paymentId={}, bookingId={}", savedPayment.getId(), savedPayment.getBookingId());
         sendPaymentEvent(savedPayment, PaymentEventType.PAYMENT_PENDING);
+        evictPaymentCaches(savedPayment);
         return paymentMapper.toDomain(savedPayment);
     }
 
+    @Cacheable(
+            value = "paymentsByBooking",
+            key = "@paymentCacheService.paymentByBooking(#userId, #bookingId)"
+    )
     @Transactional(readOnly = true)
     public Payment getPaymentByBookingIdAndUserId(UUID bookingId, Long userId) {
         log.info("Getting payment by bookingId={} and userId={}", bookingId, userId);
@@ -101,6 +119,10 @@ public class PaymentService {
         return paymentMapper.toDomain(paymentEntity);
     }
 
+    @Cacheable(
+            value = "paymentPages",
+            key = "@paymentCacheService.registerPaymentPageKey(#userId, #pageFilter)"
+    )
     @Transactional(readOnly = true)
     public Page<Payment> getAllPaymentsByUserId(Long userId, PaymentPageFilter pageFilter) {
         log.info("Getting all payments for userId={}", userId);
@@ -110,6 +132,10 @@ public class PaymentService {
 
     @Transactional
     public Payment confirmPaymentByBookingIdAndUserId(UUID bookingId, Long userId) {
+        return lockService.execute(paymentLockKey(bookingId), () -> confirmPaymentByBookingIdAndUserIdLocked(bookingId, userId));
+    }
+
+    private Payment confirmPaymentByBookingIdAndUserIdLocked(UUID bookingId, Long userId) {
         log.info("Confirming payment by bookingId={} and userId={}", bookingId, userId);
         PaymentEntity paymentEntity = findByBookingId(bookingId);
         if (!paymentEntity.getUserId().equals(userId)) {
@@ -125,11 +151,16 @@ public class PaymentService {
         PaymentEntity savedPayment = paymentRepository.save(paymentEntity);
         log.info("Payment confirmed successfully: paymentId={}, bookingId={}", savedPayment.getId(), savedPayment.getBookingId());
         sendPaymentEvent(savedPayment, PaymentEventType.PAYMENT_CONFIRMED);
+        evictPaymentCaches(savedPayment);
         return paymentMapper.toDomain(savedPayment);
     }
 
     @Transactional
     public Payment cancelPaymentByBookingIdAndUserId(UUID bookingId, Long userId) {
+        return lockService.execute(paymentLockKey(bookingId), () -> cancelPaymentByBookingIdAndUserIdLocked(bookingId, userId));
+    }
+
+    private Payment cancelPaymentByBookingIdAndUserIdLocked(UUID bookingId, Long userId) {
         log.info("Cancelling payment by bookingId={} and userId={}", bookingId, userId);
         PaymentEntity paymentEntity = findByBookingId(bookingId);
         if (!paymentEntity.getUserId().equals(userId)) {
@@ -145,11 +176,16 @@ public class PaymentService {
         PaymentEntity savedPayment = paymentRepository.save(paymentEntity);
         log.info("Payment cancelled successfully: paymentId={}, bookingId={}", savedPayment.getId(), savedPayment.getBookingId());
         sendPaymentEvent(savedPayment, PaymentEventType.PAYMENT_CANCELLED);
+        evictPaymentCaches(savedPayment);
         return paymentMapper.toDomain(savedPayment);
     }
 
     @Transactional
     public void cancelPaymentInternal(UUID bookingId, String cancellationReason) {
+        lockService.execute(paymentLockKey(bookingId), () -> cancelPaymentInternalLocked(bookingId, cancellationReason));
+    }
+
+    private void cancelPaymentInternalLocked(UUID bookingId, String cancellationReason) {
         if (bookingId == null) {
             log.warn("Skip internal payment cancellation because bookingId is null");
             return;
@@ -169,6 +205,7 @@ public class PaymentService {
         PaymentEntity savedPayment = paymentRepository.save(paymentEntity);
         log.info("Internal cancellation completed for paymentId={}, bookingId={}", savedPayment.getId(), bookingId);
         sendPaymentEvent(savedPayment, PaymentEventType.PAYMENT_CANCELLED);
+        evictPaymentCaches(savedPayment);
     }
 
     private PaymentEntity findByBookingId(UUID bookingId) {
@@ -199,5 +236,14 @@ public class PaymentService {
                         .build()
         ));
         log.info("Payment Kafka event prepared and sent: paymentId={}, eventType={}", paymentEntity.getId(), paymentEventType);
+    }
+
+    private void evictPaymentCaches(PaymentEntity payment) {
+        cacheService.evictPayment(payment.getUserId(), payment.getBookingId());
+        cacheService.evictUserPages(payment.getUserId());
+    }
+
+    private String paymentLockKey(UUID bookingId) {
+        return "payment:booking:" + bookingId;
     }
 }

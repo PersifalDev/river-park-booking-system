@@ -5,7 +5,9 @@ import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,6 +32,7 @@ public class UserService {
     private final UserEntityMapper mapper;
     private final PasswordEncoder passwordEncoder;
 
+    @Cacheable(value = "users", key = "'id:' + #id")
     @Transactional(readOnly = true)
     public User getUserById(Long id) {
         log.info("Getting user by id: {}", id);
@@ -49,7 +52,10 @@ public class UserService {
     }
 
     @Transactional
-    @CacheEvict(value = "users", allEntries = true)
+    @Caching(put = {
+            @CachePut(value = "users", key = "'id:' + #result.id()"),
+            @CachePut(value = "users", key = "'login:' + #result.login()")
+    })
     public User register(UserRegistration userFromRegistration) {
 
         if(isNull(userFromRegistration)){
@@ -72,7 +78,10 @@ public class UserService {
     }
 
     @Transactional
-    @CacheEvict(value = "users", allEntries = true)
+    @Caching(evict = {
+            @CacheEvict(value = "users", key = "'id:' + #userId"),
+            @CacheEvict(value = "users", key = "'login:' + #result.login()")
+    })
     public User updateUserRole(Long userId, UserRole role) {
         if (isNull(role)) {
             log.warn("Role update failed: role is null for userId={}", userId);

@@ -4,9 +4,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
+import ru.haritonenko.bookingservice.api.dto.filter.BookingPageFilter;
+import ru.haritonenko.bookingservice.api.dto.filter.BookingRequestSearchFilter;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -18,8 +21,40 @@ public class BookingCacheService {
     private static final String BOOKING_BY_USER_CACHE = "bookingByUser";
 
     private final CacheManager cacheManager;
+    private final Map<Long, Set<String>> bookingKeysByUser = new ConcurrentHashMap<>();
     private final Map<Long, Set<String>> bookingPageKeysByUser = new ConcurrentHashMap<>();
     private final Map<Long, Set<String>> bookingSearchPageKeysByUser = new ConcurrentHashMap<>();
+
+    public String bookingByUser(Long userId, UUID bookingId) {
+        return userId + ":" + bookingId;
+    }
+
+    public String bookingPage(Long userId, BookingPageFilter pageFilter) {
+        return userId
+                + ":page=" + (pageFilter == null || pageFilter.getPageNumber() == null ? "default" : pageFilter.getPageNumber())
+                + ":size=" + (pageFilter == null || pageFilter.getPageSize() == null ? "default" : pageFilter.getPageSize());
+    }
+
+    public String bookingSearchPage(
+            Long userId,
+            BookingRequestSearchFilter filter,
+            BookingPageFilter pageFilter
+    ) {
+        return userId
+                + ":status=" + (filter == null ? "null" : filter.status())
+                + ":active=" + (filter == null ? "null" : filter.active())
+                + ":adultCount=" + (filter == null ? "null" : filter.adultCount())
+                + ":childrenCount=" + (filter == null ? "null" : filter.childrenCount())
+                + ":checkInDate=" + (filter == null ? "null" : filter.checkInDate())
+                + ":checkOutDate=" + (filter == null ? "null" : filter.checkOutDate())
+                + ":page=" + (pageFilter == null || pageFilter.getPageNumber() == null ? "default" : pageFilter.getPageNumber())
+                + ":size=" + (pageFilter == null || pageFilter.getPageSize() == null ? "default" : pageFilter.getPageSize());
+    }
+
+    public String registerBookingByUserKey(Long userId, String cacheKey) {
+        registerKey(bookingKeysByUser, userId, cacheKey);
+        return cacheKey;
+    }
 
     public String registerBookingPageKey(Long userId, String cacheKey) {
         registerKey(bookingPageKeysByUser, userId, cacheKey);
@@ -36,10 +71,15 @@ public class BookingCacheService {
         evictIndexedKeys(BOOKING_SEARCH_PAGES_CACHE, bookingSearchPageKeysByUser.remove(userId));
     }
 
+    public void evictUserBookings(Long userId) {
+        evictIndexedKeys(BOOKING_BY_USER_CACHE, bookingKeysByUser.remove(userId));
+    }
+
     public void evictAll() {
         evictAll(BOOKING_BY_USER_CACHE);
         evictAll(BOOKING_PAGES_CACHE);
         evictAll(BOOKING_SEARCH_PAGES_CACHE);
+        bookingKeysByUser.clear();
         bookingPageKeysByUser.clear();
         bookingSearchPageKeysByUser.clear();
     }
@@ -48,6 +88,10 @@ public class BookingCacheService {
         Cache cache = cacheManager.getCache(BOOKING_BY_USER_CACHE);
         if (cache != null) {
             cache.evict(userId + ":" + bookingId);
+        }
+        Set<String> userKeys = bookingKeysByUser.get(userId);
+        if (userKeys != null) {
+            userKeys.remove(userId + ":" + bookingId);
         }
     }
 

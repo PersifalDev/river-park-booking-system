@@ -2,6 +2,7 @@ package ru.haritonenko.bookingservice.domain.service;
 
 import org.junit.jupiter.api.Test;
 import ru.haritonenko.bookingservice.api.dto.BookingRequestDto;
+import ru.haritonenko.bookingservice.config.idempotency.BookingIdempotencyProperties;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingIdempotencyKeyEntity;
 import ru.haritonenko.bookingservice.domain.db.repository.BookingIdempotencyKeyRepository;
 import ru.haritonenko.bookingservice.domain.exception.BookingIdempotencyConflictException;
@@ -27,8 +28,9 @@ import static org.mockito.Mockito.when;
 class BookingIdempotencyServiceTest {
 
     private final BookingIdempotencyKeyRepository repository = mock(BookingIdempotencyKeyRepository.class);
+    private final BookingIdempotencyProperties properties = properties();
 
-    private final BookingIdempotencyService service = new BookingIdempotencyService(repository, Duration.ofHours(24));
+    private final BookingIdempotencyService service = new BookingIdempotencyService(repository, properties);
 
     @Test
     void shouldReturnEmptyForBlankKey() {
@@ -115,5 +117,12 @@ class BookingIdempotencyServiceTest {
                 .childrenCount(0)
                 .promoCode(promoCode)
                 .build();
+    }
+
+    private BookingIdempotencyProperties properties() {
+        BookingIdempotencyProperties properties = new BookingIdempotencyProperties();
+        properties.setTtl(Duration.ofHours(24));
+        properties.setMaxKeyLength(128);
+        return properties;
     }
 }

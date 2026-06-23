@@ -12,6 +12,6 @@ import java.time.Duration;
 public class ExternalCircuitBreakerProperties {
 
     private boolean enabled = true;
-    private int failureThreshold = 5;
-    private Duration openStateDuration = Duration.ofSeconds(30);
+    private int failureThreshold;
+    private Duration openStateDuration;
 }

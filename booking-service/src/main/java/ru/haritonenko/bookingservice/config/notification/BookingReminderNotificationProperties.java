@@ -13,7 +13,7 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "app.booking.reminders")
 public class BookingReminderNotificationProperties {
 
-    private Duration holdExpiringWindow = Duration.ofMinutes(5);
+    private Duration holdExpiringWindow;
     private BookingReminderCheckInProperties checkIn = new BookingReminderCheckInProperties();
     private BookingReminderTextProperties texts = new BookingReminderTextProperties();
 }

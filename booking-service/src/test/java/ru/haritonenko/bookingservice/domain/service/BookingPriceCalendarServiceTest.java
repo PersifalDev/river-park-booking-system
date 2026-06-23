@@ -12,6 +12,7 @@ import ru.haritonenko.commonlibs.dto.category.RoomCategoryResponseDto;
 import ru.haritonenko.commonlibs.dto.category.type.RoomType;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -30,6 +31,9 @@ class BookingPriceCalendarServiceTest {
     void setUp() {
         repository = mock(BookingPriceCalendarRepository.class);
         properties = new BookingPriceCalendarProperties();
+        properties.setMoneyScale(2);
+        properties.setRoundingMode(RoundingMode.HALF_UP);
+        properties.setFallbackToCategoryBasePrice(true);
         service = new BookingPriceCalendarService(repository, properties);
     }
 

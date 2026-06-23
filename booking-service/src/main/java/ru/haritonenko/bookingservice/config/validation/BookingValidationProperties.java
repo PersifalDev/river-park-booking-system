@@ -24,38 +24,38 @@ public class BookingValidationProperties {
     @Setter
     public static class Guests {
 
-        private int minTotal = 1;
+        private int minTotal;
 
-        private int maxTotal = 6;
+        private int maxTotal;
 
-        private int minAdults = 1;
+        private int minAdults;
 
-        private int maxAdults = 4;
+        private int maxAdults;
 
-        private int minChildren = 0;
+        private int minChildren;
 
-        private int maxChildren = 5;
+        private int maxChildren;
     }
 
     @Getter
     @Setter
     public static class Price {
 
-        private BigDecimal min = new BigDecimal("0.00");
+        private BigDecimal min;
 
-        private BigDecimal max = new BigDecimal("1000000.00");
+        private BigDecimal max;
 
-        private int fractionDigits = 2;
+        private int fractionDigits;
     }
 
     @Getter
     @Setter
     public static class Area {
 
-        private BigDecimal min = new BigDecimal("0.00");
+        private BigDecimal min;
 
-        private BigDecimal max = new BigDecimal("1000.00");
+        private BigDecimal max;
 
-        private int fractionDigits = 2;
+        private int fractionDigits;
     }
 }

@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 import ru.haritonenko.commonlibs.dto.kafka.event.type.NotificationEventType;
 import ru.haritonenko.commonlibs.notification.NotificationStatus;
+import ru.haritonenko.notificationservice.cache.NotificationCacheService;
 import ru.haritonenko.notificationservice.domain.db.entity.NotificationEntity;
 import ru.haritonenko.notificationservice.domain.db.repository.NotificationEntityRepository;
 
@@ -25,12 +26,14 @@ import static org.mockito.Mockito.when;
 class NotificationServiceTest {
 
     private NotificationEntityRepository repository;
+    private NotificationCacheService cacheService;
     private NotificationService service;
 
     @BeforeEach
     void setUp() {
         repository = mock(NotificationEntityRepository.class);
-        service = new NotificationService(repository);
+        cacheService = mock(NotificationCacheService.class);
+        service = new NotificationService(repository, cacheService);
         ReflectionTestUtils.setField(service, "defaultPageNumber", 0);
         ReflectionTestUtils.setField(service, "defaultPageSize", 10);
     }

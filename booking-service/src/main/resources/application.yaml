@@ -18,6 +18,15 @@ spring:
   liquibase:
     change-log: classpath:db/changelog/changelog-master.yaml
 
+  data:
+    redis:
+      host: ${BOOKING_SERVICE_REDIS_HOST:${REDIS_HOST:localhost}}
+      port: ${BOOKING_SERVICE_REDIS_PORT:${REDIS_PORT:6379}}
+      database: ${BOOKING_SERVICE_REDIS_DB:3}
+      timeout: ${BOOKING_SERVICE_REDIS_TIMEOUT:2s}
+      repositories:
+        enabled: false
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:${KAFKA_HOST_PORT:9094}}
     producer:
@@ -77,11 +86,12 @@ app:
       dispatch-batch-size: ${BOOKING_TASK_BATCH_SIZE:10}
       hold-ttl: ${BOOKING_HOLD_TTL:15m}
       external-call-timeout: ${BOOKING_TASK_EXTERNAL_CALL_TIMEOUT:5s}
+      initial-attempts: ${BOOKING_TASK_INITIAL_ATTEMPTS:0}
+      cleanup-retention-period: ${BOOKING_CLEANUP_RETENTION_PERIOD:720h}
     hold-expiration-delay-ms: ${BOOKING_HOLD_EXPIRATION_DELAY_MS:60000}
 
     cleanup:
       delay-ms: ${BOOKING_CLEANUP_DELAY_MS:86400000}
-      retention-period: ${BOOKING_CLEANUP_RETENTION_PERIOD:720h}
     reminders:
       poll-delay-ms: ${BOOKING_REMINDERS_POLL_DELAY_MS:60000}
       hold-expiring-window: ${BOOKING_HOLD_EXPIRING_WINDOW:5m}
@@ -96,10 +106,16 @@ app:
         hold-expiring-message: '${BOOKING_HOLD_EXPIRING_NOTIFICATION_MESSAGE:Бронь %s удерживается до %s. Подтвердите бронь, иначе удержание будет снято автоматически.}'
         check-in-title: '${BOOKING_CHECK_IN_NOTIFICATION_TITLE:Напоминание о заезде}'
         check-in-message: '${BOOKING_CHECK_IN_NOTIFICATION_MESSAGE:Напоминаем о брони %s. Заезд запланирован на %s. Оплата производится при заселении у администратора River Park.}'
-    default-page-size: ${BOOKING_DEFAULT_PAGE_SIZE:10}
-    default-page-number: ${BOOKING_DEFAULT_PAGE_NUMBER:0}
+    page:
+      default-size: ${BOOKING_DEFAULT_PAGE_SIZE:10}
+      default-number: ${BOOKING_DEFAULT_PAGE_NUMBER:0}
+      catalog-search-size: ${BOOKING_CATALOG_SEARCH_PAGE_SIZE:100}
+      catalog-search-number: ${BOOKING_CATALOG_SEARCH_PAGE_NUMBER:0}
+      early-completed-months-before: ${BOOKING_EARLY_COMPLETED_MONTHS_BEFORE:1}
     events:
       source: ${BOOKING_EVENT_SOURCE:booking-service}
+    code:
+      random-suffix-length: ${BOOKING_CODE_RANDOM_SUFFIX_LENGTH:6}
     notifications:
       review:
         title: '${BOOKING_REVIEW_NOTIFICATION_TITLE:Как прошло проживание?}'
@@ -107,13 +123,24 @@ app:
         promo-prefix: '${BOOKING_REVIEW_NOTIFICATION_PROMO_PREFIX:Ваш промокод на следующее заселение: }'
     cache:
       page-index-ttl: ${BOOKING_PAGE_INDEX_TTL:PT1H}
+    lock:
+      wait-time: ${BOOKING_LOCK_WAIT_TIME:3s}
+      lease-time: ${BOOKING_LOCK_LEASE_TIME:30s}
+      retry-sleep-time: ${BOOKING_LOCK_RETRY_SLEEP_TIME:50ms}
 
     promo:
       generated-discount-percent: ${BOOKING_PROMO_GENERATED_DISCOUNT_PERCENT:10}
+      max-generation-attempts: ${BOOKING_PROMO_MAX_GENERATION_ATTEMPTS:16}
+      generated-code-random-length: ${BOOKING_PROMO_GENERATED_CODE_RANDOM_LENGTH:10}
+      percent-denominator: ${BOOKING_PROMO_PERCENT_DENOMINATOR:100}
+      discount-calculation-scale: ${BOOKING_PROMO_DISCOUNT_CALCULATION_SCALE:4}
+      money-scale: ${BOOKING_PROMO_MONEY_SCALE:2}
+      rounding-mode: ${BOOKING_PROMO_ROUNDING_MODE:HALF_UP}
 
     tariff:
       default-code: ${BOOKING_DEFAULT_TARIFF_CODE:ROOM_ONLY}
       money-scale: ${BOOKING_TARIFF_MONEY_SCALE:2}
+      percent-denominator: ${BOOKING_TARIFF_PERCENT_DENOMINATOR:100}
       rounding-mode: ${BOOKING_TARIFF_ROUNDING_MODE:HALF_UP}
 
     price-calendar:
@@ -126,6 +153,7 @@ app:
 
     idempotency:
       ttl: ${BOOKING_IDEMPOTENCY_TTL:24h}
+      max-key-length: ${BOOKING_IDEMPOTENCY_MAX_KEY_LENGTH:128}
 
     rate-limit:
       enabled: ${BOOKING_RATE_LIMIT_ENABLED:true}
@@ -136,6 +164,7 @@ app:
     outbox:
       poll-delay-ms: ${BOOKING_OUTBOX_POLL_DELAY_MS:5000}
       batch-size: ${BOOKING_OUTBOX_BATCH_SIZE:10}
+      page-number: ${BOOKING_OUTBOX_PAGE_NUMBER:0}
       retry-delay: ${BOOKING_OUTBOX_RETRY_DELAY:30s}
       max-attempts: ${BOOKING_OUTBOX_MAX_ATTEMPTS:5}
 

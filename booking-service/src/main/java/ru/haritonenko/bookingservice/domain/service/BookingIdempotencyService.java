@@ -1,8 +1,8 @@
 package ru.haritonenko.bookingservice.domain.service;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import ru.haritonenko.bookingservice.api.dto.BookingRequestDto;
+import ru.haritonenko.bookingservice.config.idempotency.BookingIdempotencyProperties;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingIdempotencyKeyEntity;
 import ru.haritonenko.bookingservice.domain.db.repository.BookingIdempotencyKeyRepository;
 import ru.haritonenko.bookingservice.domain.exception.BookingIdempotencyConflictException;
@@ -10,7 +10,6 @@ import ru.haritonenko.bookingservice.domain.exception.BookingIdempotencyConflict
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.HexFormat;
 import java.util.Optional;
@@ -19,17 +18,15 @@ import java.util.UUID;
 @Service
 public class BookingIdempotencyService {
 
-    private static final int MAX_KEY_LENGTH = 128;
-
     private final BookingIdempotencyKeyRepository repository;
-    private final Duration ttl;
+    private final BookingIdempotencyProperties properties;
 
     public BookingIdempotencyService(
             BookingIdempotencyKeyRepository repository,
-            @Value("${app.booking.idempotency.ttl:24h}") Duration ttl
+            BookingIdempotencyProperties properties
     ) {
         this.repository = repository;
-        this.ttl = ttl;
+        this.properties = properties;
     }
 
     public Optional<BookingIdempotencyKeyEntity> findExisting(Long userId, String idempotencyKey, String requestHash) {
@@ -56,7 +53,7 @@ public class BookingIdempotencyService {
                 .idempotencyKey(normalizedKey)
                 .requestHash(requestHash)
                 .bookingId(bookingId)
-                .expiresAt(OffsetDateTime.now().plus(ttl))
+                .expiresAt(OffsetDateTime.now().plus(properties.getTtl()))
                 .build());
     }
 
@@ -79,12 +76,20 @@ public class BookingIdempotencyService {
         }
     }
 
+    public String lockKey(String idempotencyKey, BookingRequestDto request) {
+        String normalizedKey = normalize(idempotencyKey);
+        if (normalizedKey != null) {
+            return normalizedKey;
+        }
+        return hash(request);
+    }
+
     private String normalize(String idempotencyKey) {
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
             return null;
         }
         String normalized = idempotencyKey.trim();
-        if (normalized.length() > MAX_KEY_LENGTH) {
+        if (normalized.length() > properties.getMaxKeyLength()) {
             throw new BookingIdempotencyConflictException("Idempotency key is too long");
         }
         return normalized;

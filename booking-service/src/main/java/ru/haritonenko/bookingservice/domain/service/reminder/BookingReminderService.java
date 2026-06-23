@@ -23,7 +23,7 @@ public class BookingReminderService {
     private final BookingReminderNotificationProperties properties;
     private final BookingReminderNotificationFactory notificationFactory;
 
-    @Scheduled(fixedDelayString = "${app.booking.reminders.poll-delay-ms:60000}")
+    @Scheduled(fixedDelayString = "${app.booking.reminders.poll-delay-ms}")
     public void sendHoldExpiringReminders() {
         OffsetDateTime now = OffsetDateTime.now();
         OffsetDateTime to = now.plus(properties.getHoldExpiringWindow());
@@ -44,7 +44,7 @@ public class BookingReminderService {
         }
     }
 
-    @Scheduled(fixedDelayString = "${app.booking.reminders.poll-delay-ms:60000}")
+    @Scheduled(fixedDelayString = "${app.booking.reminders.poll-delay-ms}")
     public void sendCheckInReminders() {
         LocalDate targetDate = LocalDate.now(notificationFactory.dateZone()).plusDays(properties.getCheckIn().getDaysBefore());
         List<BookingEntity> bookings = bookingService.findBookingsForCheckInReminder(targetDate);

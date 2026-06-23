@@ -1,11 +1,17 @@
 package ru.haritonenko.bookingservice.domain.custom.validation;
 
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorFactory;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import org.junit.jupiter.api.Test;
 import ru.haritonenko.bookingservice.api.dto.AvailableRoomSearchRequestDto;
 import ru.haritonenko.bookingservice.api.dto.BookingRequestDto;
+import ru.haritonenko.bookingservice.config.validation.BookingValidationProperties;
+import ru.haritonenko.bookingservice.domain.custom.validation.validator.AvailableRoomSearchRequestValidator;
+import ru.haritonenko.bookingservice.domain.custom.validation.validator.BookingDateRangeValidator;
+import ru.haritonenko.bookingservice.domain.custom.validation.validator.GuestCountsValidator;
 import ru.haritonenko.commonlibs.dto.category.type.RoomType;
 
 import java.math.BigDecimal;
@@ -17,7 +23,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BookingValidatorsTest {
 
-    private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
+    private final BookingValidationProperties properties = validationProperties();
+    private final Validator validator = Validation.byDefaultProvider()
+            .configure()
+            .constraintValidatorFactory(new TestConstraintValidatorFactory(properties))
+            .buildValidatorFactory()
+            .getValidator();
 
     @Test
     void shouldAcceptValidBookingRequest() {
@@ -93,5 +104,53 @@ class BookingValidatorsTest {
                 .adultCount(adults)
                 .childrenCount(children)
                 .build();
+    }
+
+    private BookingValidationProperties validationProperties() {
+        BookingValidationProperties properties = new BookingValidationProperties();
+        properties.getGuests().setMinTotal(1);
+        properties.getGuests().setMaxTotal(6);
+        properties.getGuests().setMinAdults(1);
+        properties.getGuests().setMaxAdults(4);
+        properties.getGuests().setMinChildren(0);
+        properties.getGuests().setMaxChildren(5);
+        properties.getPrice().setMin(BigDecimal.valueOf(0));
+        properties.getPrice().setMax(BigDecimal.valueOf(1_000_000));
+        properties.getPrice().setFractionDigits(2);
+        properties.getArea().setMin(BigDecimal.valueOf(0));
+        properties.getArea().setMax(BigDecimal.valueOf(1_000));
+        properties.getArea().setFractionDigits(2);
+        return properties;
+    }
+
+    private static class TestConstraintValidatorFactory implements ConstraintValidatorFactory {
+
+        private final BookingValidationProperties properties;
+
+        private TestConstraintValidatorFactory(BookingValidationProperties properties) {
+            this.properties = properties;
+        }
+
+        @Override
+        public <T extends ConstraintValidator<?, ?>> T getInstance(Class<T> key) {
+            if (key == BookingDateRangeValidator.class) {
+                return key.cast(new BookingDateRangeValidator(properties));
+            }
+            if (key == GuestCountsValidator.class) {
+                return key.cast(new GuestCountsValidator(properties));
+            }
+            if (key == AvailableRoomSearchRequestValidator.class) {
+                return key.cast(new AvailableRoomSearchRequestValidator(properties));
+            }
+            try {
+                return key.getDeclaredConstructor().newInstance();
+            } catch (ReflectiveOperationException exception) {
+                throw new IllegalStateException("Can not instantiate validator " + key.getName(), exception);
+            }
+        }
+
+        @Override
+        public void releaseInstance(ConstraintValidator<?, ?> instance) {
+        }
     }
 }

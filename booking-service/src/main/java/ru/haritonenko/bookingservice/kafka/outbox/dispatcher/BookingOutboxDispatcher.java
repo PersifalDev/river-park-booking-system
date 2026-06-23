@@ -6,20 +6,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.common.KafkaException;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import ru.haritonenko.bookingservice.kafka.outbox.db.BookingOutboxEntity;
 import ru.haritonenko.bookingservice.kafka.outbox.db.repository.BookingOutboxRepository;
+import ru.haritonenko.bookingservice.kafka.outbox.config.BookingOutboxProperties;
 import ru.haritonenko.bookingservice.kafka.outbox.exception.KafkaEventNotFoundException;
 import ru.haritonenko.bookingservice.kafka.outbox.status.OutboxStatus;
 import ru.haritonenko.bookingservice.kafka.producer.booking.sender.KafkaBookingEventSender;
 import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
 import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
 
-import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -33,17 +32,9 @@ public class BookingOutboxDispatcher {
     private final KafkaBookingEventSender sender;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
+    private final BookingOutboxProperties properties;
 
-    @Value("${app.booking.outbox.batch-size:10}")
-    private int batchSize;
-
-    @Value("${app.booking.outbox.retry-delay:30s}")
-    private Duration retryDelay;
-
-    @Value("${app.booking.outbox.max-attempts:5}")
-    private int maxAttempts;
-
-    @Scheduled(fixedDelayString = "${app.booking.outbox.poll-delay-ms:5000}")
+    @Scheduled(fixedDelayString = "${app.booking.outbox.poll-delay-ms}")
     public void dispatch() {
         OffsetDateTime now = OffsetDateTime.now();
 
@@ -53,7 +44,7 @@ public class BookingOutboxDispatcher {
                 repository.findReadyForUpdate(
                         OutboxStatus.NEW,
                         now,
-                        PageRequest.of(0, batchSize)
+                        PageRequest.of(properties.getPageNumber(), properties.getBatchSize())
                 )
         );
 
@@ -118,16 +109,16 @@ public class BookingOutboxDispatcher {
             int attempts = eventToUpdate.getAttempts() + 1;
             eventToUpdate.setAttempts(attempts);
 
-            if (attempts >= maxAttempts) {
+            if (attempts >= properties.getMaxAttempts()) {
                 eventToUpdate.setStatus(OutboxStatus.FAILED);
 
                 log.warn("Outbox event marked as FAILED: eventId={}, attempts={}, maxAttempts={}",
                         eventId,
                         attempts,
-                        maxAttempts
+                        properties.getMaxAttempts()
                 );
             } else {
-                OffsetDateTime nextAttemptAt = OffsetDateTime.now().plus(retryDelay);
+                OffsetDateTime nextAttemptAt = OffsetDateTime.now().plus(properties.getRetryDelay());
 
                 eventToUpdate.setNextAttemptAt(nextAttemptAt);
 

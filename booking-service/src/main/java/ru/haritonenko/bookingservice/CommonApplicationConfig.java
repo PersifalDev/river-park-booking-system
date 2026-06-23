@@ -7,12 +7,18 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 import ru.haritonenko.bookingservice.cache.config.BookingCacheProperties;
+import ru.haritonenko.bookingservice.config.code.BookingCodeProperties;
+import ru.haritonenko.bookingservice.config.idempotency.BookingIdempotencyProperties;
 import ru.haritonenko.bookingservice.config.inventory.BookingRoomInventoryProperties;
 import ru.haritonenko.bookingservice.config.notification.BookingReminderNotificationProperties;
 import ru.haritonenko.bookingservice.config.notification.BookingReviewNotificationProperties;
+import ru.haritonenko.bookingservice.config.page.BookingPageProperties;
 import ru.haritonenko.bookingservice.config.pricing.BookingPriceCalendarProperties;
+import ru.haritonenko.bookingservice.config.promo.BookingPromoProperties;
 import ru.haritonenko.bookingservice.config.tariff.BookingTariffProperties;
 import ru.haritonenko.bookingservice.config.validation.BookingValidationProperties;
+import ru.haritonenko.bookingservice.kafka.outbox.config.BookingOutboxProperties;
+import ru.haritonenko.bookingservice.lock.BookingLockProperties;
 import ru.haritonenko.bookingservice.tasks.domain.async.dispatcher.config.AsyncBookingTaskDispatcherProperties;
 
 import java.util.TimeZone;
@@ -31,7 +37,13 @@ import java.util.concurrent.TimeUnit;
         BookingReviewNotificationProperties.class,
         BookingReminderNotificationProperties.class,
         BookingPriceCalendarProperties.class,
-        BookingRoomInventoryProperties.class
+        BookingRoomInventoryProperties.class,
+        BookingPageProperties.class,
+        BookingPromoProperties.class,
+        BookingIdempotencyProperties.class,
+        BookingLockProperties.class,
+        BookingOutboxProperties.class,
+        BookingCodeProperties.class
 })
 public class CommonApplicationConfig {
 

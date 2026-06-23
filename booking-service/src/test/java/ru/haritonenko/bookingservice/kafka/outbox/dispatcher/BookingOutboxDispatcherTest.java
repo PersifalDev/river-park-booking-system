@@ -7,10 +7,10 @@ import org.apache.kafka.common.KafkaException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Pageable;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
+import ru.haritonenko.bookingservice.kafka.outbox.config.BookingOutboxProperties;
 import ru.haritonenko.bookingservice.kafka.outbox.db.BookingOutboxEntity;
 import ru.haritonenko.bookingservice.kafka.outbox.db.repository.BookingOutboxRepository;
 import ru.haritonenko.bookingservice.kafka.outbox.exception.KafkaEventNotFoundException;
@@ -46,15 +46,17 @@ class BookingOutboxDispatcherTest {
     private final KafkaBookingEventSender sender = mock(KafkaBookingEventSender.class);
     private final ObjectMapper objectMapper = mock(ObjectMapper.class);
     private final TransactionTemplate transactionTemplate = mock(TransactionTemplate.class);
+    private final BookingOutboxProperties properties = new BookingOutboxProperties();
 
     private final BookingOutboxDispatcher dispatcher =
-            new BookingOutboxDispatcher(repository, sender, objectMapper, transactionTemplate);
+            new BookingOutboxDispatcher(repository, sender, objectMapper, transactionTemplate, properties);
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(dispatcher, "batchSize", 10);
-        ReflectionTestUtils.setField(dispatcher, "retryDelay", Duration.ofSeconds(30));
-        ReflectionTestUtils.setField(dispatcher, "maxAttempts", 3);
+        properties.setBatchSize(10);
+        properties.setPageNumber(0);
+        properties.setRetryDelay(Duration.ofSeconds(30));
+        properties.setMaxAttempts(3);
         when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
             TransactionCallback<?> callback = invocation.getArgument(0);
             return callback.doInTransaction(mock(TransactionStatus.class));

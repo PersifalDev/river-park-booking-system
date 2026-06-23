@@ -3,11 +3,7 @@ package ru.haritonenko.bookingservice.domain.service;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -20,6 +16,7 @@ import ru.haritonenko.bookingservice.api.dto.filter.BookingPageFilter;
 import ru.haritonenko.bookingservice.api.dto.filter.BookingRequestSearchFilter;
 import ru.haritonenko.bookingservice.config.validation.BookingValidationProperties;
 import ru.haritonenko.bookingservice.cache.service.BookingCacheService;
+import ru.haritonenko.bookingservice.config.page.BookingPageProperties;
 import ru.haritonenko.bookingservice.domain.Booking;
 import ru.haritonenko.bookingservice.domain.BookingCreationResult;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
@@ -35,9 +32,11 @@ import ru.haritonenko.bookingservice.external.client.catalog.CatalogServiceHttpC
 import ru.haritonenko.bookingservice.kafka.outbox.service.BookingOutboxService;
 import ru.haritonenko.bookingservice.kafka.producer.booking.sender.KafkaBookingEventSender;
 import ru.haritonenko.bookingservice.kafka.producer.notification.sender.KafkaNotificationEventSender;
+import ru.haritonenko.bookingservice.lock.RedisDistributedLockService;
 import ru.haritonenko.bookingservice.tasks.domain.async.db.entity.AsyncBookingTaskEntity;
 import ru.haritonenko.bookingservice.tasks.domain.async.db.repository.AsyncBookingTaskEntityRepository;
 import ru.haritonenko.bookingservice.tasks.domain.async.dispatcher.AsyncBookingTaskDispatcher;
+import ru.haritonenko.bookingservice.tasks.domain.async.dispatcher.config.AsyncBookingTaskDispatcherProperties;
 import ru.haritonenko.bookingservice.tasks.domain.async.status.AsyncBookingTaskStatus;
 import ru.haritonenko.bookingservice.tasks.domain.async.status.ProcessingStep;
 import ru.haritonenko.bookingservice.tasks.domain.exception.AsyncBookingTaskNotFoundException;
@@ -49,7 +48,6 @@ import ru.haritonenko.commonlibs.utils.pages.CommonPageable;
 import ru.haritonenko.commonlibs.utils.pages.PageResponse;
 
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -92,25 +90,20 @@ public class BookingService {
     private final BookingTariffService bookingTariffService;
     private final BookingReviewNotificationFactory reviewNotificationFactory;
     private final BookingEventFactory eventFactory;
-
-    @Value("${app.booking.default-page-number}")
-    private int defaultPageNumber;
-
-    @Value("${app.booking.default-page-size}")
-    private int defaultPageSize;
-
-    @Value("${app.booking.task.hold-ttl}")
-    private Duration holdTtl;
-
-    @Value("${app.booking.cleanup.retention-period}")
-    private Duration cleanupRetentionPeriod;
+    private final RedisDistributedLockService lockService;
+    private final BookingPageProperties pageProperties;
+    private final AsyncBookingTaskDispatcherProperties taskProperties;
 
     public Booking createBooking(BookingRequestDto bookingRequestDto, Long userId) {
         return createBooking(bookingRequestDto, userId, null);
     }
 
     public Booking createBooking(BookingRequestDto bookingRequestDto, Long userId, String idempotencyKey) {
+        String lockKey = "create-booking:user:" + userId + ":key:" + idempotencyService.lockKey(idempotencyKey, bookingRequestDto);
+        return lockService.execute(lockKey, () -> createBookingLocked(bookingRequestDto, userId, idempotencyKey));
+    }
 
+    private Booking createBookingLocked(BookingRequestDto bookingRequestDto, Long userId, String idempotencyKey) {
         String requestHash = idempotencyService.hash(bookingRequestDto);
         Optional<Booking> existingBooking = idempotencyService.findExisting(userId, idempotencyKey, requestHash)
                 .map(existing -> mapper.toDomain(findBookingEntity(existing.getBookingId())));
@@ -153,7 +146,7 @@ public class BookingService {
                     .tariffCancellationPolicy(tariff.getCancellationPolicy().name())
                     .tariffFreeCancellationDaysBefore(tariff.getFreeCancellationDaysBefore())
                     .tariffIncludedServices(tariff.getIncludedServices())
-                    .holdExpiresAt(now.plus(holdTtl))
+                    .holdExpiresAt(now.plus(taskProperties.getHoldTtl()))
                     .hasPromo(bookingRequestDto.promoCode() != null && !bookingRequestDto.promoCode().isBlank())
                     .appliedPromoCode(normalizePromoCode(bookingRequestDto.promoCode()))
                     .status(BookingStatus.CREATED)
@@ -166,7 +159,7 @@ public class BookingService {
                     .bookingId(savedBookingId)
                     .status(AsyncBookingTaskStatus.NEW)
                     .processingStep(ProcessingStep.VALIDATE_REQUEST)
-                    .attempts(0)
+                    .attempts(taskProperties.getInitialAttempts())
                     .nextAttemptAt(now)
                     .build());
 
@@ -204,7 +197,10 @@ public class BookingService {
 
     @Cacheable(
             value = "bookingByUser",
-            key = "@bookingCacheKeys.bookingByUser(#authUserId, #uuid)"
+            key = "@bookingCacheService.registerBookingByUserKey(" +
+                    "#authUserId, " +
+                    "@bookingCacheService.bookingByUser(#authUserId, #uuid)" +
+                    ")"
     )
     @Transactional(readOnly = true)
     public Booking getBookingByUuidAndUserId(Long authUserId, UUID uuid) {
@@ -216,14 +212,14 @@ public class BookingService {
             value = "bookingPages",
             key = "@bookingCacheService.registerBookingPageKey(" +
                     "#authUserId, " +
-                    "@bookingCacheKeys.bookingPage(#authUserId, #pageFilter)" +
+                    "@bookingCacheService.bookingPage(#authUserId, #pageFilter)" +
                     ")"
     )
     @Transactional(readOnly = true)
     public Page<Booking> getAllActiveBookingsByUserId(Long authUserId, BookingPageFilter pageFilter) {
         log.info("Getting all active bookings by userId={}", authUserId);
 
-        Pageable pageable = CommonPageable.getPageable(pageFilter, defaultPageNumber, defaultPageSize);
+        Pageable pageable = getPageable(pageFilter);
         return bookingRepository.findAllByUserIdAndStatusIn(authUserId, ACTIVE_STATUSES, pageable)
                 .map(mapper::toDomain);
     }
@@ -232,14 +228,14 @@ public class BookingService {
             value = "bookingPages",
             key = "@bookingCacheService.registerBookingPageKey(" +
                     "#authUserId, " +
-                    "'inactive:' + @bookingCacheKeys.bookingPage(#authUserId, #pageFilter)" +
+                    "'inactive:' + @bookingCacheService.bookingPage(#authUserId, #pageFilter)" +
                     ")"
     )
     @Transactional(readOnly = true)
     public Page<Booking> getAllInactiveBookingsByUserId(Long authUserId, BookingPageFilter pageFilter) {
         log.info("Getting all inactive bookings by userId={}", authUserId);
 
-        Pageable pageable = CommonPageable.getPageable(pageFilter, defaultPageNumber, defaultPageSize);
+        Pageable pageable = getPageable(pageFilter);
         return bookingRepository.findAllByUserIdAndStatusIn(authUserId, INACTIVE_STATUSES, pageable)
                 .map(mapper::toDomain);
     }
@@ -248,15 +244,15 @@ public class BookingService {
             value = "bookingPages",
             key = "@bookingCacheService.registerBookingPageKey(" +
                     "#authUserId, " +
-                    "'early:' + @bookingCacheKeys.bookingPage(#authUserId, #pageFilter)" +
+                    "'early:' + @bookingCacheService.bookingPage(#authUserId, #pageFilter)" +
                     ")"
     )
     @Transactional(readOnly = true)
     public Page<Booking> getAllEarlyCompletedBookingsByUserId(Long authUserId, BookingPageFilter pageFilter) {
         log.info("Getting all early completed bookings by userId={}", authUserId);
 
-        Pageable pageable = CommonPageable.getPageable(pageFilter, defaultPageNumber, defaultPageSize);
-        LocalDate thresholdDate = LocalDate.now().minusMonths(1);
+        Pageable pageable = getPageable(pageFilter);
+        LocalDate thresholdDate = LocalDate.now().minusMonths(pageProperties.getEarlyCompletedMonthsBefore());
         return bookingRepository.findAllByUserIdAndStatusAndCheckOutDateBefore(
                         authUserId,
                         BookingStatus.CONFIRMED,
@@ -270,14 +266,14 @@ public class BookingService {
             value = "bookingPages",
             key = "@bookingCacheService.registerBookingPageKey(" +
                     "#authUserId, " +
-                    "'history:' + @bookingCacheKeys.bookingPage(#authUserId, #pageFilter)" +
+                    "'history:' + @bookingCacheService.bookingPage(#authUserId, #pageFilter)" +
                     ")"
     )
     @Transactional(readOnly = true)
     public Page<Booking> getAllHistoryBookingsByUserId(Long authUserId, BookingPageFilter pageFilter) {
         log.info("Getting all booking history by userId={}", authUserId);
 
-        Pageable pageable = CommonPageable.getPageable(pageFilter, defaultPageNumber, defaultPageSize);
+        Pageable pageable = getPageable(pageFilter);
         return bookingRepository.findAllByUserId(authUserId, pageable)
                 .map(mapper::toDomain);
     }
@@ -328,13 +324,6 @@ public class BookingService {
         return mapper.toDomain(savedBooking);
     }
 
-    @Caching(
-            put = @CachePut(value = "bookingByUser", key = "@bookingCacheKeys.bookingByUser(#authUserId, #uuid)"),
-            evict = {
-                    @CacheEvict(value = "bookingPages", allEntries = true),
-                    @CacheEvict(value = "bookingSearchPages", allEntries = true)
-            }
-    )
     @Transactional
     public Booking confirmBookingByUuidAndUserId(UUID uuid, Long authUserId) {
         log.info("Confirming booking: uuid={}, userId={}", uuid, authUserId);
@@ -362,6 +351,9 @@ public class BookingService {
         log.info("Sending event to Kafka to confirm booking: eventType={}", BookingEventType.BOOKING_CONFIRMED);
         bookingEventSender.sendEvent(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_CONFIRMED));
         log.info("Booking confirmed successfully: uuid={}, userId={}", uuid, authUserId);
+
+        cacheService.evictBookingByUser(authUserId, uuid);
+        cacheService.evictUserPages(authUserId);
 
         return mapper.toDomain(savedBooking);
     }
@@ -392,8 +384,15 @@ public class BookingService {
                 || request.priceFrom() != null || request.priceTo() != null || request.minArea() != null;
 
         PageResponse<RoomCategoryResponseDto> rawPage = hasAnyFilter
-                ? catalogServiceHttpClient.searchRoomCategories(filter, 0, 100)
-                : catalogServiceHttpClient.getRoomCategories(0, 100);
+                ? catalogServiceHttpClient.searchRoomCategories(
+                        filter,
+                        pageProperties.getCatalogSearchNumber(),
+                        pageProperties.getCatalogSearchSize()
+                )
+                : catalogServiceHttpClient.getRoomCategories(
+                        pageProperties.getCatalogSearchNumber(),
+                        pageProperties.getCatalogSearchSize()
+                );
 
         List<RoomCategoryResponseDto> allRooms = rawPage == null || rawPage.content() == null ? List.of() : rawPage.content();
         List<RoomCategoryResponseDto> availableRooms = transactionTemplate.execute(status -> allRooms.stream()
@@ -423,10 +422,10 @@ public class BookingService {
                 .toList());
 
         int safePageSize = pageFilter.getPageSize() == null || pageFilter.getPageSize() <= 0
-                ? defaultPageSize
+                ? pageProperties.getDefaultSize()
                 : pageFilter.getPageSize();
         int safePageNumber = pageFilter.getPageNumber() == null
-                ? defaultPageNumber
+                ? pageProperties.getDefaultNumber()
                 : Math.max(pageFilter.getPageNumber(), 0);
         int fromIndex = Math.min(safePageNumber * safePageSize, availableRooms.size());
         int toIndex = Math.min(fromIndex + safePageSize, availableRooms.size());
@@ -440,7 +439,7 @@ public class BookingService {
             value = "bookingSearchPages",
             key = "@bookingCacheService.registerBookingSearchPageKey(" +
                     "#authUserId, " +
-                    "@bookingCacheKeys.bookingSearchPage(#authUserId, #bookingFilter, #pageFilter)" +
+                    "@bookingCacheService.bookingSearchPage(#authUserId, #bookingFilter, #pageFilter)" +
                     ")"
     )
     @Transactional(readOnly = true)
@@ -450,7 +449,7 @@ public class BookingService {
             BookingPageFilter pageFilter
     ) {
         log.info("Searching bookings by filter: userId={}, filter={}", authUserId, bookingFilter);
-        Pageable pageable = CommonPageable.getPageable(pageFilter, defaultPageNumber, defaultPageSize);
+        Pageable pageable = getPageable(pageFilter);
         return bookingRepository.findAll((root, query, cb) -> {
             var predicates = new ArrayList<Predicate>();
             predicates.add(cb.equal(root.get("userId"), authUserId));
@@ -495,11 +494,6 @@ public class BookingService {
                 });
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "bookingByUser", allEntries = true),
-            @CacheEvict(value = "bookingPages", allEntries = true),
-            @CacheEvict(value = "bookingSearchPages", allEntries = true)
-    })
     @Transactional
     public void markBookingFailed(UUID bookingId, String reason) {
         log.warn("Marking booking as failed: bookingId={}, reason={}", bookingId, reason);
@@ -512,13 +506,9 @@ public class BookingService {
         log.info("Sending event to Kafka to mark booking as failed: eventType={}", BookingEventType.BOOKING_FAILED);
         bookingEventSender.sendEvent(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_FAILED));
         log.info("Booking status was updated to {} after starting marking: bookingId={}", booking.getStatus(), bookingId);
+        evictBookingCaches(booking);
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "bookingByUser", allEntries = true),
-            @CacheEvict(value = "bookingPages", allEntries = true),
-            @CacheEvict(value = "bookingSearchPages", allEntries = true)
-    })
     @Transactional
     public void updateBookingPrice(UUID bookingId, BigDecimal priceAmount) {
         log.info("Updating booking price: bookingId={}, priceAmount={}", bookingId, priceAmount);
@@ -526,13 +516,9 @@ public class BookingService {
         booking.setPriceAmount(priceAmount);
         bookingRepository.save(booking);
         log.info("Booking price was updated: bookingId={}, priceAmount={}", bookingId, priceAmount);
+        evictBookingCaches(booking);
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "bookingByUser", allEntries = true),
-            @CacheEvict(value = "bookingPages", allEntries = true),
-            @CacheEvict(value = "bookingSearchPages", allEntries = true)
-    })
     @Transactional
     public void setBookingHold(UUID bookingId, BigDecimal priceAmount, OffsetDateTime holdExpiresAt) {
         log.info("Setting booking hold: bookingId={}, holdExpiresAt={}", bookingId, holdExpiresAt);
@@ -545,13 +531,9 @@ public class BookingService {
         log.info("Sending event to Kafka to hold booking: eventType={}", BookingEventType.BOOKING_HOLD_CREATED);
         bookingEventSender.sendEvent(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_HOLD_CREATED));
         log.info("Booking status was updated to {} after starting holding: bookingId={}", booking.getStatus(), bookingId);
+        evictBookingCaches(booking);
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "bookingByUser", allEntries = true),
-            @CacheEvict(value = "bookingPages", allEntries = true),
-            @CacheEvict(value = "bookingSearchPages", allEntries = true)
-    })
     @Transactional
     public void expireBooking(UUID bookingId) {
         log.info("Expiring booking: bookingId={}", bookingId);
@@ -571,6 +553,7 @@ public class BookingService {
         log.info("Sending event to Kafka to expire booking: eventType={}", BookingEventType.BOOKING_EXPIRED);
         bookingEventSender.sendEvent(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_EXPIRED));
         log.info("Booking expired successfully: bookingId={}", bookingId);
+        evictBookingCaches(booking);
     }
 
     @Transactional(readOnly = true)
@@ -585,11 +568,6 @@ public class BookingService {
         return bookingRepository.findExpiredCreatedDrafts(BookingStatus.CREATED, OffsetDateTime.now());
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "bookingByUser", allEntries = true),
-            @CacheEvict(value = "bookingPages", allEntries = true),
-            @CacheEvict(value = "bookingSearchPages", allEntries = true)
-    })
     @Transactional
     public void expireCreatedBooking(UUID bookingId) {
         log.info("Expiring created booking: bookingId={}", bookingId);
@@ -608,6 +586,7 @@ public class BookingService {
         log.info("Sending event to Kafka to expire created booking: eventType={}", BookingEventType.BOOKING_EXPIRED);
         bookingEventSender.sendEvent(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_EXPIRED));
         log.info("Created booking expired successfully: bookingId={}", bookingId);
+        evictBookingCaches(booking);
     }
 
     @Transactional(readOnly = true)
@@ -647,28 +626,20 @@ public class BookingService {
         cacheService.evictBookingByUser(booking.getUserId(), booking.getId());
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "bookingByUser", allEntries = true),
-            @CacheEvict(value = "bookingPages", allEntries = true),
-            @CacheEvict(value = "bookingSearchPages", allEntries = true)
-    })
     @Transactional
     public void markHoldReminderSent(UUID bookingId, OffsetDateTime sentAt) {
         BookingEntity booking = findBookingEntity(bookingId);
         booking.setHoldReminderSentAt(sentAt);
         bookingRepository.save(booking);
+        evictBookingCaches(booking);
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "bookingByUser", allEntries = true),
-            @CacheEvict(value = "bookingPages", allEntries = true),
-            @CacheEvict(value = "bookingSearchPages", allEntries = true)
-    })
     @Transactional
     public void markCheckInReminderSent(UUID bookingId, OffsetDateTime sentAt) {
         BookingEntity booking = findBookingEntity(bookingId);
         booking.setCheckInReminderSentAt(sentAt);
         bookingRepository.save(booking);
+        evictBookingCaches(booking);
     }
 
     @Transactional
@@ -676,64 +647,54 @@ public class BookingService {
         notificationEventSender.sendEvent(eventFactory.notificationEvent(booking, type, title, message));
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "bookingByUser", allEntries = true),
-            @CacheEvict(value = "bookingPages", allEntries = true),
-            @CacheEvict(value = "bookingSearchPages", allEntries = true)
-    })
     @Transactional
     public void deleteInactiveBookingsCreatedBefore(OffsetDateTime threshold) {
         log.info("Deleting inactive bookings created before {}", threshold);
         int deleted = bookingRepository.deleteInactiveBookingsCreatedBefore(INACTIVE_STATUSES, threshold);
         log.info("Inactive bookings cleanup finished, deletedCount={}", deleted);
+        cacheService.evictAll();
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "bookingByUser", allEntries = true),
-            @CacheEvict(value = "bookingPages", allEntries = true),
-            @CacheEvict(value = "bookingSearchPages", allEntries = true)
-    })
     @Transactional
     public int deleteInactiveBookingsByUserId(Long userId) {
         log.info("Deleting inactive bookings for userId={}", userId);
         int deleted = bookingRepository.deleteInactiveBookingsByUserId(userId, INACTIVE_STATUSES);
         log.info("Inactive user bookings cleanup finished: userId={}, deletedCount={}", userId, deleted);
+        cacheService.evictUserPages(userId);
+        cacheService.evictUserBookings(userId);
         return deleted;
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "bookingByUser", allEntries = true),
-            @CacheEvict(value = "bookingPages", allEntries = true),
-            @CacheEvict(value = "bookingSearchPages", allEntries = true)
-    })
     @Transactional
     public int deleteCompletedBookingsByUserId(Long userId) {
         log.info("Deleting completed bookings for userId={}", userId);
         int deleted = bookingRepository.deleteCompletedBookingsByUserId(userId, BookingStatus.CONFIRMED, LocalDate.now());
         log.info("Completed user bookings cleanup finished: userId={}, deletedCount={}", userId, deleted);
+        cacheService.evictUserPages(userId);
+        cacheService.evictUserBookings(userId);
         return deleted;
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "bookingByUser", allEntries = true),
-            @CacheEvict(value = "bookingPages", allEntries = true),
-            @CacheEvict(value = "bookingSearchPages", allEntries = true)
-    })
     @Transactional
     public void deleteCompletedBookingsCheckedOutBefore(LocalDate thresholdDate) {
         log.info("Deleting completed bookings checked out before {}", thresholdDate);
         int deleted = bookingRepository.deleteCompletedBookingsCheckedOutBefore(BookingStatus.CONFIRMED, thresholdDate);
         log.info("Completed bookings cleanup finished, deletedCount={}", deleted);
+        cacheService.evictAll();
     }
 
     @Transactional(readOnly = true)
     public OffsetDateTime getCleanupThreshold() {
-        return OffsetDateTime.now().minus(cleanupRetentionPeriod);
+        return OffsetDateTime.now().minus(taskProperties.getCleanupRetentionPeriod());
     }
 
     @Transactional(readOnly = true)
     public LocalDate getCompletedCleanupThresholdDate() {
-        return LocalDate.now().minusDays(cleanupRetentionPeriod.toDays());
+        return LocalDate.now().minusDays(taskProperties.getCleanupRetentionPeriod().toDays());
+    }
+
+    private Pageable getPageable(BookingPageFilter pageFilter) {
+        return CommonPageable.getPageable(pageFilter, pageProperties.getDefaultNumber(), pageProperties.getDefaultSize());
     }
 
     private BookingEntity findBookingEntityByIdAndUserId(UUID uuid, Long authUserId) {
@@ -748,4 +709,10 @@ public class BookingService {
     private String normalizePromoCode(String promoCode) {
         return promoCode == null || promoCode.isBlank() ? null : promoCode.trim().toUpperCase();
     }
+
+    private void evictBookingCaches(BookingEntity booking) {
+        cacheService.evictBookingByUser(booking.getUserId(), booking.getId());
+        cacheService.evictUserPages(booking.getUserId());
+    }
 }
+

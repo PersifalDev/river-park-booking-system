@@ -3,10 +3,9 @@ package ru.haritonenko.bookingservice.tasks.domain.async.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.haritonenko.bookingservice.cache.service.BookingCacheService;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
 import ru.haritonenko.bookingservice.domain.db.repository.BookingEntityRepository;
 import ru.haritonenko.bookingservice.domain.exception.BookingNotFoundException;
@@ -27,6 +26,7 @@ public class BookingTaskStateService {
 
     private final BookingEntityRepository bookingRepository;
     private final KafkaBookingEventSender bookingEventSender;
+    private final BookingCacheService cacheService;
 
     @Value("${app.booking.events.source}")
     private String sourceService;
@@ -46,11 +46,6 @@ public class BookingTaskStateService {
                 });
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "bookingByUser", allEntries = true),
-            @CacheEvict(value = "bookingPages", allEntries = true),
-            @CacheEvict(value = "bookingSearchPages", allEntries = true)
-    })
     @Transactional
     public void markBookingFailed(UUID bookingId, String reason) {
         log.warn("Marking booking as failed: bookingId={}, reason={}", bookingId, reason);
@@ -63,13 +58,9 @@ public class BookingTaskStateService {
         log.info("Sending event to Kafka to mark booking as failed: eventType={}", BookingEventType.BOOKING_FAILED);
         bookingEventSender.sendEvent(toKafkaEvent(savedBooking, BookingEventType.BOOKING_FAILED));
         log.info("Booking status was updated to {} after starting marking: bookingId={}", booking.getStatus(), bookingId);
+        evictBookingCaches(booking);
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "bookingByUser", allEntries = true),
-            @CacheEvict(value = "bookingPages", allEntries = true),
-            @CacheEvict(value = "bookingSearchPages", allEntries = true)
-    })
     @Transactional
     public void updateBookingPrice(UUID bookingId, BigDecimal priceAmount) {
         log.info("Updating booking price: bookingId={}, priceAmount={}", bookingId, priceAmount);
@@ -77,13 +68,9 @@ public class BookingTaskStateService {
         booking.setPriceAmount(priceAmount);
         bookingRepository.save(booking);
         log.info("Booking price was updated: bookingId={}, priceAmount={}", bookingId, priceAmount);
+        evictBookingCaches(booking);
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "bookingByUser", allEntries = true),
-            @CacheEvict(value = "bookingPages", allEntries = true),
-            @CacheEvict(value = "bookingSearchPages", allEntries = true)
-    })
     @Transactional
     public void setBookingHold(UUID bookingId, BigDecimal priceAmount, OffsetDateTime holdExpiresAt) {
         log.info("Setting booking hold: bookingId={}, holdExpiresAt={}", bookingId, holdExpiresAt);
@@ -96,6 +83,12 @@ public class BookingTaskStateService {
         log.info("Sending event to Kafka to hold booking: eventType={}", BookingEventType.BOOKING_HOLD_CREATED);
         bookingEventSender.sendEvent(toKafkaEvent(savedBooking, BookingEventType.BOOKING_HOLD_CREATED));
         log.info("Booking status was updated to {} after starting holding: bookingId={}", booking.getStatus(), bookingId);
+        evictBookingCaches(booking);
+    }
+
+    private void evictBookingCaches(BookingEntity booking) {
+        cacheService.evictBookingByUser(booking.getUserId(), booking.getId());
+        cacheService.evictUserPages(booking.getUserId());
     }
 
     private BookingKafkaEvent<BookingKafkaPayload> toKafkaEvent(BookingEntity booking, BookingEventType type) {

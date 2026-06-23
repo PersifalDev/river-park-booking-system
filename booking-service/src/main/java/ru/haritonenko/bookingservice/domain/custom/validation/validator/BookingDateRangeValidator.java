@@ -23,10 +23,6 @@ public class BookingDateRangeValidator implements ConstraintValidator<ValidBooki
 
     private boolean pastAllowed;
 
-    public BookingDateRangeValidator() {
-        this(new BookingValidationProperties());
-    }
-
     @Autowired
     public BookingDateRangeValidator(BookingValidationProperties properties) {
         this.properties = properties;

@@ -2,9 +2,9 @@ package ru.haritonenko.bookingservice.domain.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.haritonenko.bookingservice.config.promo.BookingPromoProperties;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
 import ru.haritonenko.bookingservice.domain.db.entity.PromoCodeEntity;
 import ru.haritonenko.bookingservice.domain.db.repository.BookingEntityRepository;
@@ -22,14 +22,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PromoCodeService {
 
-    private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
-    private static final int MAX_GENERATION_ATTEMPTS = 16;
-
     private final PromoCodeRepository promoCodeRepository;
     private final BookingEntityRepository bookingRepository;
-
-    @Value("${app.booking.promo.generated-discount-percent:10}")
-    private int generatedDiscountPercent;
+    private final BookingPromoProperties properties;
 
     @Transactional
     public String generateForBooking(BookingEntity booking) {
@@ -45,12 +40,12 @@ public class PromoCodeService {
                 .code(code)
                 .userId(booking.getUserId())
                 .sourceBookingId(booking.getId())
-                .discountPercent(generatedDiscountPercent)
+                .discountPercent(properties.getGeneratedDiscountPercent())
                 .used(false)
                 .build());
         booking.setGeneratedPromoCode(code);
         if (booking.getPromoDiscountPercent() == null) {
-            booking.setPromoDiscountPercent(generatedDiscountPercent);
+            booking.setPromoDiscountPercent(properties.getGeneratedDiscountPercent());
         }
         return code;
     }
@@ -88,9 +83,10 @@ public class PromoCodeService {
         booking.setAppliedPromoCode(promoCode);
         booking.setPromoDiscountPercent(promoCodeEntity.getDiscountPercent());
 
-        BigDecimal discount = HUNDRED.subtract(BigDecimal.valueOf(promoCodeEntity.getDiscountPercent()))
-                .divide(HUNDRED, 4, RoundingMode.HALF_UP);
-        return priceAmount.multiply(discount).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal denominator = BigDecimal.valueOf(properties.getPercentDenominator());
+        BigDecimal discount = denominator.subtract(BigDecimal.valueOf(promoCodeEntity.getDiscountPercent()))
+                .divide(denominator, properties.getDiscountCalculationScale(), properties.getRoundingMode());
+        return priceAmount.multiply(discount).setScale(properties.getMoneyScale(), properties.getRoundingMode());
     }
 
     public boolean isPromoCodeUsableForUser(String promoCode, Long userId) {
@@ -102,8 +98,12 @@ public class PromoCodeService {
     }
 
     private String generateUniqueCode() {
-        for (int attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
-            String code = "RP-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT);
+        for (int attempt = 0; attempt < properties.getMaxGenerationAttempts(); attempt++) {
+            String code = "RP-" + UUID.randomUUID()
+                    .toString()
+                    .replace("-", "")
+                    .substring(0, properties.getGeneratedCodeRandomLength())
+                    .toUpperCase(Locale.ROOT);
             if (!promoCodeRepository.existsByCode(code)) {
                 return code;
             }

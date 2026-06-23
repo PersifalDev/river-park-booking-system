@@ -25,6 +25,7 @@ import ru.haritonenko.commonlibs.dto.category.RoomCategoryResponseDto;
 import ru.haritonenko.commonlibs.dto.category.type.RoomType;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -54,6 +55,9 @@ class BookingTariffServiceTest {
         transactionTemplate = mock(TransactionTemplate.class);
         BookingTariffProperties properties = new BookingTariffProperties();
         properties.setDefaultCode("ROOM_ONLY");
+        properties.setMoneyScale(2);
+        properties.setPercentDenominator(100);
+        properties.setRoundingMode(RoundingMode.HALF_UP);
         doAnswer(invocation -> {
             TransactionCallback<?> callback = invocation.getArgument(0);
             return callback.doInTransaction(null);
@@ -63,7 +67,7 @@ class BookingTariffServiceTest {
                 tariffRepository,
                 List.of(new NightCountTariffRule(), new GuestCompositionTariffRule(), new DateWindowTariffRule()),
                 List.of(
-                        new PercentTariffPriceModifierStrategy(),
+                        new PercentTariffPriceModifierStrategy(properties),
                         new FixedPerNightTariffPriceModifierStrategy(),
                         new FixedPerStayTariffPriceModifierStrategy()
                 ),

@@ -10,6 +10,7 @@ import ru.haritonenko.bookingservice.domain.db.repository.BookingInventoryReposi
 import ru.haritonenko.bookingservice.domain.exception.BookingAvailabilityException;
 import ru.haritonenko.bookingservice.domain.exception.BookingNotFoundException;
 import ru.haritonenko.bookingservice.external.client.catalog.CatalogServiceHttpClient;
+import ru.haritonenko.bookingservice.lock.RedisDistributedLockService;
 import ru.haritonenko.commonlibs.dto.category.RoomCategoryResponseDto;
 import ru.haritonenko.commonlibs.dto.category.type.RoomType;
 import ru.haritonenko.commonlibs.exception.RoomCategoryNotFoundException;
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -38,12 +40,18 @@ class BookingInventoryServiceTest {
     private final CatalogServiceHttpClient catalogServiceHttpClient = mock(CatalogServiceHttpClient.class);
     private final TransactionTemplate transactionTemplate = mock(TransactionTemplate.class);
     private final BookingRoomInventoryService roomInventoryService = mock(BookingRoomInventoryService.class);
+    private final RedisDistributedLockService lockService = mock(RedisDistributedLockService.class);
 
     private final BookingInventoryService service =
-            new BookingInventoryService(inventoryRepository, catalogServiceHttpClient, transactionTemplate, roomInventoryService);
+            new BookingInventoryService(inventoryRepository, catalogServiceHttpClient, transactionTemplate, roomInventoryService, lockService);
 
     @BeforeEach
     void setUp() {
+        doAnswer(invocation -> {
+            Runnable callback = invocation.getArgument(1);
+            callback.run();
+            return null;
+        }).when(lockService).execute(anyString(), any(Runnable.class));
         doAnswer(invocation -> {
             Consumer<TransactionStatus> callback = invocation.getArgument(0);
             callback.accept(null);

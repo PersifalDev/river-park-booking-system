@@ -18,6 +18,8 @@ public class AsyncBookingTaskDispatcherProperties {
     private Duration schedulerDelay;
     private Integer dispatchBatchSize;
     private Duration holdTtl;
-    private Duration externalCallTimeout = Duration.ofSeconds(5);
-    private Boolean externalHttpVirtualThreadsEnabled = true;
+    private Duration externalCallTimeout;
+    private Boolean externalHttpVirtualThreadsEnabled;
+    private Integer initialAttempts;
+    private Duration cleanupRetentionPeriod;
 }

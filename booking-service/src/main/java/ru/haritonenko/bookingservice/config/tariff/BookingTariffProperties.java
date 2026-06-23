@@ -17,7 +17,9 @@ public class BookingTariffProperties {
     @NotBlank
     private String defaultCode = "ROOM_ONLY";
 
-    private int moneyScale = 2;
+    private int moneyScale;
+
+    private int percentDenominator;
 
     private RoundingMode roundingMode = RoundingMode.HALF_UP;
 }

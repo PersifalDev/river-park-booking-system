@@ -3,6 +3,7 @@ package ru.haritonenko.bookingservice.tasks.domain.async.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
+import ru.haritonenko.bookingservice.cache.service.BookingCacheService;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
 import ru.haritonenko.bookingservice.domain.db.repository.BookingEntityRepository;
 import ru.haritonenko.bookingservice.domain.exception.BookingNotFoundException;
@@ -30,8 +31,9 @@ class BookingTaskStateServiceTest {
 
     private final BookingEntityRepository bookingRepository = mock(BookingEntityRepository.class);
     private final KafkaBookingEventSender bookingEventSender = mock(KafkaBookingEventSender.class);
+    private final BookingCacheService cacheService = mock(BookingCacheService.class);
 
-    private final BookingTaskStateService service = new BookingTaskStateService(bookingRepository, bookingEventSender);
+    private final BookingTaskStateService service = new BookingTaskStateService(bookingRepository, bookingEventSender, cacheService);
 
     @BeforeEach
     void setUp() {
