@@ -24,6 +24,7 @@ import ru.haritonenko.paymentservice.domain.mapper.PaymentMapper;
 import ru.haritonenko.paymentservice.domain.status.PaymentStatus;
 import ru.haritonenko.paymentservice.kafka.producer.sender.KafkaPaymentEventSender;
 import ru.haritonenko.paymentservice.lock.RedisDistributedLockService;
+import ru.haritonenko.paymentservice.observability.PaymentMetrics;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -38,6 +39,7 @@ public class PaymentService {
     private final KafkaPaymentEventSender kafkaPaymentEventSender;
     private final PaymentCacheService cacheService;
     private final RedisDistributedLockService lockService;
+    private final PaymentMetrics paymentMetrics;
 
     @Value("${app.payment.default-page-number}")
     private int defaultPageNumber;
@@ -60,6 +62,7 @@ public class PaymentService {
     @Transactional
     public Payment createPendingPayment(BookingKafkaPayload payload) {
         if (payload == null || payload.bookingId() == null) {
+            paymentMetrics.recordFailure();
             throw new IllegalArgumentException("Booking payload is invalid");
         }
         return lockService.execute(paymentLockKey(payload.bookingId()), () -> createPendingPaymentLocked(payload));
@@ -68,6 +71,7 @@ public class PaymentService {
     private Payment createPendingPaymentLocked(BookingKafkaPayload payload) {
         if (payload == null || payload.bookingId() == null || payload.userId() == null) {
             log.warn("Skip creating payment because booking payload is invalid: payload={}", payload);
+            paymentMetrics.recordFailure();
             throw new IllegalArgumentException("Booking payload is invalid");
         }
         log.info("Creating pending payment for bookingId={}, bookingCode={}, userId={}", payload.bookingId(), payload.bookingCode(), payload.userId());
@@ -85,6 +89,7 @@ public class PaymentService {
             PaymentEntity refreshedPayment = paymentRepository.save(existingPayment);
             log.info("Pending payment refreshed for bookingId={}, paymentId={}, amount={}", payload.bookingId(), refreshedPayment.getId(), refreshedPayment.getPriceAmount());
             evictPaymentCaches(refreshedPayment);
+            paymentMetrics.record(PaymentStatus.PENDING);
             return paymentMapper.toDomain(refreshedPayment);
         }
         PaymentEntity savedPayment = paymentRepository.save(PaymentEntity.builder()
@@ -101,6 +106,7 @@ public class PaymentService {
         log.info("Pending payment created successfully: paymentId={}, bookingId={}", savedPayment.getId(), savedPayment.getBookingId());
         sendPaymentEvent(savedPayment, PaymentEventType.PAYMENT_PENDING);
         evictPaymentCaches(savedPayment);
+        paymentMetrics.record(PaymentStatus.PENDING);
         return paymentMapper.toDomain(savedPayment);
     }
 
@@ -144,6 +150,7 @@ public class PaymentService {
         }
         if (paymentEntity.getStatus() != PaymentStatus.PENDING) {
             log.warn("Payment must be in PENDING status for confirmation: paymentId={}, status={}", paymentEntity.getId(), paymentEntity.getStatus());
+            paymentMetrics.recordFailure();
             throw new IllegalPaymentStateException("Payment must be in PENDING status for confirmation");
         }
         paymentEntity.setStatus(PaymentStatus.CONFIRMED);
@@ -152,6 +159,7 @@ public class PaymentService {
         log.info("Payment confirmed successfully: paymentId={}, bookingId={}", savedPayment.getId(), savedPayment.getBookingId());
         sendPaymentEvent(savedPayment, PaymentEventType.PAYMENT_CONFIRMED);
         evictPaymentCaches(savedPayment);
+        paymentMetrics.record(PaymentStatus.CONFIRMED);
         return paymentMapper.toDomain(savedPayment);
     }
 
@@ -169,6 +177,7 @@ public class PaymentService {
         }
         if (paymentEntity.getStatus() == PaymentStatus.CANCELLED || paymentEntity.getStatus() == PaymentStatus.FAILED) {
             log.warn("Payment already inactive: paymentId={}, status={}", paymentEntity.getId(), paymentEntity.getStatus());
+            paymentMetrics.recordFailure();
             throw new IllegalPaymentStateException("Payment already inactive");
         }
         paymentEntity.setStatus(PaymentStatus.CANCELLED);
@@ -177,6 +186,7 @@ public class PaymentService {
         log.info("Payment cancelled successfully: paymentId={}, bookingId={}", savedPayment.getId(), savedPayment.getBookingId());
         sendPaymentEvent(savedPayment, PaymentEventType.PAYMENT_CANCELLED);
         evictPaymentCaches(savedPayment);
+        paymentMetrics.record(PaymentStatus.CANCELLED);
         return paymentMapper.toDomain(savedPayment);
     }
 
@@ -206,6 +216,7 @@ public class PaymentService {
         log.info("Internal cancellation completed for paymentId={}, bookingId={}", savedPayment.getId(), bookingId);
         sendPaymentEvent(savedPayment, PaymentEventType.PAYMENT_CANCELLED);
         evictPaymentCaches(savedPayment);
+        paymentMetrics.record(PaymentStatus.CANCELLED);
     }
 
     private PaymentEntity findByBookingId(UUID bookingId) {

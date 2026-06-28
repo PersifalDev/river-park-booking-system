@@ -7,6 +7,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import ru.haritonenko.userservice.api.dto.UserRegistration;
+import ru.haritonenko.userservice.consent.service.UserConsentService;
 import ru.haritonenko.userservice.domain.User;
 import ru.haritonenko.userservice.domain.UserRole;
 import ru.haritonenko.userservice.domain.db.entity.UserEntity;
@@ -34,6 +35,9 @@ class UserServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private UserConsentService userConsentService;
+
     @InjectMocks
     private UserService userService;
 
@@ -57,7 +61,7 @@ class UserServiceTest {
 
     @Test
     void shouldRegisterNewUserWithEncodedPassword() {
-        UserRegistration registration = new UserRegistration("watson", "secret");
+        UserRegistration registration = new UserRegistration("watson", "secret", true, true);
         UserEntity entityToSave = userEntity();
         entityToSave.setId(null);
         UserEntity savedEntity = userEntity();
@@ -79,7 +83,7 @@ class UserServiceTest {
 
         assertThrows(
                 UserAlreadyRegisteredException.class,
-                () -> userService.register(new UserRegistration("watson", "secret"))
+                () -> userService.register(new UserRegistration("watson", "secret", true, true))
         );
     }
 

@@ -1,6 +1,7 @@
 package ru.haritonenko.bookingservice.external.configuration;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,6 +16,7 @@ import ru.haritonenko.bookingservice.external.circuit.SimpleCircuitBreaker;
 import ru.haritonenko.bookingservice.external.configuration.props.CatalogServiceHttpClientProperties;
 import ru.haritonenko.bookingservice.external.configuration.props.HttpClientProperties;
 import ru.haritonenko.bookingservice.external.configuration.props.UserServiceHttpClientProperties;
+import ru.haritonenko.commonlibs.security.internal.InternalServiceAuthFilter;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
@@ -31,6 +33,9 @@ public class ExternalBookingConfig {
 
     private final RestClient.Builder builder;
     private final ExternalCircuitBreakerProperties circuitBreakerProperties;
+
+    @Value("${app.security.internal-service.token:}")
+    private String internalServiceToken;
 
     @Bean
     public CatalogServiceHttpClient catalogServiceHttpClient(
@@ -56,6 +61,7 @@ public class ExternalBookingConfig {
 
         var restClient = builder
                 .baseUrl(props.getBaseUrl())
+                .defaultHeader(InternalServiceAuthFilter.INTERNAL_SERVICE_TOKEN_HEADER, internalServiceToken)
                 .requestFactory(requestFactory)
                 .build();
 

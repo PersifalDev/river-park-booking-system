@@ -20,6 +20,23 @@ public class BookingValidationProperties {
 
     private Area area = new Area();
 
+    public static BookingValidationProperties defaults() {
+        BookingValidationProperties properties = new BookingValidationProperties();
+        properties.guests.minTotal = 1;
+        properties.guests.maxTotal = 6;
+        properties.guests.minAdults = 1;
+        properties.guests.maxAdults = 4;
+        properties.guests.minChildren = 0;
+        properties.guests.maxChildren = 5;
+        properties.price.min = new BigDecimal("0.00");
+        properties.price.max = new BigDecimal("1000000.00");
+        properties.price.fractionDigits = 2;
+        properties.area.min = new BigDecimal("0.00");
+        properties.area.max = new BigDecimal("1000.00");
+        properties.area.fractionDigits = 2;
+        return properties;
+    }
+
     @Getter
     @Setter
     public static class Guests {

@@ -107,7 +107,7 @@ public class BotAuthService {
     }
 
     private BotUserRegistrationRequest buildRegistration(Long chatId) {
-        return new BotUserRegistrationRequest(login(chatId), secret(chatId));
+        return new BotUserRegistrationRequest(login(chatId), secret(chatId), true, true);
     }
 
     private UserCredentials buildCredentials(Long chatId) {

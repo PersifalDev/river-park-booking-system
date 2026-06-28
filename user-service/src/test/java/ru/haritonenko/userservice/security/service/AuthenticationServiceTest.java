@@ -9,10 +9,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import ru.haritonenko.commonlibs.security.authorization.user.UserCredentials;
-import ru.haritonenko.userservice.domain.User;
 import ru.haritonenko.userservice.domain.UserRole;
-import ru.haritonenko.userservice.domain.service.UserService;
+import ru.haritonenko.userservice.domain.db.entity.UserEntity;
+import ru.haritonenko.userservice.domain.db.repository.UserRepository;
 import ru.haritonenko.userservice.security.jwt.manager.JwtTokenManager;
+import ru.haritonenko.userservice.security.refresh.service.RefreshTokenService;
+
+import java.time.OffsetDateTime;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -29,7 +33,10 @@ class AuthenticationServiceTest {
     private JwtTokenManager jwtTokenManager;
 
     @Mock
-    private UserService userService;
+    private UserRepository userRepository;
+
+    @Mock
+    private RefreshTokenService refreshTokenService;
 
     @InjectMocks
     private AuthenticationService authenticationService;
@@ -37,12 +44,23 @@ class AuthenticationServiceTest {
     @Test
     void shouldAuthenticateAndReturnJwt() {
         UserCredentials credentials = new UserCredentials("watson", "secret");
-        when(userService.findByLogin("watson")).thenReturn(new User(7L, "watson", UserRole.USER));
+        UserEntity user = UserEntity.builder()
+                .id(7L)
+                .login("watson")
+                .userRole(UserRole.USER)
+                .build();
+        OffsetDateTime accessExpiresAt = OffsetDateTime.now().plusHours(1);
+        OffsetDateTime refreshExpiresAt = OffsetDateTime.now().plusDays(30);
+        when(userRepository.findByLogin("watson")).thenReturn(Optional.of(user));
         when(jwtTokenManager.generateToken(7L, "watson", "USER")).thenReturn("jwt-token");
+        when(jwtTokenManager.accessTokenExpiresAt()).thenReturn(accessExpiresAt);
+        when(refreshTokenService.issue(any(UserEntity.class), any(), any()))
+                .thenReturn(new RefreshTokenService.IssuedRefreshToken(null, "refresh-token", refreshExpiresAt));
 
-        String actual = authenticationService.authenticate(credentials);
+        var actual = authenticationService.authenticate(credentials, "JUnit", "127.0.0.1");
 
-        assertEquals("jwt-token", actual);
+        assertEquals("jwt-token", actual.jwt());
+        assertEquals("refresh-token", actual.refreshToken());
         ArgumentCaptor<UsernamePasswordAuthenticationToken> captor =
                 ArgumentCaptor.forClass(UsernamePasswordAuthenticationToken.class);
         verify(authenticationManager).authenticate(captor.capture());

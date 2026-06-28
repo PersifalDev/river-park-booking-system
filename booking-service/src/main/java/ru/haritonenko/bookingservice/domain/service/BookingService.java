@@ -34,6 +34,7 @@ import ru.haritonenko.bookingservice.kafka.outbox.service.BookingOutboxService;
 import ru.haritonenko.bookingservice.kafka.producer.booking.sender.KafkaBookingEventSender;
 import ru.haritonenko.bookingservice.kafka.producer.notification.sender.KafkaNotificationEventSender;
 import ru.haritonenko.bookingservice.lock.RedisDistributedLockService;
+import ru.haritonenko.bookingservice.observability.BookingMetrics;
 import ru.haritonenko.bookingservice.tasks.domain.async.db.entity.AsyncBookingTaskEntity;
 import ru.haritonenko.bookingservice.tasks.domain.async.db.repository.AsyncBookingTaskEntityRepository;
 import ru.haritonenko.bookingservice.tasks.domain.async.dispatcher.AsyncBookingTaskDispatcher;
@@ -95,6 +96,7 @@ public class BookingService {
     private final BookingPageProperties pageProperties;
     private final AsyncBookingTaskDispatcherProperties taskProperties;
     private final BookingCancellationProperties cancellationProperties;
+    private final BookingMetrics bookingMetrics;
 
     public Booking createBooking(BookingRequestDto bookingRequestDto, Long userId) {
         return createBooking(bookingRequestDto, userId, null);
@@ -190,6 +192,7 @@ public class BookingService {
 
         cacheService.evictUserPages(userId);
 
+        bookingMetrics.record(BookingStatus.CREATED);
         return mapper.toDomain(foundBooking);
     }
 
@@ -323,6 +326,7 @@ public class BookingService {
         cacheService.evictUserPages(authUserId);
 
         log.info("Booking cancelled successfully: uuid={}, userId={}", uuid, authUserId);
+        bookingMetrics.record(BookingStatus.CANCELLED);
         return mapper.toDomain(savedBooking);
     }
 
@@ -357,6 +361,7 @@ public class BookingService {
         cacheService.evictBookingByUser(authUserId, uuid);
         cacheService.evictUserPages(authUserId);
 
+        bookingMetrics.record(BookingStatus.CONFIRMED);
         return mapper.toDomain(savedBooking);
     }
 
@@ -509,6 +514,7 @@ public class BookingService {
         bookingEventSender.sendEvent(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_FAILED));
         log.info("Booking status was updated to {} after starting marking: bookingId={}", booking.getStatus(), bookingId);
         evictBookingCaches(booking);
+        bookingMetrics.record(BookingStatus.FAILED);
     }
 
     @Transactional
@@ -534,6 +540,7 @@ public class BookingService {
         bookingEventSender.sendEvent(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_HOLD_CREATED));
         log.info("Booking status was updated to {} after starting holding: bookingId={}", booking.getStatus(), bookingId);
         evictBookingCaches(booking);
+        bookingMetrics.record(BookingStatus.HOLD);
     }
 
     @Transactional
@@ -556,6 +563,7 @@ public class BookingService {
         bookingEventSender.sendEvent(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_EXPIRED));
         log.info("Booking expired successfully: bookingId={}", bookingId);
         evictBookingCaches(booking);
+        bookingMetrics.record(BookingStatus.EXPIRED);
     }
 
     @Transactional(readOnly = true)
@@ -589,6 +597,7 @@ public class BookingService {
         bookingEventSender.sendEvent(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_EXPIRED));
         log.info("Created booking expired successfully: bookingId={}", bookingId);
         evictBookingCaches(booking);
+        bookingMetrics.record(BookingStatus.EXPIRED);
     }
 
     @Transactional(readOnly = true)

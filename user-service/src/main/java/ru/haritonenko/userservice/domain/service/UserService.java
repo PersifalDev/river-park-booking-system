@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import ru.haritonenko.userservice.api.dto.UserRegistration;
+import ru.haritonenko.userservice.consent.service.UserConsentService;
 import ru.haritonenko.userservice.domain.User;
 import ru.haritonenko.userservice.domain.UserRole;
 import ru.haritonenko.userservice.domain.db.repository.UserRepository;
@@ -31,6 +32,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserEntityMapper mapper;
     private final PasswordEncoder passwordEncoder;
+    private final UserConsentService userConsentService;
 
     @Cacheable(value = "users", key = "'id:' + #id")
     @Transactional(readOnly = true)
@@ -72,6 +74,7 @@ public class UserService {
         var hashedPass = passwordEncoder.encode(userFromRegistration.key());
         var userToSave = mapper.toEntity(userFromRegistration, hashedPass);
         var savedUserEntity = userRepository.save(userToSave);
+        userConsentService.recordRegistrationConsents(savedUserEntity);
         log.info("User successfully registered with id: {}, login: {}",
                 savedUserEntity.getId(), savedUserEntity.getLogin());
         return mapper.toDomain(savedUserEntity);

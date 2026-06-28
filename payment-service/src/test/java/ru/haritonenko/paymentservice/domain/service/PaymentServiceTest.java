@@ -2,6 +2,7 @@ package ru.haritonenko.paymentservice.domain.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.springframework.test.util.ReflectionTestUtils;
 import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
 import ru.haritonenko.paymentservice.domain.Payment;
@@ -14,6 +15,7 @@ import ru.haritonenko.paymentservice.domain.status.PaymentStatus;
 import ru.haritonenko.paymentservice.cache.PaymentCacheService;
 import ru.haritonenko.paymentservice.kafka.producer.sender.KafkaPaymentEventSender;
 import ru.haritonenko.paymentservice.lock.RedisDistributedLockService;
+import ru.haritonenko.paymentservice.observability.PaymentMetrics;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -44,7 +46,14 @@ class PaymentServiceTest {
         lockService = mock(RedisDistributedLockService.class);
         doAnswer(invocation -> invocation.<java.util.function.Supplier<?>>getArgument(1).get())
                 .when(lockService).execute(anyString(), any(java.util.function.Supplier.class));
-        service = new PaymentService(repository, new PaymentMapper(), sender, cacheService, lockService);
+        service = new PaymentService(
+                repository,
+                new PaymentMapper(),
+                sender,
+                cacheService,
+                lockService,
+                new PaymentMetrics(new SimpleMeterRegistry())
+        );
         ReflectionTestUtils.setField(service, "sourceService", "payment-service");
         ReflectionTestUtils.setField(service, "contactPhone", "+7 383 000-00-00");
         ReflectionTestUtils.setField(service, "defaultComment", "Оплата при заселении");

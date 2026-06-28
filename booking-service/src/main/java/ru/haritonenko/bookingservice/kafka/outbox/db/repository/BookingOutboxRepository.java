@@ -28,4 +28,6 @@ public interface BookingOutboxRepository extends JpaRepository<BookingOutboxEnti
             @Param("now") OffsetDateTime now,
             Pageable pageable
     );
+
+    long countByStatus(OutboxStatus status);
 }

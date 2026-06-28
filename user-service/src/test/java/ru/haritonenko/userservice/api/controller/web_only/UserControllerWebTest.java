@@ -15,7 +15,10 @@ import ru.haritonenko.userservice.domain.User;
 import ru.haritonenko.userservice.domain.UserRole;
 import ru.haritonenko.userservice.domain.service.UserService;
 import ru.haritonenko.userservice.security.jwt.manager.JwtTokenManager;
+import ru.haritonenko.userservice.security.jwt.response.JwtResponse;
 import ru.haritonenko.userservice.security.service.AuthenticationService;
+
+import java.time.OffsetDateTime;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -58,7 +61,7 @@ class UserControllerWebTest {
 
     @Test
     void shouldRegisterUser() throws Exception {
-        UserRegistration request = new UserRegistration("watson", "secret");
+        UserRegistration request = new UserRegistration("watson", "secret", true, true);
         when(userService.register(any(UserRegistration.class))).thenReturn(new User(1L, "watson", UserRole.USER));
 
         mockMvc.perform(post("/users")
@@ -73,15 +76,22 @@ class UserControllerWebTest {
     @Test
     void shouldAuthenticateUser() throws Exception {
         UserCredentials request = new UserCredentials("watson", "secret");
-        when(authenticationService.authenticate(any(UserCredentials.class))).thenReturn("jwt-token");
+        when(authenticationService.authenticate(any(UserCredentials.class), any(), any()))
+                .thenReturn(JwtResponse.of(
+                        "jwt-token",
+                        "refresh-token",
+                        OffsetDateTime.now().plusHours(1),
+                        OffsetDateTime.now().plusDays(30)
+                ));
 
         mockMvc.perform(post("/users/auth")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.jwt").value("jwt-token"));
+                .andExpect(jsonPath("$.jwt").value("jwt-token"))
+                .andExpect(jsonPath("$.refreshToken").value("refresh-token"));
 
-        verify(authenticationService).authenticate(any(UserCredentials.class));
+        verify(authenticationService).authenticate(any(UserCredentials.class), any(), any());
     }
 
     @Test

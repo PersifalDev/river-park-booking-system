@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.haritonenko.commonlibs.dto.error.ErrorMessageResponse;
 import ru.haritonenko.userservice.domain.exception.UserAlreadyRegisteredException;
 import ru.haritonenko.userservice.domain.exception.UserNotFoundException;
+import ru.haritonenko.userservice.security.refresh.exception.RefreshTokenException;
 
 import java.time.OffsetDateTime;
 import java.util.stream.Collectors;
@@ -46,6 +47,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorMessageResponse> handleConstraintViolationException(ConstraintViolationException ex) {
         log.warn("Constraint violation exception", ex);
         return buildErrorResponse(HttpStatus.BAD_REQUEST, "Constraint validation failed", ex.getMessage());
+    }
+
+    @ExceptionHandler(RefreshTokenException.class)
+    public ResponseEntity<ErrorMessageResponse> handleRefreshTokenException(RefreshTokenException ex) {
+        log.warn("Refresh token exception: {}", ex.getMessage());
+        return buildErrorResponse(HttpStatus.UNAUTHORIZED, ex.getMessage(), ex.getClass().getSimpleName());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

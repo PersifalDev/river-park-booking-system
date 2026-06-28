@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.haritonenko.userservice.api.controller.UserAdminController;
+import ru.haritonenko.userservice.audit.service.AdminAuditLogService;
 import ru.haritonenko.userservice.config.AdminCapabilitiesProperties;
 import ru.haritonenko.userservice.domain.User;
 import ru.haritonenko.userservice.domain.UserRole;
@@ -41,6 +42,9 @@ class UserAdminControllerWebTest {
 
     @MockitoBean
     private AdminCapabilitiesProperties adminCapabilitiesProperties;
+
+    @MockitoBean
+    private AdminAuditLogService adminAuditLogService;
 
     @Test
     void shouldGetAssignableRoles() throws Exception {

@@ -3,6 +3,7 @@ package ru.haritonenko.userservice.api.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import ru.haritonenko.userservice.api.dto.UserRoleUpdateRequest;
+import ru.haritonenko.userservice.audit.dto.AdminAuditLogResponse;
+import ru.haritonenko.userservice.audit.service.AdminAuditLogService;
 import ru.haritonenko.userservice.config.AdminCapabilitiesProperties;
 import ru.haritonenko.userservice.domain.User;
 import ru.haritonenko.userservice.domain.UserRole;
@@ -35,6 +38,7 @@ public class UserAdminController {
 
     private final UserService userService;
     private final AdminCapabilitiesProperties adminCapabilitiesProperties;
+    private final AdminAuditLogService adminAuditLogService;
 
     @GetMapping
     @Operation(summary = "Get users page")
@@ -57,13 +61,42 @@ public class UserAdminController {
         return ResponseEntity.ok(adminCapabilitiesProperties.getCapabilitiesByRole());
     }
 
+    @GetMapping("/audit")
+    @Operation(summary = "Get admin audit log")
+    public ResponseEntity<Page<AdminAuditLogResponse>> getAuditLog(@PageableDefault(size = 20) Pageable pageable) {
+        log.info("Admin request for getting audit log");
+        return ResponseEntity.ok(adminAuditLogService.getAuditLog(pageable));
+    }
+
     @PatchMapping("/{userId}/role")
     @Operation(summary = "Update user role")
     public ResponseEntity<User> updateUserRole(
             @PathVariable Long userId,
-            @Valid @RequestBody UserRoleUpdateRequest request
+            @Valid @RequestBody UserRoleUpdateRequest request,
+            HttpServletRequest httpServletRequest
     ) {
         log.info("Admin request for updating user role: userId={}, role={}", userId, request.role());
-        return ResponseEntity.ok(userService.updateUserRole(userId, request.role()));
+        try {
+            User user = userService.updateUserRole(userId, request.role());
+            adminAuditLogService.record(
+                    "USER_ROLE_UPDATED",
+                    "USER",
+                    String.valueOf(userId),
+                    "SUCCESS",
+                    "role=" + request.role(),
+                    httpServletRequest
+            );
+            return ResponseEntity.ok(user);
+        } catch (RuntimeException ex) {
+            adminAuditLogService.record(
+                    "USER_ROLE_UPDATED",
+                    "USER",
+                    String.valueOf(userId),
+                    "FAILURE",
+                    ex.getClass().getSimpleName(),
+                    httpServletRequest
+            );
+            throw ex;
+        }
     }
 }

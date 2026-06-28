@@ -6,11 +6,15 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.haritonenko.commonlibs.security.authorization.user.AuthUser;
 import ru.haritonenko.commonlibs.security.authorization.user.UserCredentials;
-import ru.haritonenko.userservice.domain.User;
-import ru.haritonenko.userservice.domain.service.UserService;
+import ru.haritonenko.userservice.domain.db.entity.UserEntity;
+import ru.haritonenko.userservice.domain.db.repository.UserRepository;
+import ru.haritonenko.userservice.domain.exception.UserNotFoundException;
 import ru.haritonenko.userservice.security.jwt.manager.JwtTokenManager;
+import ru.haritonenko.userservice.security.jwt.response.JwtResponse;
+import ru.haritonenko.userservice.security.refresh.service.RefreshTokenService;
 
 import static java.util.Objects.isNull;
 
@@ -22,9 +26,11 @@ public class AuthenticationService {
 
     private final AuthenticationManager authenticationManager;
     private final JwtTokenManager jwtTokenManager;
-    private final UserService userService;
+    private final UserRepository userRepository;
+    private final RefreshTokenService refreshTokenService;
 
-    public String authenticate(UserCredentials userFromSignInRequest) {
+    @Transactional
+    public JwtResponse authenticate(UserCredentials userFromSignInRequest, String userAgent, String ipAddress) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         userFromSignInRequest.login(),
@@ -32,13 +38,38 @@ public class AuthenticationService {
                 )
         );
 
-        User user = userService.findByLogin(userFromSignInRequest.login());
+        UserEntity user = userRepository.findByLogin(userFromSignInRequest.login())
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         log.info("Generating jwt token");
-        return jwtTokenManager.generateToken(
-                user.id(),
-                user.login(),
-                user.role().authority()
+        String accessToken = jwtTokenManager.generateToken(
+                user.getId(),
+                user.getLogin(),
+                user.getUserRole().authority()
+        );
+        var refreshToken = refreshTokenService.issue(user, userAgent, ipAddress);
+        return JwtResponse.of(
+                accessToken,
+                refreshToken.token(),
+                jwtTokenManager.accessTokenExpiresAt(),
+                refreshToken.expiresAt()
+        );
+    }
+
+    @Transactional
+    public JwtResponse refresh(String refreshToken, String userAgent, String ipAddress) {
+        var rotated = refreshTokenService.rotate(refreshToken, userAgent, ipAddress);
+        UserEntity user = rotated.user();
+        String accessToken = jwtTokenManager.generateToken(
+                user.getId(),
+                user.getLogin(),
+                user.getUserRole().authority()
+        );
+        return JwtResponse.of(
+                accessToken,
+                rotated.token(),
+                jwtTokenManager.accessTokenExpiresAt(),
+                rotated.expiresAt()
         );
     }
 

@@ -10,6 +10,7 @@ import ru.haritonenko.commonlibs.security.authorization.user.AuthUser;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.OffsetDateTime;
 import java.util.Date;
 
 @Component
@@ -38,6 +39,10 @@ public class JwtTokenManager {
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expirationTime))
                 .compact();
+    }
+
+    public OffsetDateTime accessTokenExpiresAt() {
+        return OffsetDateTime.now().plusNanos(expirationTime * 1_000_000);
     }
 
     public AuthUser getAuthUserFromToken(String jwt) {

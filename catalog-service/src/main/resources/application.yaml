@@ -20,6 +20,26 @@ openapi:
 jwt:
   secret-key: ${JWT_SECRET_KEY:river-park-local-dev-secret-key-32}
   lifetime: ${JWT_LIFETIME:86400000}
+  refresh-lifetime: ${JWT_REFRESH_LIFETIME:2592000000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://alloy:4318/v1/traces}
 
 spring:
   application:
@@ -62,11 +82,22 @@ spring:
     type: redis
 
 logging:
+  structured:
+    json:
+      customizer:
+        - ru.haritonenko.commonlibs.observability.PiiMaskingStructuredLoggingJsonMembersCustomizer
+    format:
+      console: ${LOGGING_STRUCTURED_FORMAT_CONSOLE:ecs}
   level:
     org.hibernate.SQL: ${LOGGING_LEVEL_ORG_HIBERNATE_SQL:DEBUG}
     org.hibernate.orm.jdbc.bind: ${LOGGING_LEVEL_ORG_HIBERNATE_BIND:TRACE}
 
 app:
+  security:
+    internal-service:
+      token: ${INTERNAL_SERVICE_TOKEN:}
+  data-retention:
+    catalog-change-history: ${CATALOG_CHANGE_HISTORY_RETENTION:365d}
   rate-limit:
     enabled: ${CATALOG_RATE_LIMIT_ENABLED:true}
     window: ${CATALOG_RATE_LIMIT_WINDOW:1m}

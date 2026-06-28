@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,7 @@ import ru.haritonenko.userservice.api.dto.UserRegistration;
 import ru.haritonenko.userservice.domain.User;
 import ru.haritonenko.userservice.domain.service.UserService;
 import ru.haritonenko.userservice.security.jwt.response.JwtResponse;
+import ru.haritonenko.userservice.security.refresh.dto.RefreshTokenRequest;
 import ru.haritonenko.userservice.security.service.AuthenticationService;
 
 @Slf4j
@@ -64,8 +66,40 @@ public class UserController {
             @ApiResponse(responseCode = "200", description = "JWT токен выдан"),
             @ApiResponse(responseCode = "401", description = "Неверные учетные данные")
     })
-    public ResponseEntity<JwtResponse> authenticate(@Valid @RequestBody UserCredentials userCredentials) {
+    public ResponseEntity<JwtResponse> authenticate(
+            @Valid @RequestBody UserCredentials userCredentials,
+            HttpServletRequest request
+    ) {
         log.info("Request for authenticating user with login={}", userCredentials.login());
-        return ResponseEntity.ok(new JwtResponse(authenticationService.authenticate(userCredentials)));
+        return ResponseEntity.ok(authenticationService.authenticate(
+                userCredentials,
+                request.getHeader("User-Agent"),
+                clientIp(request)
+        ));
+    }
+
+    @PostMapping("/auth/refresh")
+    @Operation(summary = "Rotate refresh token and issue a new JWT")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Token pair rotated"),
+            @ApiResponse(responseCode = "401", description = "Refresh token is invalid or expired")
+    })
+    public ResponseEntity<JwtResponse> refresh(
+            @Valid @RequestBody RefreshTokenRequest refreshTokenRequest,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.ok(authenticationService.refresh(
+                refreshTokenRequest.refreshToken(),
+                request.getHeader("User-Agent"),
+                clientIp(request)
+        ));
+    }
+
+    private String clientIp(HttpServletRequest request) {
+        String forwardedFor = request.getHeader("X-Forwarded-For");
+        if (forwardedFor != null && !forwardedFor.isBlank()) {
+            return forwardedFor.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

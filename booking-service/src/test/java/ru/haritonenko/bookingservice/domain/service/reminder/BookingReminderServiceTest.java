@@ -33,6 +33,14 @@ class BookingReminderServiceTest {
     void setUp() {
         properties.setHoldExpiringWindow(Duration.ofMinutes(5));
         properties.getCheckIn().setDaysBefore(1L);
+        properties.getTexts().setDateZone("UTC");
+        properties.getTexts().setDatePattern("dd.MM.yyyy");
+        properties.getTexts().setDateTimePattern("dd.MM.yyyy HH:mm");
+        properties.getTexts().setUnknownDate("unknown");
+        properties.getTexts().setHoldExpiringTitle("Hold expiring");
+        properties.getTexts().setHoldExpiringMessage("Booking %s hold expires at %s");
+        properties.getTexts().setCheckInTitle("Check-in reminder");
+        properties.getTexts().setCheckInMessage("Booking %s check-in is on %s");
     }
 
     @Test

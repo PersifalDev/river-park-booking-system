@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import ru.haritonenko.bookingservice.tasks.domain.async.db.entity.AsyncBookingTaskEntity;
+import ru.haritonenko.bookingservice.tasks.domain.async.status.AsyncBookingTaskStatus;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -29,4 +30,6 @@ public interface AsyncBookingTaskEntityRepository extends JpaRepository<AsyncBoo
             @Param("now") OffsetDateTime now
 
     );
+
+    long countByStatus(AsyncBookingTaskStatus status);
 }

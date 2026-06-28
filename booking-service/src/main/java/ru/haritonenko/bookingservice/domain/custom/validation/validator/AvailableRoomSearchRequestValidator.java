@@ -2,6 +2,7 @@ package ru.haritonenko.bookingservice.domain.custom.validation.validator;
 
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import ru.haritonenko.bookingservice.api.dto.AvailableRoomSearchRequestDto;
 import ru.haritonenko.bookingservice.config.validation.BookingValidationProperties;
@@ -16,6 +17,11 @@ public class AvailableRoomSearchRequestValidator
 
     private final BookingValidationProperties properties;
 
+    public AvailableRoomSearchRequestValidator() {
+        this(BookingValidationProperties.defaults());
+    }
+
+    @Autowired
     public AvailableRoomSearchRequestValidator(BookingValidationProperties properties) {
         this.properties = properties;
     }

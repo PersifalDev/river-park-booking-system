@@ -94,13 +94,13 @@ class BookingControllerTest extends AbstractIntegrationTest {
         jwt = jwtTokenManager.generateToken(
                 1L,
                 "test-user",
-                "USER"
+                "BOOKING_MANAGER"
         );
 
         authUser = AuthUser.builder()
                 .id(1L)
                 .login("test-user")
-                .role("USER")
+                .role("BOOKING_MANAGER")
                 .build();
 
 
@@ -578,6 +578,11 @@ class BookingControllerTest extends AbstractIntegrationTest {
                 .checkInDate(checkOutDate.minusDays(1))
                 .checkOutDate(checkOutDate)
                 .priceAmount(BigDecimal.ONE)
+                .tariffCode("ROOM_ONLY")
+                .tariffTitle("Room only")
+                .tariffCancellationPolicy("FLEXIBLE")
+                .tariffFreeCancellationDaysBefore(1)
+                .tariffIncludedServices("Accommodation")
                 .holdExpiresAt(status == BookingStatus.HOLD ? now.plus(Duration.ofMinutes(15)) : null)
                 .hasPromo(bookingRequestDto.promoCode() != null && !bookingRequestDto.promoCode().isBlank())
                 .status(status)
@@ -600,6 +605,11 @@ class BookingControllerTest extends AbstractIntegrationTest {
                 .checkInDate(bookingRequestDto.checkInDate())
                 .checkOutDate(bookingRequestDto.checkOutDate())
                 .priceAmount(BigDecimal.ONE)
+                .tariffCode("ROOM_ONLY")
+                .tariffTitle("Room only")
+                .tariffCancellationPolicy("FLEXIBLE")
+                .tariffFreeCancellationDaysBefore(1)
+                .tariffIncludedServices("Accommodation")
                 .holdExpiresAt(now.plus(holdTtl))
                 .hasPromo(bookingRequestDto.promoCode() != null && !bookingRequestDto.promoCode().isBlank())
                 .status(BookingStatus.CREATED)

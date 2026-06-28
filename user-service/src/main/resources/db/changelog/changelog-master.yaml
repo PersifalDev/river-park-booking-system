@@ -6,3 +6,24 @@ databaseChangeLog:
         - sqlFile:
             path: db/changelog/001-create-users-table.sql
             relativeToChangelogFile: false
+  - changeSet:
+      id: 002-create-refresh-tokens-table
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/002-create-refresh-tokens-table.sql
+            relativeToChangelogFile: false
+  - changeSet:
+      id: 003-create-admin-audit-log-table
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/003-create-admin-audit-log-table.sql
+            relativeToChangelogFile: false
+  - changeSet:
+      id: 004-create-user-consents-table
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/004-create-user-consents-table.sql
+            relativeToChangelogFile: false

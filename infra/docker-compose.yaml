@@ -36,6 +36,143 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: river-park-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - infra_prometheus_data:/prometheus
+    depends_on:
+      - kafka-exporter
+      - cadvisor
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: river-park-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - infra_grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  loki:
+    image: grafana/loki:latest
+    container_name: river-park-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki.yml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki.yml:/etc/loki/loki.yml:ro
+      - infra_loki_data:/loki
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  tempo:
+    image: grafana/tempo:latest
+    container_name: river-park-tempo
+    restart: unless-stopped
+    command: -config.file=/etc/tempo/tempo.yml
+    ports:
+      - "3200:3200"
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+      - infra_tempo_data:/tmp/tempo
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  alloy:
+    image: grafana/alloy:latest
+    container_name: river-park-alloy
+    restart: unless-stopped
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - /etc/alloy/config.alloy
+    ports:
+      - "12345:12345"
+      - "4319:4317"
+      - "4320:4318"
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+      - tempo
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    container_name: river-park-kafka-exporter
+    restart: unless-stopped
+    command:
+      - --kafka.server=kafka:9092
+    ports:
+      - "9308:9308"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: river-park-cadvisor
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "8090:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   user-postgres:
     image: postgres:16
     container_name: user-postgres
@@ -217,6 +354,11 @@ services:
       USER_SERVER_PORT: ${USER_SERVER_PORT}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_LIFETIME: ${JWT_LIFETIME}
+      JWT_REFRESH_LIFETIME: ${JWT_REFRESH_LIFETIME:-2592000000}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-river-park-local-internal-token-change-me}
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://alloy:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-0.1}
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOGGING_STRUCTURED_FORMAT_CONSOLE:-ecs}
     logging:
       driver: json-file
       options:
@@ -248,6 +390,10 @@ services:
       CATALOG_SERVICE_REDIS_PORT: 6379
       APP_BASE_DIR: /app/data/static
       CATALOG_PUBLIC_BASE_URL: ${CATALOG_PUBLIC_BASE_URL}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-river-park-local-internal-token-change-me}
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://alloy:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-0.1}
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOGGING_STRUCTURED_FORMAT_CONSOLE:-ecs}
     volumes:
       - ../data/static:/app/data/static
     logging:
@@ -291,6 +437,10 @@ services:
       BOOKING_SERVICE_REDIS_HOST: catalog-service-redis
       BOOKING_SERVICE_REDIS_PORT: 6379
       BOOKING_SERVICE_REDIS_DB: 3
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-river-park-local-internal-token-change-me}
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://alloy:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-0.1}
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOGGING_STRUCTURED_FORMAT_CONSOLE:-ecs}
     logging:
       driver: json-file
       options:
@@ -326,6 +476,10 @@ services:
       PAYMENT_SERVICE_REDIS_HOST: catalog-service-redis
       PAYMENT_SERVICE_REDIS_PORT: 6379
       PAYMENT_SERVICE_REDIS_DB: 4
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-river-park-local-internal-token-change-me}
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://alloy:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-0.1}
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOGGING_STRUCTURED_FORMAT_CONSOLE:-ecs}
     logging:
       driver: json-file
       options:
@@ -360,6 +514,10 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       NOTIFICATION_SERVICE_REDIS_HOST: notification-service-redis
       NOTIFICATION_SERVICE_REDIS_PORT: 6379
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-river-park-local-internal-token-change-me}
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://alloy:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-0.1}
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOGGING_STRUCTURED_FORMAT_CONSOLE:-ecs}
     logging:
       driver: json-file
       options:
@@ -403,6 +561,10 @@ services:
       PAYMENT_SERVICE_URL: http://payment-service:${PAYMENT_SERVER_PORT}
       USER_SERVICE_URL: http://user-service:${USER_SERVER_PORT}
       NOTIFICATION_SERVICE_URL: http://notification-service:${NOTIFICATION_SERVER_PORT}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-river-park-local-internal-token-change-me}
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://alloy:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-0.1}
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOGGING_STRUCTURED_FORMAT_CONSOLE:-ecs}
     dns:
       - 1.1.1.1
       - 8.8.8.8
@@ -413,6 +575,10 @@ services:
         max-file: "3"
 
 volumes:
+  infra_prometheus_data:
+  infra_grafana_data:
+  infra_loki_data:
+  infra_tempo_data:
   infra_user_postgres_data:
   infra_catalog_postgres_data:
   infra_booking_postgres_data:
