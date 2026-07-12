@@ -30,6 +30,8 @@ public class BotTextFactory {
     private static final DateTimeFormatter SHORT_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd.MM");
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
     private static final ZoneId NOVOSIBIRSK_ZONE = ZoneId.of("Asia/Novosibirsk");
+    private static final String DEFAULT_PAYMENT_INSTRUCTION = "Подтвердите бронирование в Telegram. Оплата производится в день заселения у администратора.";
+    private static final String DEFAULT_PAYMENT_COMMENT = "Оплата производится в день заселения у администратора отеля River Park.";
     private final BotMessagesProperties messages;
 
     public String buildStartMessage() {
@@ -569,13 +571,13 @@ public class BotTextFactory {
         }
         if (payment != null) {
             if (shouldShowPaymentInstruction(payment)) {
-                builder.append("\n\nИнструкция: ").append(payment.paymentInstruction());
+                builder.append("\n\nИнструкция: ").append(readablePaymentInstruction(payment));
             }
             if (payment.contactPhone() != null && !payment.contactPhone().isBlank()) {
                 builder.append("\nТелефон для связи: ").append(payment.contactPhone());
             }
             if (shouldShowPaymentComment(payment)) {
-                builder.append("\nПримечание: ").append(payment.paymentComment());
+                builder.append("\nПримечание: ").append(readablePaymentComment(payment));
             }
         }
         if (adminContact != null && !adminContact.isBlank()) {
@@ -628,10 +630,10 @@ public class BotTextFactory {
                 builder.append("\nТелефон: ").append(payment.contactPhone());
             }
             if (shouldShowPaymentInstruction(payment)) {
-                builder.append("\nИнструкция: ").append(payment.paymentInstruction());
+                builder.append("\nИнструкция: ").append(readablePaymentInstruction(payment));
             }
             if (shouldShowPaymentComment(payment)) {
-                builder.append("\nПримечание: ").append(payment.paymentComment());
+                builder.append("\nПримечание: ").append(readablePaymentComment(payment));
             }
         }
         return builder.toString();
@@ -822,6 +824,30 @@ public class BotTextFactory {
         String comment = payment.paymentComment().trim().toLowerCase(Locale.ROOT);
         return !instruction.contains(comment)
                 && !(instruction.contains("оплата производится") && comment.contains("оплата производится"));
+    }
+
+    private String readablePaymentInstruction(BotPaymentResponseDto payment) {
+        return readablePaymentText(payment.paymentInstruction(), DEFAULT_PAYMENT_INSTRUCTION);
+    }
+
+    private String readablePaymentComment(BotPaymentResponseDto payment) {
+        return readablePaymentText(payment.paymentComment(), DEFAULT_PAYMENT_COMMENT);
+    }
+
+    private String readablePaymentText(String value, String fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        String trimmed = value.trim();
+        if (looksCorruptedText(trimmed)) {
+            return fallback;
+        }
+        return trimmed;
+    }
+
+    private boolean looksCorruptedText(String value) {
+        long replacementChars = value.chars().filter(ch -> ch == '\uFFFD').count();
+        return replacementChars >= 3 || value.contains("Р�") || value.contains("Рџ") || value.contains("Рћ");
     }
 
     private boolean isInactivePaymentStatus(String status) {

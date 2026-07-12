@@ -14,6 +14,8 @@ import ru.haritonenko.catalogservice.services.domain.ServiceItem;
 import ru.haritonenko.catalogservice.services.domain.mapper.ServiceItemToDtoMapper;
 import ru.haritonenko.catalogservice.services.domain.service.ServiceItemService;
 import ru.haritonenko.catalogservice.services.domain.type.ServiceItemType;
+import ru.haritonenko.catalogservice.rate.SlidingWindowRateLimiter;
+import ru.haritonenko.catalogservice.rate.config.CatalogRateLimitProperties;
 import ru.haritonenko.catalogservice.security.jwt.manager.JwtTokenManager;
 
 import java.util.List;
@@ -40,6 +42,12 @@ class ServiceItemControllerWebTest {
 
     @MockitoBean
     private JwtTokenManager jwtTokenManager;
+
+    @MockitoBean
+    private CatalogRateLimitProperties catalogRateLimitProperties;
+
+    @MockitoBean
+    private SlidingWindowRateLimiter slidingWindowRateLimiter;
 
     private ServiceItem serviceItem;
     private ServiceItemResponseDto dto;

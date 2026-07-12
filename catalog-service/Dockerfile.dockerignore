@@ -1,7 +1,10 @@
-# Ignore everything by default
-*
-# Include what we need
-!**/src
-!.mvn
-!**/pom.xml
-!mvnw
+.idea
+*.iml
+.env
+.mvn/wrapper/maven-wrapper.jar
+Dockerfile
+docker-compose*.yaml
+docker-compose*.yml
+target/*
+!target/
+!target/*.jar

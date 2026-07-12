@@ -2,4 +2,7 @@
 **/.idea
 **/*.iml
 .git
+.agents
+graphify-out
 data
+*.log

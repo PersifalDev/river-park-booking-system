@@ -1,9 +1,40 @@
 name: river-park
 
+x-kafka-limits: &kafka-limits
+  cpus: "1.00"
+  mem_limit: 768m
+  memswap_limit: 768m
+  pids_limit: 256
+
+x-postgres-limits: &postgres-limits
+  cpus: "0.25"
+  mem_limit: 256m
+  memswap_limit: 256m
+  pids_limit: 128
+
+x-redis-limits: &redis-limits
+  cpus: "0.10"
+  mem_limit: 128m
+  memswap_limit: 128m
+  pids_limit: 64
+
+x-java-service-limits: &java-service-limits
+  cpus: "0.65"
+  mem_limit: 512m
+  memswap_limit: 512m
+  pids_limit: 256
+
+x-observability-limits: &observability-limits
+  cpus: "0.35"
+  mem_limit: 384m
+  memswap_limit: 384m
+  pids_limit: 128
+
 services:
   kafka:
     image: ${KAFKA_IMAGE}
     container_name: river-park-kafka
+    <<: *kafka-limits
     restart: unless-stopped
     ports:
       - "${KAFKA_HOST_PORT}:9094"
@@ -22,6 +53,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
       CLUSTER_ID: ${KAFKA_CLUSTER_ID}
 
     healthcheck:
@@ -39,6 +71,8 @@ services:
   prometheus:
     image: prom/prometheus:latest
     container_name: river-park-prometheus
+    <<: *observability-limits
+    profiles: ["observability"]
     restart: unless-stopped
     command:
       - --config.file=/etc/prometheus/prometheus.yml
@@ -61,6 +95,8 @@ services:
   grafana:
     image: grafana/grafana:latest
     container_name: river-park-grafana
+    <<: *observability-limits
+    profiles: ["observability"]
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -83,6 +119,8 @@ services:
   loki:
     image: grafana/loki:latest
     container_name: river-park-loki
+    <<: *observability-limits
+    profiles: ["observability"]
     restart: unless-stopped
     command: -config.file=/etc/loki/loki.yml
     ports:
@@ -99,7 +137,10 @@ services:
   tempo:
     image: grafana/tempo:latest
     container_name: river-park-tempo
+    <<: *observability-limits
+    profiles: ["observability"]
     restart: unless-stopped
+    user: "0:0"
     command: -config.file=/etc/tempo/tempo.yml
     ports:
       - "3200:3200"
@@ -117,6 +158,8 @@ services:
   alloy:
     image: grafana/alloy:latest
     container_name: river-park-alloy
+    <<: *observability-limits
+    profiles: ["observability"]
     restart: unless-stopped
     command:
       - run
@@ -141,6 +184,11 @@ services:
   kafka-exporter:
     image: danielqsj/kafka-exporter:latest
     container_name: river-park-kafka-exporter
+    cpus: "0.10"
+    mem_limit: 128m
+    memswap_limit: 128m
+    pids_limit: 64
+    profiles: ["observability"]
     restart: unless-stopped
     command:
       - --kafka.server=kafka:9092
@@ -158,6 +206,11 @@ services:
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
     container_name: river-park-cadvisor
+    cpus: "0.20"
+    mem_limit: 192m
+    memswap_limit: 192m
+    pids_limit: 128
+    profiles: ["observability"]
     restart: unless-stopped
     privileged: true
     ports:
@@ -176,6 +229,7 @@ services:
   user-postgres:
     image: postgres:16
     container_name: user-postgres
+    <<: *postgres-limits
     restart: unless-stopped
     ports:
       - "${USER_DB_PORT}:5432"
@@ -200,6 +254,7 @@ services:
   catalog-postgres:
     image: postgres:16
     container_name: catalog-postgres
+    <<: *postgres-limits
     restart: unless-stopped
     ports:
       - "${POSTGRES_CATALOG_SERVICE_PORT}:5432"
@@ -224,6 +279,7 @@ services:
   booking-postgres:
     image: postgres:16
     container_name: booking-postgres
+    <<: *postgres-limits
     restart: unless-stopped
     ports:
       - "${BOOKING_DB_PORT}:5432"
@@ -248,6 +304,7 @@ services:
   payment-postgres:
     image: postgres:16
     container_name: payment-postgres
+    <<: *postgres-limits
     restart: unless-stopped
     ports:
       - "${PAYMENT_DB_PORT}:5432"
@@ -272,6 +329,7 @@ services:
   notification-postgres:
     image: postgres:16
     container_name: notification-postgres
+    <<: *postgres-limits
     restart: unless-stopped
     ports:
       - "${NOTIFICATION_DB_PORT}:5432"
@@ -294,8 +352,9 @@ services:
         max-file: "3"
 
   catalog-service-redis:
-    image: redis:8.4.0
+    image: redis:8.2-alpine
     container_name: catalog-service-redis
+    <<: *redis-limits
     restart: unless-stopped
     ports:
       - "${REDIS_CATALOG_SERVICE_PORT}:6379"
@@ -314,8 +373,9 @@ services:
         max-file: "3"
 
   notification-service-redis:
-    image: redis:8.4.0
+    image: redis:8.2-alpine
     container_name: notification-service-redis
+    <<: *redis-limits
     restart: unless-stopped
     ports:
       - "${REDIS_NOTIFICATION_SERVICE_PORT}:6379"
@@ -338,6 +398,7 @@ services:
       context: ..
       dockerfile: user-service/Dockerfile
     container_name: user-service
+    <<: *java-service-limits
     restart: unless-stopped
     depends_on:
       user-postgres:
@@ -356,6 +417,10 @@ services:
       JWT_LIFETIME: ${JWT_LIFETIME}
       JWT_REFRESH_LIFETIME: ${JWT_REFRESH_LIFETIME:-2592000000}
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-river-park-local-internal-token-change-me}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=65 -XX:InitialRAMPercentage=20 -XX:ActiveProcessorCount=1 -XX:+UseSerialGC}
+      OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy:4318
+      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://alloy:4318/v1/metrics
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://alloy:4318/v1/traces
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-0.1}
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOGGING_STRUCTURED_FORMAT_CONSOLE:-ecs}
@@ -370,6 +435,7 @@ services:
       context: ..
       dockerfile: catalog-service/Dockerfile
     container_name: catalog-service
+    <<: *java-service-limits
     restart: unless-stopped
     depends_on:
       catalog-postgres:
@@ -391,6 +457,10 @@ services:
       APP_BASE_DIR: /app/data/static
       CATALOG_PUBLIC_BASE_URL: ${CATALOG_PUBLIC_BASE_URL}
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-river-park-local-internal-token-change-me}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=65 -XX:InitialRAMPercentage=20 -XX:ActiveProcessorCount=1 -XX:+UseSerialGC}
+      OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy:4318
+      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://alloy:4318/v1/metrics
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://alloy:4318/v1/traces
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-0.1}
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOGGING_STRUCTURED_FORMAT_CONSOLE:-ecs}
@@ -407,6 +477,7 @@ services:
       context: ..
       dockerfile: booking-service/Dockerfile
     container_name: booking-service
+    <<: *java-service-limits
     restart: unless-stopped
     depends_on:
       booking-postgres:
@@ -438,6 +509,10 @@ services:
       BOOKING_SERVICE_REDIS_PORT: 6379
       BOOKING_SERVICE_REDIS_DB: 3
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-river-park-local-internal-token-change-me}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=65 -XX:InitialRAMPercentage=20 -XX:ActiveProcessorCount=1 -XX:+UseSerialGC}
+      OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy:4318
+      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://alloy:4318/v1/metrics
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://alloy:4318/v1/traces
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-0.1}
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOGGING_STRUCTURED_FORMAT_CONSOLE:-ecs}
@@ -452,6 +527,7 @@ services:
       context: ..
       dockerfile: payment-service/Dockerfile
     container_name: payment-service
+    <<: *java-service-limits
     restart: unless-stopped
     depends_on:
       payment-postgres:
@@ -477,6 +553,10 @@ services:
       PAYMENT_SERVICE_REDIS_PORT: 6379
       PAYMENT_SERVICE_REDIS_DB: 4
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-river-park-local-internal-token-change-me}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=65 -XX:InitialRAMPercentage=20 -XX:ActiveProcessorCount=1 -XX:+UseSerialGC}
+      OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy:4318
+      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://alloy:4318/v1/metrics
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://alloy:4318/v1/traces
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-0.1}
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOGGING_STRUCTURED_FORMAT_CONSOLE:-ecs}
@@ -491,6 +571,7 @@ services:
       context: ..
       dockerfile: notification-service/Dockerfile
     container_name: notification-service
+    <<: *java-service-limits
     restart: unless-stopped
     depends_on:
       notification-postgres:
@@ -515,6 +596,10 @@ services:
       NOTIFICATION_SERVICE_REDIS_HOST: notification-service-redis
       NOTIFICATION_SERVICE_REDIS_PORT: 6379
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-river-park-local-internal-token-change-me}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=65 -XX:InitialRAMPercentage=20 -XX:ActiveProcessorCount=1 -XX:+UseSerialGC}
+      OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy:4318
+      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://alloy:4318/v1/metrics
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://alloy:4318/v1/traces
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-0.1}
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOGGING_STRUCTURED_FORMAT_CONSOLE:-ecs}
@@ -529,6 +614,7 @@ services:
       context: ..
       dockerfile: telegram-bot/Dockerfile
     container_name: telegram-bot
+    <<: *java-service-limits
     restart: unless-stopped
     depends_on:
       user-service:
@@ -562,6 +648,10 @@ services:
       USER_SERVICE_URL: http://user-service:${USER_SERVER_PORT}
       NOTIFICATION_SERVICE_URL: http://notification-service:${NOTIFICATION_SERVER_PORT}
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-river-park-local-internal-token-change-me}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=65 -XX:InitialRAMPercentage=20 -XX:ActiveProcessorCount=1 -XX:+UseSerialGC}
+      OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy:4318
+      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://alloy:4318/v1/metrics
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://alloy:4318/v1/traces
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-0.1}
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOGGING_STRUCTURED_FORMAT_CONSOLE:-ecs}

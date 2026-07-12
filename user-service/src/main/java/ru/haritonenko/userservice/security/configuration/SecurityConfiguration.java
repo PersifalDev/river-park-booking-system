@@ -46,6 +46,7 @@ public class SecurityConfiguration {
                                 "/v3/api-docs",
                                 "/v3/api-docs/**"
                         ).permitAll()
+                        .requestMatchers("/actuator", "/actuator/**").permitAll()
                         .requestMatchers("/users/admin/**").hasAuthority(PlatformRole.ADMIN_AUTHORITY)
                         .requestMatchers(HttpMethod.GET, "/users/**").authenticated()
                         .requestMatchers("/error", "/error/**").permitAll()
