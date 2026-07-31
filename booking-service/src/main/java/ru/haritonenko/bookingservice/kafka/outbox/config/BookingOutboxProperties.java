@@ -14,5 +14,6 @@ public class BookingOutboxProperties {
     private int batchSize;
     private int pageNumber;
     private Duration retryDelay;
+    private Duration processingTimeout;
     private int maxAttempts;
 }

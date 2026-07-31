@@ -11,15 +11,35 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "app.booking.task")
 public class AsyncBookingTaskDispatcherProperties {
 
-    private Integer threadPoolSize;
-    private Integer queueCapacity;
+    private Dispatcher dispatcher = new Dispatcher();
+    private ExternalHttp externalHttp = new ExternalHttp();
     private Integer maxAttempts;
     private Duration retryDelay;
     private Duration schedulerDelay;
-    private Integer dispatchBatchSize;
     private Duration holdTtl;
     private Duration externalCallTimeout;
-    private Boolean externalHttpVirtualThreadsEnabled;
     private Integer initialAttempts;
     private Duration cleanupRetentionPeriod;
+
+    @Getter
+    @Setter
+    public static class Dispatcher {
+        private Integer threadPoolSize;
+        private Integer queueCapacity;
+    }
+
+    @Getter
+    @Setter
+    public static class ExternalHttp {
+        private Boolean virtualThreadsEnabled;
+        private Integer virtualMaxConcurrency;
+        private Platform platform = new Platform();
+    }
+
+    @Getter
+    @Setter
+    public static class Platform {
+        private Integer threadPoolSize;
+        private Integer queueCapacity;
+    }
 }

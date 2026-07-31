@@ -15,5 +15,5 @@ import java.time.Duration;
 public class BookingCacheProperties {
 
     @NotNull(message = "Ttl can not be null")
-    private Duration pageIndexTtl;
+    private Duration ttl;
 }

@@ -1,0 +1,110 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "External HTTP executor mode (1 = virtual)",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "targets": [{"expr": "booking_external_http_virtual_threads_enabled{application=\"booking-service\"}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"mappings": [{"type": "value", "options": {"0": {"text": "PLATFORM"}, "1": {"text": "VIRTUAL"}}}]}, "overrides": []}
+    },
+    {
+      "type": "stat",
+      "title": "HTTP requests / sec",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "targets": [{"expr": "sum(rate(http_server_requests_seconds_count{application=\"booking-service\"}[1m]))", "refId": "A"}]
+    },
+    {
+      "type": "stat",
+      "title": "HTTP p95",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"booking-service\"}[2m])))", "legendFormat": "p95", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}
+    },
+    {
+      "type": "stat",
+      "title": "HTTP 5xx / sec",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "targets": [{"expr": "sum(rate(http_server_requests_seconds_count{application=\"booking-service\",status=~\"5..\"}[1m]))", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Async booking task backlog",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "targets": [{"expr": "async_booking_task_backlog{application=\"booking-service\"}", "legendFormat": "{{status}}", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Task poller throughput and last batch",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "targets": [
+        {"expr": "rate(booking_task_poller_tasks_total{application=\"booking-service\"}[1m])", "legendFormat": "tasks/sec", "refId": "A"},
+        {"expr": "booking_task_poller_last_batch_size{application=\"booking-service\"}", "legendFormat": "last batch", "refId": "B"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Task dispatcher executor",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "targets": [
+        {"expr": "executor_active_threads{application=\"booking-service\",name=\"booking-task-dispatcher\"}", "legendFormat": "active", "refId": "A"},
+        {"expr": "executor_pool_size_threads{application=\"booking-service\",name=\"booking-task-dispatcher\"}", "legendFormat": "pool", "refId": "B"},
+        {"expr": "executor_queued_tasks{application=\"booking-service\",name=\"booking-task-dispatcher\"}", "legendFormat": "queued", "refId": "C"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "External HTTP executor",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "targets": [
+        {"expr": "executor_active_threads{application=\"booking-service\",name=\"booking-external-http\"}", "legendFormat": "active {{thread_type}}", "refId": "A"},
+        {"expr": "executor_queued_tasks{application=\"booking-service\",name=\"booking-external-http\"}", "legendFormat": "queued {{thread_type}}", "refId": "B"},
+        {"expr": "rate(executor_completed_tasks_total{application=\"booking-service\",name=\"booking-external-http\"}[1m])", "legendFormat": "completed/sec {{thread_type}}", "refId": "C"},
+        {"expr": "booking_external_http_active_tasks{application=\"booking-service\",thread_type=\"virtual\"}", "legendFormat": "virtual active", "refId": "D"},
+        {"expr": "booking_external_http_waiting_tasks{application=\"booking-service\",thread_type=\"virtual\"}", "legendFormat": "virtual waiting", "refId": "E"},
+        {"expr": "booking_external_http_max_concurrency{application=\"booking-service\",thread_type=\"virtual\"}", "legendFormat": "virtual max concurrency", "refId": "F"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Hikari connections",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+      "targets": [
+        {"expr": "hikaricp_connections_active{application=\"booking-service\"}", "legendFormat": "active", "refId": "A"},
+        {"expr": "hikaricp_connections_idle{application=\"booking-service\"}", "legendFormat": "idle", "refId": "B"},
+        {"expr": "hikaricp_connections_pending{application=\"booking-service\"}", "legendFormat": "pending", "refId": "C"},
+        {"expr": "hikaricp_connections_max{application=\"booking-service\"}", "legendFormat": "max", "refId": "D"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Outbox backlog and dispatch",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+      "targets": [
+        {"expr": "booking_outbox_backlog{application=\"booking-service\"}", "legendFormat": "backlog {{status}}", "refId": "A"},
+        {"expr": "rate(booking_outbox_dispatched_total{application=\"booking-service\"}[1m])", "legendFormat": "dispatched/sec", "refId": "B"},
+        {"expr": "booking_outbox_last_batch_size{application=\"booking-service\"}", "legendFormat": "last batch", "refId": "C"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "JVM CPU and GC pause rate",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 28},
+      "targets": [
+        {"expr": "process_cpu_usage{application=\"booking-service\"}", "legendFormat": "process CPU", "refId": "A"},
+        {"expr": "rate(jvm_gc_pause_seconds_sum{application=\"booking-service\"}[1m])", "legendFormat": "GC pause seconds/sec", "refId": "B"}
+      ]
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["river-park", "booking", "load-test"],
+  "templating": {"list": []},
+  "time": {"from": "now-15m", "to": "now"},
+  "timezone": "browser",
+  "title": "Booking Load Test",
+  "uid": "river-park-booking-load",
+  "version": 1
+}

@@ -1,14 +1,12 @@
 package ru.haritonenko.notificationservice.domain.kafka.consumer.direct.listener;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import ru.haritonenko.commonlibs.dto.kafka.event.NotificationKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.payload.NotificationKafkaPayload;
-import ru.haritonenko.notificationservice.domain.service.NotificationService;
+import ru.haritonenko.notificationservice.domain.service.DirectNotificationEventProcessor;
 
 import java.util.UUID;
 
@@ -17,8 +15,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class NotificationKafkaDirectEventListener {
 
-    private final NotificationService notificationService;
-    private final ObjectMapper objectMapper;
+    private final DirectNotificationEventProcessor eventProcessor;
 
     @KafkaListener(topics = "${app.kafka.consumer.topics.notification-events}", containerFactory = "directNotificationKafkaListenerContainerFactory")
     public void listenNotificationEvent(ConsumerRecord<UUID, NotificationKafkaEvent<?>> record) {
@@ -28,14 +25,6 @@ public class NotificationKafkaDirectEventListener {
             return;
         }
 
-        NotificationKafkaPayload payload = objectMapper.convertValue(event.payload(), NotificationKafkaPayload.class);
-        notificationService.createNotification(
-                payload.userId(),
-                payload.bookingId(),
-                payload.paymentId(),
-                payload.title(),
-                payload.message(),
-                payload.notificationType()
-        );
+        eventProcessor.process(event);
     }
 }

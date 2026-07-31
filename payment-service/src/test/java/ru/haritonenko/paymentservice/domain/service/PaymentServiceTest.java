@@ -13,7 +13,6 @@ import ru.haritonenko.paymentservice.domain.exception.PaymentNotFoundException;
 import ru.haritonenko.paymentservice.domain.mapper.PaymentMapper;
 import ru.haritonenko.paymentservice.domain.status.PaymentStatus;
 import ru.haritonenko.paymentservice.cache.PaymentCacheService;
-import ru.haritonenko.paymentservice.kafka.producer.sender.KafkaPaymentEventSender;
 import ru.haritonenko.paymentservice.lock.RedisDistributedLockService;
 import ru.haritonenko.paymentservice.observability.PaymentMetrics;
 
@@ -27,13 +26,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class PaymentServiceTest {
 
     private PaymentEntityRepository repository;
-    private KafkaPaymentEventSender sender;
+    private PaymentEventDeliveryService eventDeliveryService;
     private PaymentCacheService cacheService;
     private RedisDistributedLockService lockService;
     private PaymentService service;
@@ -41,15 +41,19 @@ class PaymentServiceTest {
     @BeforeEach
     void setUp() {
         repository = mock(PaymentEntityRepository.class);
-        sender = mock(KafkaPaymentEventSender.class);
+        eventDeliveryService = mock(PaymentEventDeliveryService.class);
         cacheService = mock(PaymentCacheService.class);
         lockService = mock(RedisDistributedLockService.class);
         doAnswer(invocation -> invocation.<java.util.function.Supplier<?>>getArgument(1).get())
                 .when(lockService).execute(anyString(), any(java.util.function.Supplier.class));
+        doAnswer(invocation -> {
+            invocation.<Runnable>getArgument(1).run();
+            return null;
+        }).when(lockService).execute(anyString(), any(Runnable.class));
         service = new PaymentService(
                 repository,
                 new PaymentMapper(),
-                sender,
+                eventDeliveryService,
                 cacheService,
                 lockService,
                 new PaymentMetrics(new SimpleMeterRegistry())
@@ -81,7 +85,7 @@ class PaymentServiceTest {
 
         assertEquals(PaymentStatus.PENDING, actual.status());
         assertEquals("PAY_ON_ARRIVAL", actual.paymentMethod());
-        verify(sender).sendEvent(any());
+        verify(eventDeliveryService).publish(any());
     }
 
     @Test
@@ -102,7 +106,7 @@ class PaymentServiceTest {
         Payment actual = service.confirmPaymentByBookingIdAndUserId(bookingId, 10L);
 
         assertEquals(PaymentStatus.CONFIRMED, actual.status());
-        verify(sender).sendEvent(any());
+        verify(eventDeliveryService).publish(any());
     }
 
     @Test
@@ -111,6 +115,19 @@ class PaymentServiceTest {
         when(repository.findByBookingId(bookingId)).thenReturn(Optional.of(payment(bookingId, 10L, PaymentStatus.CONFIRMED)));
 
         assertThrows(IllegalPaymentStateException.class, () -> service.confirmPaymentByBookingIdAndUserId(bookingId, 10L));
+    }
+
+    @Test
+    void shouldNotPublishPaymentEventWhenCancellationWasInitiatedByBooking() {
+        UUID bookingId = UUID.randomUUID();
+        PaymentEntity entity = payment(bookingId, 10L, PaymentStatus.PENDING);
+        when(repository.findByBookingId(bookingId)).thenReturn(Optional.of(entity));
+        when(repository.save(entity)).thenReturn(entity);
+
+        service.cancelPaymentInternal(bookingId, "Booking cancelled");
+
+        assertEquals(PaymentStatus.CANCELLED, entity.getStatus());
+        verify(eventDeliveryService, never()).publish(any());
     }
 
     private PaymentEntity payment(UUID bookingId, Long userId, PaymentStatus status) {

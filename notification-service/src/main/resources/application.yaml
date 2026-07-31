@@ -125,10 +125,13 @@ app:
         booking-events: ${BOOKING_EVENTS_TOPIC:bookings-topic}
         notification-events: ${NOTIFICATION_EVENTS_TOPIC:notifications-topic}
       groups:
-        payment-events: ${PAYMENT_EVENTS_GROUP_ID:notification-payment-events-group}
-        booking-events: ${BOOKING_EVENTS_GROUP_ID:notification-booking-events-group}
+        payment-events: ${NOTIFICATION_PAYMENT_EVENTS_GROUP_ID:notification-payment-events-group}
+        booking-events: ${NOTIFICATION_BOOKING_EVENTS_GROUP_ID:notification-booking-events-group}
         notification-events: ${NOTIFICATION_EVENTS_GROUP_ID:notification-direct-events-group}
       trusted-packages: ${CONSUMER_TRUSTED_PACKAGES:*}
+      retry:
+        backoff-ms: ${NOTIFICATION_KAFKA_RETRY_BACKOFF_MS:1000}
+        max-retries: ${NOTIFICATION_KAFKA_MAX_RETRIES:3}
 
 logging:
   structured:

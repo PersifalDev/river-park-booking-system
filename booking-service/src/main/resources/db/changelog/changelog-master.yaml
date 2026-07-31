@@ -81,3 +81,19 @@ databaseChangeLog:
         - sqlFile:
             path: db/changelog/010-create-booking-room-inventory-table.sql
             relativeToChangelogFile: false
+
+  - changeSet:
+      id: 011-add-outbox-event-kind
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/011-add-outbox-event-kind.sql
+            relativeToChangelogFile: false
+
+  - changeSet:
+      id: 012-create-processed-event-table
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/012-create-processed-event-table.sql
+            relativeToChangelogFile: false

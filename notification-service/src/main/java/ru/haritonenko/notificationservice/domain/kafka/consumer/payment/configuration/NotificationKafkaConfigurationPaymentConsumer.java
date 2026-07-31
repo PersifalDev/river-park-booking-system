@@ -10,6 +10,7 @@ import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
 import ru.haritonenko.commonlibs.dto.kafka.event.PaymentKafkaEvent;
 import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentKafkaPayload;
 
@@ -44,9 +45,12 @@ public class NotificationKafkaConfigurationPaymentConsumer {
     }
 
     @Bean(name = "paymentKafkaListenerContainerFactory")
-    public ConcurrentKafkaListenerContainerFactory<UUID, PaymentKafkaEvent<PaymentKafkaPayload>> paymentKafkaListenerContainerFactory() {
+    public ConcurrentKafkaListenerContainerFactory<UUID, PaymentKafkaEvent<PaymentKafkaPayload>> paymentKafkaListenerContainerFactory(
+            DefaultErrorHandler notificationKafkaErrorHandler
+    ) {
         ConcurrentKafkaListenerContainerFactory<UUID, PaymentKafkaEvent<PaymentKafkaPayload>> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(paymentNotificationConsumerFactoryBean());
+        factory.setCommonErrorHandler(notificationKafkaErrorHandler);
         return factory;
     }
 }

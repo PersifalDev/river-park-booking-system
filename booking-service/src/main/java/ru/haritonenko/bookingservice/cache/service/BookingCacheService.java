@@ -1,115 +1,81 @@
 package ru.haritonenko.bookingservice.cache.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
-import ru.haritonenko.bookingservice.api.dto.filter.BookingPageFilter;
-import ru.haritonenko.bookingservice.api.dto.filter.BookingRequestSearchFilter;
-
-import java.util.Map;
-import java.util.Set;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class BookingCacheService {
 
-    private static final String BOOKING_PAGES_CACHE = "bookingPages";
-    private static final String BOOKING_SEARCH_PAGES_CACHE = "bookingSearchPages";
     private static final String BOOKING_BY_USER_CACHE = "bookingByUser";
 
     private final CacheManager cacheManager;
-    private final Map<Long, Set<String>> bookingKeysByUser = new ConcurrentHashMap<>();
-    private final Map<Long, Set<String>> bookingPageKeysByUser = new ConcurrentHashMap<>();
-    private final Map<Long, Set<String>> bookingSearchPageKeysByUser = new ConcurrentHashMap<>();
 
     public String bookingByUser(Long userId, UUID bookingId) {
         return userId + ":" + bookingId;
     }
 
-    public String bookingPage(Long userId, BookingPageFilter pageFilter) {
-        return userId
-                + ":page=" + (pageFilter == null || pageFilter.getPageNumber() == null ? "default" : pageFilter.getPageNumber())
-                + ":size=" + (pageFilter == null || pageFilter.getPageSize() == null ? "default" : pageFilter.getPageSize());
-    }
-
-    public String bookingSearchPage(
-            Long userId,
-            BookingRequestSearchFilter filter,
-            BookingPageFilter pageFilter
-    ) {
-        return userId
-                + ":status=" + (filter == null ? "null" : filter.status())
-                + ":active=" + (filter == null ? "null" : filter.active())
-                + ":adultCount=" + (filter == null ? "null" : filter.adultCount())
-                + ":childrenCount=" + (filter == null ? "null" : filter.childrenCount())
-                + ":checkInDate=" + (filter == null ? "null" : filter.checkInDate())
-                + ":checkOutDate=" + (filter == null ? "null" : filter.checkOutDate())
-                + ":page=" + (pageFilter == null || pageFilter.getPageNumber() == null ? "default" : pageFilter.getPageNumber())
-                + ":size=" + (pageFilter == null || pageFilter.getPageSize() == null ? "default" : pageFilter.getPageSize());
-    }
-
     public String registerBookingByUserKey(Long userId, String cacheKey) {
-        registerKey(bookingKeysByUser, userId, cacheKey);
-        return cacheKey;
-    }
-
-    public String registerBookingPageKey(Long userId, String cacheKey) {
-        registerKey(bookingPageKeysByUser, userId, cacheKey);
-        return cacheKey;
-    }
-
-    public String registerBookingSearchPageKey(Long userId, String cacheKey) {
-        registerKey(bookingSearchPageKeysByUser, userId, cacheKey);
         return cacheKey;
     }
 
     public void evictUserPages(Long userId) {
-        evictIndexedKeys(BOOKING_PAGES_CACHE, bookingPageKeysByUser.remove(userId));
-        evictIndexedKeys(BOOKING_SEARCH_PAGES_CACHE, bookingSearchPageKeysByUser.remove(userId));
+        // Page results are intentionally not cached: they are highly mutable and
+        // serializing Spring Data Page implementations to Redis is brittle.
     }
 
     public void evictUserBookings(Long userId) {
-        evictIndexedKeys(BOOKING_BY_USER_CACHE, bookingKeysByUser.remove(userId));
+        runAfterCommit(() -> evictAll(BOOKING_BY_USER_CACHE));
     }
 
     public void evictAll() {
-        evictAll(BOOKING_BY_USER_CACHE);
-        evictAll(BOOKING_PAGES_CACHE);
-        evictAll(BOOKING_SEARCH_PAGES_CACHE);
-        bookingKeysByUser.clear();
-        bookingPageKeysByUser.clear();
-        bookingSearchPageKeysByUser.clear();
+        runAfterCommit(this::evictAllNow);
     }
 
     public void evictBookingByUser(Long userId, Object bookingId) {
+        String cacheKey = userId + ":" + bookingId;
+        runAfterCommit(() -> evictBookingByUserNow(userId, cacheKey));
+    }
+
+    private void evictAllNow() {
+        evictAll(BOOKING_BY_USER_CACHE);
+    }
+
+    private void evictBookingByUserNow(Long userId, String cacheKey) {
         Cache cache = cacheManager.getCache(BOOKING_BY_USER_CACHE);
         if (cache != null) {
-            cache.evict(userId + ":" + bookingId);
-        }
-        Set<String> userKeys = bookingKeysByUser.get(userId);
-        if (userKeys != null) {
-            userKeys.remove(userId + ":" + bookingId);
+            cache.evict(cacheKey);
         }
     }
 
-    private void registerKey(Map<Long, Set<String>> keyIndex, Long userId, String cacheKey) {
-        keyIndex.computeIfAbsent(userId, ignored -> ConcurrentHashMap.newKeySet()).add(cacheKey);
+    private void runAfterCommit(Runnable cacheEviction) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()
+                && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    evictSafely(cacheEviction);
+                }
+            });
+            return;
+        }
+
+        evictSafely(cacheEviction);
     }
 
-    private void evictIndexedKeys(String cacheName, Set<String> keys) {
-        Cache cache = cacheManager.getCache(cacheName);
-        if (cache == null) {
-            return;
+    private void evictSafely(Runnable cacheEviction) {
+        try {
+            cacheEviction.run();
+        } catch (RuntimeException exception) {
+            log.warn("Cache eviction failed; database state remains authoritative", exception);
         }
-
-        if (keys == null || keys.isEmpty()) {
-            return;
-        }
-
-        keys.forEach(cache::evict);
     }
 
     private void evictAll(String cacheName) {

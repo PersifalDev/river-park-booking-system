@@ -6,6 +6,7 @@ import ru.haritonenko.bookingservice.domain.db.entity.BookingIdempotencyKeyEntit
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.Modifying;
 
 @Repository
 public interface BookingIdempotencyKeyRepository extends JpaRepository<BookingIdempotencyKeyEntity, Long> {
@@ -15,4 +16,14 @@ public interface BookingIdempotencyKeyRepository extends JpaRepository<BookingId
             String idempotencyKey,
             OffsetDateTime now
     );
+
+    @Modifying
+    long deleteByUserIdAndIdempotencyKeyAndExpiresAtLessThanEqual(
+            Long userId,
+            String idempotencyKey,
+            OffsetDateTime now
+    );
+
+    @Modifying
+    long deleteByExpiresAtLessThanEqual(OffsetDateTime now);
 }

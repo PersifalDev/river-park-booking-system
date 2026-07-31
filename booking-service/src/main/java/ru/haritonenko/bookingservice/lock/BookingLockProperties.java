@@ -15,4 +15,6 @@ public class BookingLockProperties {
     private Duration waitTime;
     private Duration leaseTime;
     private Duration retrySleepTime;
+    private boolean watchdogEnabled = true;
+    private Duration renewInterval;
 }

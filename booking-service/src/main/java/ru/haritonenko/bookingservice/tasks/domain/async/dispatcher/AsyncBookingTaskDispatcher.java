@@ -48,22 +48,37 @@ public class AsyncBookingTaskDispatcher {
         );
         AsyncBookingTaskEntity inProgressTask = markInProgress(task);
         CompletableFuture
-                .supplyAsync(() -> taskProcessor.processTask(inProgressTask), taskDispatcherThreadPool)
-                .thenAccept(result -> handleTaskExecuted(inProgressTask, result))
+                .runAsync(() -> executeMarkedTask(inProgressTask), taskDispatcherThreadPool)
                 .exceptionally(ex -> handleExceptionInTaskHappened(inProgressTask, ex));
+    }
+
+    public void executeSynchronously(AsyncBookingTaskEntity task) {
+        log.info("Executing booking task synchronously: taskId={}, bookingId={}",
+                task.getId(),
+                task.getBookingId());
+        AsyncBookingTaskEntity inProgressTask = markInProgress(task);
+        executeMarkedTask(inProgressTask);
+    }
+
+    private void executeMarkedTask(AsyncBookingTaskEntity task) {
+        TaskExecutionStatus result = taskProcessor.processTask(task);
+        handleTaskExecuted(task, result);
     }
 
     private AsyncBookingTaskEntity markInProgress(AsyncBookingTaskEntity task) {
         return transactionTemplate.execute(status -> {
+            OffsetDateTime processingLeaseUntil = OffsetDateTime.now().plus(properties.getRetryDelay());
             AsyncBookingTaskEntity savedTask = taskRepository.save(task.toBuilder()
                     .status(AsyncBookingTaskStatus.IN_PROGRESS)
                     .attempts(task.getAttempts() == null ? 1 : task.getAttempts() + 1)
+                    .nextAttemptAt(processingLeaseUntil)
                     .lastError(null)
                     .build());
-            log.info("Task marked as in progress: taskId={}, bookingId={}, attempts={}",
+            log.info("Task marked as in progress: taskId={}, bookingId={}, attempts={}, leaseUntil={}",
                     savedTask.getId(),
                     savedTask.getBookingId(),
-                    savedTask.getAttempts()
+                    savedTask.getAttempts(),
+                    savedTask.getNextAttemptAt()
             );
             return savedTask;
         });

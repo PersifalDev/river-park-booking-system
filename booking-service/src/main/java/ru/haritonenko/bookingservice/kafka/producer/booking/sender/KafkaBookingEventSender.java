@@ -4,11 +4,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
 import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
 import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Component
@@ -20,7 +22,9 @@ public class KafkaBookingEventSender {
 
     private final KafkaTemplate<UUID, BookingKafkaEvent<BookingKafkaPayload>> kafkaBookingTemplate;
 
-    public void sendEvent(BookingKafkaEvent<BookingKafkaPayload> event) {
+    public CompletableFuture<SendResult<UUID, BookingKafkaEvent<BookingKafkaPayload>>> sendEvent(
+            BookingKafkaEvent<BookingKafkaPayload> event
+    ) {
         UUID key = event.payload().bookingId();
 
         log.info("Sending booking event: eventId={}, eventType={}, bookingId={}",
@@ -28,7 +32,9 @@ public class KafkaBookingEventSender {
                 event.eventType(),
                 key);
 
-        kafkaBookingTemplate.send(topic, key, event)
+        CompletableFuture<SendResult<UUID, BookingKafkaEvent<BookingKafkaPayload>>> future =
+                kafkaBookingTemplate.send(topic, key, event);
+        future
                 .whenComplete((sendResult, ex) -> {
                     if (ex != null) {
                         log.error("Failed to send booking event: eventId={}, bookingId={}",
@@ -44,5 +50,6 @@ public class KafkaBookingEventSender {
                             sendResult.getRecordMetadata().partition(),
                             sendResult.getRecordMetadata().offset());
                 });
+        return future;
     }
 }

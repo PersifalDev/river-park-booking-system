@@ -1,5 +1,9 @@
 package ru.haritonenko.bookingservice;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tags;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.beans.factory.InitializingBean;
@@ -18,9 +22,12 @@ import ru.haritonenko.bookingservice.config.pricing.BookingPriceCalendarProperti
 import ru.haritonenko.bookingservice.config.promo.BookingPromoProperties;
 import ru.haritonenko.bookingservice.config.tariff.BookingTariffProperties;
 import ru.haritonenko.bookingservice.config.validation.BookingValidationProperties;
+import ru.haritonenko.bookingservice.config.workmode.BookingWorkModeProperties;
+import ru.haritonenko.bookingservice.domain.service.price.props.PricingProperties;
 import ru.haritonenko.bookingservice.kafka.outbox.config.BookingOutboxProperties;
 import ru.haritonenko.bookingservice.lock.BookingLockProperties;
 import ru.haritonenko.bookingservice.tasks.domain.async.dispatcher.config.AsyncBookingTaskDispatcherProperties;
+import ru.haritonenko.bookingservice.tasks.domain.async.dispatcher.executor.ConcurrencyLimitedExecutorService;
 
 import java.util.TimeZone;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -30,23 +37,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 @Configuration
-@EnableConfigurationProperties({
-        BookingCacheProperties.class,
-        AsyncBookingTaskDispatcherProperties.class,
-        BookingValidationProperties.class,
-        BookingTariffProperties.class,
-        BookingReviewNotificationProperties.class,
-        BookingReminderNotificationProperties.class,
-        BookingPriceCalendarProperties.class,
-        BookingRoomInventoryProperties.class,
-        BookingPageProperties.class,
-        BookingPromoProperties.class,
-        BookingIdempotencyProperties.class,
-        BookingLockProperties.class,
-        BookingOutboxProperties.class,
-        BookingCancellationProperties.class,
-        BookingCodeProperties.class
-})
+@EnableConfigurationProperties({BookingCacheProperties.class, AsyncBookingTaskDispatcherProperties.class, BookingValidationProperties.class, BookingTariffProperties.class, BookingReviewNotificationProperties.class, BookingReminderNotificationProperties.class, BookingPriceCalendarProperties.class, BookingRoomInventoryProperties.class, BookingPageProperties.class, BookingPromoProperties.class, BookingIdempotencyProperties.class, BookingLockProperties.class, BookingOutboxProperties.class, BookingCancellationProperties.class, BookingCodeProperties.class, PricingProperties.class, BookingWorkModeProperties.class})
 public class CommonApplicationConfig {
 
     @Bean
@@ -65,29 +56,76 @@ public class CommonApplicationConfig {
     }
 
     @Bean(destroyMethod = "shutdown")
-    public ExecutorService taskDispatcherThreadPool(AsyncBookingTaskDispatcherProperties properties) {
-        return new ThreadPoolExecutor(
-                properties.getThreadPoolSize(),
-                properties.getThreadPoolSize(),
+    public ExecutorService taskDispatcherThreadPool(
+            AsyncBookingTaskDispatcherProperties properties,
+            MeterRegistry meterRegistry
+    ) {
+        ExecutorService executor = new ThreadPoolExecutor(
+                properties.getDispatcher().getThreadPoolSize(),
+                properties.getDispatcher().getThreadPoolSize(),
                 0L,
                 TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(properties.getQueueCapacity()),
+                new ArrayBlockingQueue<>(properties.getDispatcher().getQueueCapacity()),
                 new ThreadPoolExecutor.CallerRunsPolicy()
+        );
+        return ExecutorServiceMetrics.monitor(
+                meterRegistry,
+                executor,
+                "booking-task-dispatcher",
+                Tags.of("thread.type", "platform")
         );
     }
 
     @Bean(destroyMethod = "shutdown")
-    public ExecutorService externalHttpThreadPool(AsyncBookingTaskDispatcherProperties properties) {
-        if (Boolean.TRUE.equals(properties.getExternalHttpVirtualThreadsEnabled())) {
-            return Executors.newVirtualThreadPerTaskExecutor();
-        }
-        return new ThreadPoolExecutor(
-                properties.getThreadPoolSize(),
-                properties.getThreadPoolSize(),
-                0L,
-                TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(properties.getQueueCapacity()),
-                new ThreadPoolExecutor.CallerRunsPolicy()
+    public ExecutorService externalHttpThreadPool(
+            AsyncBookingTaskDispatcherProperties properties,
+            MeterRegistry meterRegistry
+    ) {
+        boolean virtualThreads = Boolean.TRUE.equals(properties.getExternalHttp().getVirtualThreadsEnabled());
+        Gauge.builder("booking_external_http_virtual_threads_enabled", () -> virtualThreads ? 1 : 0)
+                .description("Whether booking external HTTP executor uses virtual threads")
+                .register(meterRegistry);
+        ExecutorService executor = virtualThreads
+                ? virtualExternalHttpExecutor(properties, meterRegistry)
+                : new ThreadPoolExecutor(
+                        properties.getExternalHttp().getPlatform().getThreadPoolSize(),
+                        properties.getExternalHttp().getPlatform().getThreadPoolSize(),
+                        0L,
+                        TimeUnit.MILLISECONDS,
+                        new ArrayBlockingQueue<>(properties.getExternalHttp().getPlatform().getQueueCapacity()),
+                        new ThreadPoolExecutor.CallerRunsPolicy()
+                );
+        return ExecutorServiceMetrics.monitor(
+                meterRegistry,
+                executor,
+                "booking-external-http",
+                Tags.of("thread.type", virtualThreads ? "virtual" : "platform")
         );
+    }
+
+    private ExecutorService virtualExternalHttpExecutor(
+            AsyncBookingTaskDispatcherProperties properties,
+            MeterRegistry meterRegistry
+    ) {
+        var executor = new ConcurrencyLimitedExecutorService(
+                Executors.newVirtualThreadPerTaskExecutor(),
+                properties.getExternalHttp().getVirtualMaxConcurrency()
+        );
+        Gauge.builder("booking_external_http_active_tasks", executor,
+                        ConcurrencyLimitedExecutorService::getActiveTaskCount)
+                .description("Active tasks in the virtual external HTTP executor")
+                .tag("thread.type", "virtual")
+                .register(meterRegistry);
+        Gauge.builder("booking_external_http_waiting_tasks", executor,
+                        ConcurrencyLimitedExecutorService::getWaitingTaskCount)
+                .description("Tasks waiting for a virtual external HTTP concurrency permit")
+                .tag("thread.type", "virtual")
+                .register(meterRegistry);
+        Gauge.builder("booking_external_http_max_concurrency", executor,
+                        ConcurrencyLimitedExecutorService::getMaxConcurrency)
+                .description("Maximum external HTTP task concurrency")
+                .tag("thread.type", "virtual")
+                .register(meterRegistry);
+        return executor;
     }
 }

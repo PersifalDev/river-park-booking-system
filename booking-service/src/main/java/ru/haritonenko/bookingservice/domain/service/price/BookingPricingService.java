@@ -1,9 +1,12 @@
-package ru.haritonenko.bookingservice.domain.service;
+package ru.haritonenko.bookingservice.domain.service.price;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
+import ru.haritonenko.bookingservice.domain.service.BookingPriceCalendarService;
+import ru.haritonenko.bookingservice.domain.service.BookingTariffService;
+import ru.haritonenko.bookingservice.domain.service.PromoCodeService;
 import ru.haritonenko.bookingservice.external.client.catalog.CatalogServiceHttpClient;
 import ru.haritonenko.commonlibs.exception.RoomCategoryNotFoundException;
 

@@ -82,6 +82,8 @@ class BookingIdempotencyServiceTest {
 
         service.remember(1L, " key ", "hash", bookingId);
 
+        verify(repository).deleteByUserIdAndIdempotencyKeyAndExpiresAtLessThanEqual(
+                eq(1L), eq("key"), any());
         verify(repository).save(argThat(entity ->
                 entity.getUserId().equals(1L)
                         && entity.getIdempotencyKey().equals("key")
@@ -89,6 +91,15 @@ class BookingIdempotencyServiceTest {
                         && entity.getBookingId().equals(bookingId)
                         && entity.getExpiresAt() != null
         ));
+    }
+
+    @Test
+    void shouldDeleteExpiredKeys() {
+        when(repository.deleteByExpiresAtLessThanEqual(any())).thenReturn(3L);
+
+        service.deleteExpiredKeys();
+
+        verify(repository).deleteByExpiresAtLessThanEqual(any());
     }
 
     @Test

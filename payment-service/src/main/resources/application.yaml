@@ -88,6 +88,7 @@ app:
   data-retention:
     payment-records: ${PAYMENT_RECORD_RETENTION:1825d}
   payment:
+    work-mode: ${WORK_MODE:ASYNC}
     default-page-size: ${PAYMENT_DEFAULT_PAGE_SIZE:10}
     default-page-number: ${PAYMENT_DEFAULT_PAGE_NUMBER:0}
     events:
@@ -95,6 +96,15 @@ app:
     lock:
       wait-time: ${PAYMENT_LOCK_WAIT_TIME:3s}
       lease-time: ${PAYMENT_LOCK_LEASE_TIME:30s}
+      watchdog-enabled: ${PAYMENT_LOCK_WATCHDOG_ENABLED:true}
+      renew-interval: ${PAYMENT_LOCK_RENEW_INTERVAL:10s}
+    outbox:
+      enabled: ${PAYMENT_OUTBOX_ENABLED:true}
+      poll-delay-ms: ${PAYMENT_OUTBOX_POLL_DELAY_MS:5000}
+      batch-size: ${PAYMENT_OUTBOX_BATCH_SIZE:10}
+      retry-delay: ${PAYMENT_OUTBOX_RETRY_DELAY:30s}
+      processing-timeout: ${PAYMENT_OUTBOX_PROCESSING_TIMEOUT:30s}
+      max-attempts: ${PAYMENT_OUTBOX_MAX_ATTEMPTS:5}
     contact-phone: ${PAYMENT_CONTACT_PHONE:+7 (383) 349-50-50}
     default-comment: ${PAYMENT_CONTACT_COMMENT:Оплата производится в день заселения у администратора отеля.}
     default-instruction: ${PAYMENT_DEFAULT_INSTRUCTION:Подтвердите бронирование. Оплата производится в день заселения у администратора.}
@@ -107,8 +117,22 @@ app:
       topics:
         booking-events: ${BOOKING_EVENTS_TOPIC:bookings-topic}
       groups:
-        booking-events: ${PAYMENT_EVENTS_GROUP_ID:payment-events-group}
+        booking-events: ${PAYMENT_BOOKING_EVENTS_GROUP_ID:payment-booking-events-group}
       trusted-packages: ${CONSUMER_TRUSTED_PACKAGES:*}
+      retry:
+        backoff-ms: ${PAYMENT_KAFKA_RETRY_BACKOFF_MS:1000}
+        max-retries: ${PAYMENT_KAFKA_MAX_RETRIES:3}
+
+  external:
+    http-client:
+      booking-service:
+        base-url: ${BOOKING_SERVICE_BASE_URL:http://localhost:8084}
+        connect-timeout: ${BOOKING_SERVICE_CONNECT_TIMEOUT:3s}
+        read-timeout: ${BOOKING_SERVICE_READ_TIMEOUT:5s}
+      notification-service:
+        base-url: ${NOTIFICATION_SERVICE_BASE_URL:http://localhost:8088}
+        connect-timeout: ${NOTIFICATION_SERVICE_CONNECT_TIMEOUT:3s}
+        read-timeout: ${NOTIFICATION_SERVICE_READ_TIMEOUT:5s}
 
 logging:
   structured:

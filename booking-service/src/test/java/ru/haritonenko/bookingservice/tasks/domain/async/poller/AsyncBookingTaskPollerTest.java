@@ -7,6 +7,7 @@ import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
 import ru.haritonenko.bookingservice.domain.service.BookingService;
+import ru.haritonenko.bookingservice.observability.BookingMetrics;
 import ru.haritonenko.bookingservice.tasks.domain.async.db.entity.AsyncBookingTaskEntity;
 import ru.haritonenko.bookingservice.tasks.domain.async.db.repository.AsyncBookingTaskEntityRepository;
 import ru.haritonenko.bookingservice.tasks.domain.async.dispatcher.AsyncBookingTaskDispatcher;
@@ -35,9 +36,17 @@ class AsyncBookingTaskPollerTest {
     private final TransactionTemplate transactionTemplate = mock(TransactionTemplate.class);
     private final AsyncBookingTaskDispatcher taskDispatcher = mock(AsyncBookingTaskDispatcher.class);
     private final AsyncBookingTaskPollerProperties properties = new AsyncBookingTaskPollerProperties();
+    private final BookingMetrics bookingMetrics = mock(BookingMetrics.class);
 
     private final AsyncBookingTaskPoller poller =
-            new AsyncBookingTaskPoller(taskRepository, bookingService, transactionTemplate, taskDispatcher, properties);
+            new AsyncBookingTaskPoller(
+                    taskRepository,
+                    bookingService,
+                    transactionTemplate,
+                    taskDispatcher,
+                    properties,
+                    bookingMetrics
+            );
 
     @BeforeEach
     void setUp() {
@@ -60,6 +69,7 @@ class AsyncBookingTaskPollerTest {
         assertEquals(AsyncBookingTaskStatus.IN_PROGRESS, task.getStatus());
         verify(taskRepository).saveAll(List.of(task));
         verify(taskDispatcher).dispatchTask(task);
+        verify(bookingMetrics).recordTaskPoll(1);
     }
 
     @Test
@@ -70,6 +80,7 @@ class AsyncBookingTaskPollerTest {
         poller.poll();
 
         verify(taskDispatcher, never()).dispatchTask(any());
+        verify(bookingMetrics).recordTaskPoll(0);
     }
 
     @Test

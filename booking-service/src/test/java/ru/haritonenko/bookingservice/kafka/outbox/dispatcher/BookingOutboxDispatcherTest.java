@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.common.KafkaException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -15,7 +14,10 @@ import ru.haritonenko.bookingservice.kafka.outbox.db.BookingOutboxEntity;
 import ru.haritonenko.bookingservice.kafka.outbox.db.repository.BookingOutboxRepository;
 import ru.haritonenko.bookingservice.kafka.outbox.exception.KafkaEventNotFoundException;
 import ru.haritonenko.bookingservice.kafka.outbox.status.OutboxStatus;
+import ru.haritonenko.bookingservice.kafka.outbox.status.OutboxEventKind;
 import ru.haritonenko.bookingservice.kafka.producer.booking.sender.KafkaBookingEventSender;
+import ru.haritonenko.bookingservice.kafka.producer.notification.sender.KafkaNotificationEventSender;
+import ru.haritonenko.bookingservice.observability.BookingMetrics;
 import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
 import ru.haritonenko.commonlibs.dto.kafka.event.type.BookingEventType;
 import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
@@ -26,6 +28,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -44,18 +47,29 @@ class BookingOutboxDispatcherTest {
 
     private final BookingOutboxRepository repository = mock(BookingOutboxRepository.class);
     private final KafkaBookingEventSender sender = mock(KafkaBookingEventSender.class);
+    private final KafkaNotificationEventSender notificationSender = mock(KafkaNotificationEventSender.class);
     private final ObjectMapper objectMapper = mock(ObjectMapper.class);
     private final TransactionTemplate transactionTemplate = mock(TransactionTemplate.class);
     private final BookingOutboxProperties properties = new BookingOutboxProperties();
+    private final BookingMetrics bookingMetrics = mock(BookingMetrics.class);
 
     private final BookingOutboxDispatcher dispatcher =
-            new BookingOutboxDispatcher(repository, sender, objectMapper, transactionTemplate, properties);
+            new BookingOutboxDispatcher(
+                    repository,
+                    sender,
+                    notificationSender,
+                    objectMapper,
+                    transactionTemplate,
+                    properties,
+                    bookingMetrics
+            );
 
     @BeforeEach
     void setUp() {
         properties.setBatchSize(10);
         properties.setPageNumber(0);
         properties.setRetryDelay(Duration.ofSeconds(30));
+        properties.setProcessingTimeout(Duration.ofSeconds(30));
         properties.setMaxAttempts(3);
         when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
             TransactionCallback<?> callback = invocation.getArgument(0);
@@ -67,12 +81,16 @@ class BookingOutboxDispatcherTest {
             return null;
         }).when(transactionTemplate).executeWithoutResult(any());
         when(repository.save(any(BookingOutboxEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(repository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(sender.sendEvent(any())).thenReturn(CompletableFuture.completedFuture(null));
     }
 
     @Test
     void shouldDispatchReadyEvents() {
         BookingOutboxEntity outbox = outbox(0);
-        when(repository.findReadyForUpdate(eq(OutboxStatus.NEW), any(), any(Pageable.class)))
+        when(repository.findReadyForUpdate(
+                any(),
+                eq(properties.getBatchSize())))
                 .thenReturn(List.of(outbox));
         when(repository.findById(outbox.getId())).thenReturn(Optional.of(outbox));
         mockRead(outbox, event());
@@ -80,18 +98,22 @@ class BookingOutboxDispatcherTest {
         dispatcher.dispatch();
 
         verify(sender).sendEvent(any());
+        verify(bookingMetrics).recordOutboxPoll(1);
         assertEquals(OutboxStatus.SENT, outbox.getStatus());
         assertNotNull(outbox.getSentAt());
     }
 
     @Test
     void shouldDoNothingWhenNoReadyEvents() {
-        when(repository.findReadyForUpdate(eq(OutboxStatus.NEW), any(), any(Pageable.class)))
+        when(repository.findReadyForUpdate(
+                any(),
+                eq(properties.getBatchSize())))
                 .thenReturn(List.of());
 
         dispatcher.dispatch();
 
         verify(sender, never()).sendEvent(any());
+        verify(bookingMetrics).recordOutboxPoll(0);
     }
 
     @Test
@@ -111,7 +133,7 @@ class BookingOutboxDispatcherTest {
         BookingOutboxEntity outbox = outbox(0);
         when(repository.findById(outbox.getId())).thenReturn(Optional.of(outbox));
         mockRead(outbox, event());
-        doThrow(new KafkaException("down")).when(sender).sendEvent(any());
+        when(sender.sendEvent(any())).thenReturn(CompletableFuture.failedFuture(new KafkaException("down")));
 
         dispatcher.sendOne(outbox.getId());
 
@@ -125,7 +147,7 @@ class BookingOutboxDispatcherTest {
         BookingOutboxEntity outbox = outbox(2);
         when(repository.findById(outbox.getId())).thenReturn(Optional.of(outbox));
         mockRead(outbox, event());
-        doThrow(new KafkaException("down")).when(sender).sendEvent(any());
+        when(sender.sendEvent(any())).thenReturn(CompletableFuture.failedFuture(new KafkaException("down")));
 
         dispatcher.sendOne(outbox.getId());
 
@@ -168,6 +190,7 @@ class BookingOutboxDispatcherTest {
                 .id(UUID.randomUUID())
                 .aggregateId(UUID.randomUUID())
                 .eventType(BookingEventType.BOOKING_CANCELLED.name())
+                .eventKind(OutboxEventKind.BOOKING)
                 .payload("{}")
                 .status(OutboxStatus.NEW)
                 .attempts(attempts)

@@ -7,6 +7,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingTariffEntity;
+import ru.haritonenko.bookingservice.domain.service.price.BookingPricingService;
 import ru.haritonenko.bookingservice.domain.tariff.TariffCancellationPolicy;
 import ru.haritonenko.bookingservice.domain.tariff.TariffPriceModifierType;
 import ru.haritonenko.bookingservice.external.client.catalog.CatalogServiceHttpClient;

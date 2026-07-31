@@ -37,6 +37,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -122,7 +123,7 @@ class BookingControllerTest extends AbstractIntegrationTest {
         doNothing().when(bookingInventoryService).releaseHeldInventory(any());
         doNothing().when(bookingInventoryService).releaseConfirmedInventory(any());
         doNothing().when(bookingInventoryService).confirmHeldInventory(any());
-        doNothing().when(bookingEventSender).sendEvent(any());
+        when(bookingEventSender.sendEvent(any())).thenReturn(CompletableFuture.completedFuture(null));
         doNothing().when(bookingOutboxService).saveEvent(any());
     }
 
@@ -357,7 +358,7 @@ class BookingControllerTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.holdExpiresAt").doesNotExist());
 
         verify(bookingInventoryService).confirmHeldInventory(any());
-        verify(bookingEventSender).sendEvent(any());
+        verify(bookingOutboxService).saveEvent(any());
     }
 
     @Test

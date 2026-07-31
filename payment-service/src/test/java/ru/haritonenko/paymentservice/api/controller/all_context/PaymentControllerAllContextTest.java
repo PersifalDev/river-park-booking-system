@@ -31,7 +31,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=none",
         "spring.kafka.listener.auto-startup=false",
-        "spring.liquibase.enabled=false"
+        "spring.liquibase.enabled=false",
+        "app.payment.outbox.enabled=false"
 })
 @AutoConfigureMockMvc(addFilters = false)
 class PaymentControllerAllContextTest {

@@ -4,11 +4,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
 import ru.haritonenko.commonlibs.dto.kafka.event.PaymentKafkaEvent;
 import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentKafkaPayload;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Component
@@ -20,15 +22,20 @@ public class KafkaPaymentEventSender {
 
     private final KafkaTemplate<UUID, PaymentKafkaEvent<PaymentKafkaPayload>> paymentKafkaTemplate;
 
-    public void sendEvent(PaymentKafkaEvent<PaymentKafkaPayload> event) {
+    public CompletableFuture<SendResult<UUID, PaymentKafkaEvent<PaymentKafkaPayload>>> sendEvent(
+            PaymentKafkaEvent<PaymentKafkaPayload> event
+    ) {
         UUID key = event.payload().paymentId();
         log.info("Sending payment event to Kafka: topic={}, eventId={}, eventType={}, paymentId={}", topic, event.eventId(), event.eventType(), key);
-        paymentKafkaTemplate.send(topic, key, event).whenComplete((result, ex) -> {
+        CompletableFuture<SendResult<UUID, PaymentKafkaEvent<PaymentKafkaPayload>>> future =
+                paymentKafkaTemplate.send(topic, key, event);
+        future.whenComplete((result, ex) -> {
             if (ex != null) {
                 log.error("Failed to send payment event: eventId={}, paymentId={}", event.eventId(), key, ex);
                 return;
             }
             log.info("Payment event sent successfully: topic={}, partition={}, offset={}", topic, result.getRecordMetadata().partition(), result.getRecordMetadata().offset());
         });
+        return future;
     }
 }

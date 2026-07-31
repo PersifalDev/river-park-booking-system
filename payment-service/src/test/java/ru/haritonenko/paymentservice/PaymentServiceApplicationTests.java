@@ -10,7 +10,8 @@ import org.springframework.boot.test.context.SpringBootTest;
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=none",
         "spring.liquibase.enabled=false",
-        "spring.kafka.listener.auto-startup=false"
+        "spring.kafka.listener.auto-startup=false",
+        "app.payment.outbox.enabled=false"
 })
 class PaymentServiceApplicationTests {
 

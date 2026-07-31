@@ -15,6 +15,7 @@ import ru.haritonenko.bookingservice.tasks.domain.async.status.ProcessingStep;
 import ru.haritonenko.bookingservice.tasks.domain.async.status.TaskExecutionStatus;
 
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -70,10 +71,16 @@ class AsyncBookingTaskDispatcherTest {
     @Test
     void shouldMarkTaskSucceededWhenProcessorSucceeds() {
         AsyncBookingTaskEntity task = task(0);
+        OffsetDateTime dispatchStartedAt = OffsetDateTime.now();
         when(taskProcessor.processTask(any(AsyncBookingTaskEntity.class))).thenReturn(TaskExecutionStatus.SUCCESS);
 
         dispatcher.dispatchTask(task);
 
+        verify(taskRepository, timeout(1000)).save(argThat(saved ->
+                saved.getStatus() == AsyncBookingTaskStatus.IN_PROGRESS
+                        && saved.getNextAttemptAt() != null
+                        && saved.getNextAttemptAt().isAfter(dispatchStartedAt)
+        ));
         verify(taskRepository, timeout(1000).atLeast(2)).save(any(AsyncBookingTaskEntity.class));
         verify(taskProcessor, timeout(1000)).processTask(any(AsyncBookingTaskEntity.class));
     }

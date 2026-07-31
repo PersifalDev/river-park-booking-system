@@ -1,9 +1,6 @@
 package ru.haritonenko.bookingservice.kafka.outbox.db.repository;
 
-import jakarta.persistence.LockModeType;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import ru.haritonenko.bookingservice.kafka.outbox.db.BookingOutboxEntity;
@@ -15,18 +12,18 @@ import java.util.UUID;
 
 public interface BookingOutboxRepository extends JpaRepository<BookingOutboxEntity, UUID> {
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("""
-            select e
-            from BookingOutboxEntity e
-            where e.status = :status
-              and e.nextAttemptAt <= :now
-            order by e.createdAt asc
-            """)
+    @Query(value = """
+            select *
+            from booking_outbox
+            where status in ('NEW', 'PROCESSING')
+              and next_attempt_at <= :now
+            order by created_at asc
+            limit :batchSize
+            for update skip locked
+            """, nativeQuery = true)
     List<BookingOutboxEntity> findReadyForUpdate(
-            @Param("status") OutboxStatus status,
             @Param("now") OffsetDateTime now,
-            Pageable pageable
+            @Param("batchSize") int batchSize
     );
 
     long countByStatus(OutboxStatus status);

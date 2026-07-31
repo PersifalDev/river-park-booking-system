@@ -5,6 +5,7 @@ import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import ru.haritonenko.bookingservice.kafka.outbox.status.OutboxStatus;
+import ru.haritonenko.bookingservice.kafka.outbox.status.OutboxEventKind;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -27,6 +28,10 @@ public class BookingOutboxEntity {
 
     @Column(name = "event_type", nullable = false, length = 128)
     private String eventType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "event_kind", nullable = false, length = 32)
+    private OutboxEventKind eventKind;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "payload", nullable = false, columnDefinition = "jsonb")
@@ -56,6 +61,9 @@ public class BookingOutboxEntity {
         }
         if (status == null) {
             status = OutboxStatus.NEW;
+        }
+        if (eventKind == null) {
+            eventKind = OutboxEventKind.BOOKING;
         }
         if (attempts == null) {
             attempts = 0;

@@ -6,6 +6,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 import ru.haritonenko.bookingservice.domain.service.BookingService;
+import ru.haritonenko.bookingservice.observability.BookingMetrics;
 import ru.haritonenko.bookingservice.tasks.domain.async.db.entity.AsyncBookingTaskEntity;
 import ru.haritonenko.bookingservice.tasks.domain.async.db.repository.AsyncBookingTaskEntityRepository;
 import ru.haritonenko.bookingservice.tasks.domain.async.dispatcher.AsyncBookingTaskDispatcher;
@@ -27,11 +28,13 @@ public class AsyncBookingTaskPoller {
     private final TransactionTemplate transactionTemplate;
     private final AsyncBookingTaskDispatcher taskDispatcher;
     private final AsyncBookingTaskPollerProperties properties;
+    private final BookingMetrics bookingMetrics;
 
     @Scheduled(fixedDelayString = "${app.task-execution.poller.poll-interval-ms}")
     public void poll() {
         log.debug("Starting async booking task polling");
         List<AsyncBookingTaskEntity> tasksBatch = pickTasksForProcessing();
+        bookingMetrics.recordTaskPoll(tasksBatch.size());
 
         if (tasksBatch.isEmpty()) {
             log.debug("No tasks found for polling");

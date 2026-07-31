@@ -4,11 +4,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
 import ru.haritonenko.commonlibs.dto.kafka.event.NotificationKafkaEvent;
 import ru.haritonenko.commonlibs.dto.kafka.payload.NotificationKafkaPayload;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Component
@@ -20,7 +22,9 @@ public class KafkaNotificationEventSender {
 
     private final KafkaTemplate<UUID, NotificationKafkaEvent<NotificationKafkaPayload>> kafkaNotificationTemplate;
 
-    public void sendEvent(NotificationKafkaEvent<NotificationKafkaPayload> event) {
+    public CompletableFuture<SendResult<UUID, NotificationKafkaEvent<NotificationKafkaPayload>>> sendEvent(
+            NotificationKafkaEvent<NotificationKafkaPayload> event
+    ) {
         UUID key = event.payload().notificationId();
 
         log.info("Sending notification event: eventId={}, eventType={}, notificationId={}",
@@ -28,7 +32,9 @@ public class KafkaNotificationEventSender {
                 event.eventType(),
                 key);
 
-        kafkaNotificationTemplate.send(topic, key, event)
+        CompletableFuture<SendResult<UUID, NotificationKafkaEvent<NotificationKafkaPayload>>> future =
+                kafkaNotificationTemplate.send(topic, key, event);
+        future
                 .whenComplete((sendResult, ex) -> {
                     if (ex != null) {
                         log.error("Failed to send notification event: eventId={}, notificationId={}",
@@ -44,5 +50,6 @@ public class KafkaNotificationEventSender {
                             sendResult.getRecordMetadata().partition(),
                             sendResult.getRecordMetadata().offset());
                 });
+        return future;
     }
 }

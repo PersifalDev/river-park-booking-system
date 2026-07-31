@@ -11,6 +11,7 @@ import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
 import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
 import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
 
@@ -46,9 +47,12 @@ public class KafkaConfigurationBookingConsumer {
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<UUID, BookingKafkaEvent<BookingKafkaPayload>> bookingPaymentKafkaListenerContainerFactory() {
+    public ConcurrentKafkaListenerContainerFactory<UUID, BookingKafkaEvent<BookingKafkaPayload>> bookingPaymentKafkaListenerContainerFactory(
+            DefaultErrorHandler paymentKafkaErrorHandler
+    ) {
         ConcurrentKafkaListenerContainerFactory<UUID, BookingKafkaEvent<BookingKafkaPayload>> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(bookingPaymentConsumerFactory());
+        factory.setCommonErrorHandler(paymentKafkaErrorHandler);
         return factory;
     }
 }

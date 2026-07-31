@@ -1,15 +1,12 @@
 package ru.haritonenko.paymentservice.kafka.consumer.listener;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.event.type.BookingEventType;
-import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
-import ru.haritonenko.paymentservice.domain.service.PaymentService;
+import ru.haritonenko.paymentservice.domain.service.BookingEventProcessor;
 
 import java.util.UUID;
 
@@ -18,8 +15,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class KafkaBookingEventListener {
 
-    private final PaymentService paymentService;
-    private final ObjectMapper objectMapper;
+    private final BookingEventProcessor eventProcessor;
 
     @KafkaListener(topics = "${app.kafka.consumer.topics.booking-events}", containerFactory = "bookingPaymentKafkaListenerContainerFactory")
     public void listenBookingEvent(ConsumerRecord<UUID, BookingKafkaEvent<?>> record) {
@@ -29,15 +25,8 @@ public class KafkaBookingEventListener {
             return;
         }
 
-        BookingKafkaPayload payload = objectMapper.convertValue(event.payload(), BookingKafkaPayload.class);
-        log.info("Booking event received in payment-service: key={}, eventId={}, eventType={}, payload={}", record.key(), event.eventId(), event.eventType(), payload);
-
-        if (event.eventType() == BookingEventType.BOOKING_HOLD_CREATED) {
-            paymentService.createPendingPayment(payload);
-            return;
-        }
-        if (event.eventType() == BookingEventType.BOOKING_CANCELLED || event.eventType() == BookingEventType.BOOKING_EXPIRED || event.eventType() == BookingEventType.BOOKING_FAILED) {
-            paymentService.cancelPaymentInternal(payload.bookingId(), payload.cancellationReason());
-        }
+        log.info("Booking event received in payment-service: key={}, eventId={}, eventType={}",
+                record.key(), event.eventId(), event.eventType());
+        eventProcessor.process(event);
     }
 }

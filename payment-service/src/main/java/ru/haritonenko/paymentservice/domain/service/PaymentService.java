@@ -22,7 +22,6 @@ import ru.haritonenko.paymentservice.domain.exception.IllegalPaymentStateExcepti
 import ru.haritonenko.paymentservice.domain.exception.PaymentNotFoundException;
 import ru.haritonenko.paymentservice.domain.mapper.PaymentMapper;
 import ru.haritonenko.paymentservice.domain.status.PaymentStatus;
-import ru.haritonenko.paymentservice.kafka.producer.sender.KafkaPaymentEventSender;
 import ru.haritonenko.paymentservice.lock.RedisDistributedLockService;
 import ru.haritonenko.paymentservice.observability.PaymentMetrics;
 
@@ -36,7 +35,7 @@ public class PaymentService {
 
     private final PaymentEntityRepository paymentRepository;
     private final PaymentMapper paymentMapper;
-    private final KafkaPaymentEventSender kafkaPaymentEventSender;
+    private final PaymentEventDeliveryService eventDeliveryService;
     private final PaymentCacheService cacheService;
     private final RedisDistributedLockService lockService;
     private final PaymentMetrics paymentMetrics;
@@ -214,7 +213,6 @@ public class PaymentService {
         paymentEntity.setCancellationReason(cancellationReason == null || cancellationReason.isBlank() ? "Cancelled by booking lifecycle" : cancellationReason);
         PaymentEntity savedPayment = paymentRepository.save(paymentEntity);
         log.info("Internal cancellation completed for paymentId={}, bookingId={}", savedPayment.getId(), bookingId);
-        sendPaymentEvent(savedPayment, PaymentEventType.PAYMENT_CANCELLED);
         evictPaymentCaches(savedPayment);
         paymentMetrics.record(PaymentStatus.CANCELLED);
     }
@@ -225,7 +223,7 @@ public class PaymentService {
 
     private void sendPaymentEvent(PaymentEntity paymentEntity, PaymentEventType paymentEventType) {
         log.info("Preparing payment Kafka event: paymentId={}, bookingId={}, eventType={}", paymentEntity.getId(), paymentEntity.getBookingId(), paymentEventType);
-        kafkaPaymentEventSender.sendEvent(new PaymentKafkaEvent<>(
+        eventDeliveryService.publish(new PaymentKafkaEvent<>(
                 UUID.randomUUID(),
                 paymentEventType,
                 sourceService,

@@ -1,14 +1,12 @@
 package ru.haritonenko.notificationservice.domain.kafka.consumer.payment.listener;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import ru.haritonenko.commonlibs.dto.kafka.event.PaymentKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentKafkaPayload;
-import ru.haritonenko.notificationservice.domain.service.payment.PaymentNotificationService;
+import ru.haritonenko.notificationservice.domain.service.payment.PaymentEventProcessor;
 
 import java.util.UUID;
 
@@ -17,8 +15,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class NotificationKafkaPaymentEventListener {
 
-    private final PaymentNotificationService notificationService;
-    private final ObjectMapper objectMapper;
+    private final PaymentEventProcessor eventProcessor;
 
     @KafkaListener(topics = "${app.kafka.consumer.topics.payment-events}", containerFactory = "paymentKafkaListenerContainerFactory")
     public void listenPaymentEvent(ConsumerRecord<UUID, PaymentKafkaEvent<?>> record) {
@@ -28,14 +25,8 @@ public class NotificationKafkaPaymentEventListener {
             return;
         }
 
-        PaymentKafkaPayload payload = objectMapper.convertValue(event.payload(), PaymentKafkaPayload.class);
-        log.info("Payment event received in notification-service: key={}, eventId={}, eventType={}, payload={}", record.key(), event.eventId(), event.eventType(), payload);
-        switch (event.eventType()) {
-            case PAYMENT_INVOICE_CREATED -> notificationService.sendPaymentCreatedNotification(payload.bookingId(), payload.paymentId(), payload.userId(), payload.priceAmount());
-            case PAYMENT_PENDING -> notificationService.sendPaymentPendingNotification(payload.bookingId(), payload.paymentId(), payload.userId(), payload.priceAmount());
-            case PAYMENT_CONFIRMED -> notificationService.sendPaymentConfirmedNotification(payload.bookingId(), payload.paymentId(), payload.userId());
-            case PAYMENT_CANCELLED -> log.info("Skip user notification for PAYMENT_CANCELLED because booking cancellation notification is enough: bookingId={}, paymentId={}", payload.bookingId(), payload.paymentId());
-            case PAYMENT_FAILED -> notificationService.sendPaymentFailedNotification(payload.bookingId(), payload.paymentId(), payload.userId(), payload.cancellationReason());
-        }
+        log.info("Payment event received in notification-service: key={}, eventId={}, eventType={}",
+                record.key(), event.eventId(), event.eventType());
+        eventProcessor.process(event);
     }
 }

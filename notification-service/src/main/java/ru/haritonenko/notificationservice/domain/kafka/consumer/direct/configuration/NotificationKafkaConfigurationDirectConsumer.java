@@ -10,6 +10,7 @@ import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
 import ru.haritonenko.commonlibs.dto.kafka.event.NotificationKafkaEvent;
 import ru.haritonenko.commonlibs.dto.kafka.payload.NotificationKafkaPayload;
 
@@ -44,9 +45,12 @@ public class NotificationKafkaConfigurationDirectConsumer {
     }
 
     @Bean(name = "directNotificationKafkaListenerContainerFactory")
-    public ConcurrentKafkaListenerContainerFactory<UUID, NotificationKafkaEvent<NotificationKafkaPayload>> directNotificationKafkaListenerContainerFactory() {
+    public ConcurrentKafkaListenerContainerFactory<UUID, NotificationKafkaEvent<NotificationKafkaPayload>> directNotificationKafkaListenerContainerFactory(
+            DefaultErrorHandler notificationKafkaErrorHandler
+    ) {
         ConcurrentKafkaListenerContainerFactory<UUID, NotificationKafkaEvent<NotificationKafkaPayload>> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(directNotificationConsumerFactoryBean());
+        factory.setCommonErrorHandler(notificationKafkaErrorHandler);
         return factory;
     }
 }

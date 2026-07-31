@@ -11,11 +11,15 @@ import org.springframework.web.client.support.RestClientAdapter;
 import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 import ru.haritonenko.bookingservice.external.client.catalog.CatalogServiceHttpClient;
 import ru.haritonenko.bookingservice.external.client.users.UserServiceHttpClient;
+import ru.haritonenko.bookingservice.external.client.payment.PaymentServiceHttpClient;
+import ru.haritonenko.bookingservice.external.client.notification.NotificationServiceHttpClient;
 import ru.haritonenko.bookingservice.external.circuit.props.ExternalCircuitBreakerProperties;
 import ru.haritonenko.bookingservice.external.circuit.SimpleCircuitBreaker;
 import ru.haritonenko.bookingservice.external.configuration.props.CatalogServiceHttpClientProperties;
 import ru.haritonenko.bookingservice.external.configuration.props.HttpClientProperties;
 import ru.haritonenko.bookingservice.external.configuration.props.UserServiceHttpClientProperties;
+import ru.haritonenko.bookingservice.external.configuration.props.PaymentServiceHttpClientProperties;
+import ru.haritonenko.bookingservice.external.configuration.props.NotificationServiceHttpClientProperties;
 import ru.haritonenko.commonlibs.security.internal.InternalServiceAuthFilter;
 
 import java.lang.reflect.InvocationTargetException;
@@ -26,6 +30,8 @@ import java.net.http.HttpClient;
 @EnableConfigurationProperties({
         CatalogServiceHttpClientProperties.class,
         UserServiceHttpClientProperties.class,
+        PaymentServiceHttpClientProperties.class,
+        NotificationServiceHttpClientProperties.class,
         ExternalCircuitBreakerProperties.class
 })
 @RequiredArgsConstructor
@@ -49,6 +55,20 @@ public class ExternalBookingConfig {
             UserServiceHttpClientProperties props
     ) {
         return createClient(props, UserServiceHttpClient.class, "user-service");
+    }
+
+    @Bean
+    public PaymentServiceHttpClient paymentServiceHttpClient(
+            PaymentServiceHttpClientProperties props
+    ) {
+        return createClient(props, PaymentServiceHttpClient.class, "payment-service");
+    }
+
+    @Bean
+    public NotificationServiceHttpClient notificationServiceHttpClient(
+            NotificationServiceHttpClientProperties props
+    ) {
+        return createClient(props, NotificationServiceHttpClient.class, "notification-service");
     }
 
     private <T> T createClient(HttpClientProperties props, Class<T> clientClass, String serviceName) {

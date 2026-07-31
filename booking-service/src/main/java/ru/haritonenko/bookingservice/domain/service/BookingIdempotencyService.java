@@ -1,6 +1,9 @@
 package ru.haritonenko.bookingservice.domain.service;
 
 import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.transaction.annotation.Transactional;
+import lombok.extern.slf4j.Slf4j;
 import ru.haritonenko.bookingservice.api.dto.BookingRequestDto;
 import ru.haritonenko.bookingservice.config.idempotency.BookingIdempotencyProperties;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingIdempotencyKeyEntity;
@@ -16,6 +19,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
+@Slf4j
 public class BookingIdempotencyService {
 
     private final BookingIdempotencyKeyRepository repository;
@@ -43,18 +47,30 @@ public class BookingIdempotencyService {
                 });
     }
 
+    @Transactional
     public void remember(Long userId, String idempotencyKey, String requestHash, UUID bookingId) {
         String normalizedKey = normalize(idempotencyKey);
         if (normalizedKey == null) {
             return;
         }
+        OffsetDateTime now = OffsetDateTime.now();
+        repository.deleteByUserIdAndIdempotencyKeyAndExpiresAtLessThanEqual(userId, normalizedKey, now);
         repository.save(BookingIdempotencyKeyEntity.builder()
                 .userId(userId)
                 .idempotencyKey(normalizedKey)
                 .requestHash(requestHash)
                 .bookingId(bookingId)
-                .expiresAt(OffsetDateTime.now().plus(properties.getTtl()))
+                .expiresAt(now.plus(properties.getTtl()))
                 .build());
+    }
+
+    @Scheduled(fixedDelayString = "${app.booking.idempotency.cleanup-delay-ms:3600000}")
+    @Transactional
+    public void deleteExpiredKeys() {
+        long deleted = repository.deleteByExpiresAtLessThanEqual(OffsetDateTime.now());
+        if (deleted > 0) {
+            log.info("Expired booking idempotency keys deleted: count={}", deleted);
+        }
     }
 
     public String hash(BookingRequestDto request) {

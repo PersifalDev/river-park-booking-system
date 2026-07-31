@@ -6,3 +6,27 @@ databaseChangeLog:
         - sqlFile:
             path: db/changelog/001-create-payments-table.sql
             relativeToChangelogFile: false
+
+  - changeSet:
+      id: 002-create-payment-outbox-table
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/002-create-payment-outbox-table.sql
+            relativeToChangelogFile: false
+
+  - changeSet:
+      id: 003-create-processed-event-table
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/003-create-processed-event-table.sql
+            relativeToChangelogFile: false
+
+  - changeSet:
+      id: 004-add-payment-query-indexes
+      author: codex
+      changes:
+        - sqlFile:
+            path: db/changelog/004-add-payment-query-indexes.sql
+            relativeToChangelogFile: false

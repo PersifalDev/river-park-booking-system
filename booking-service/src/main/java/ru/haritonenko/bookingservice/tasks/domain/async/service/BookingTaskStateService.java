@@ -2,18 +2,16 @@ package ru.haritonenko.bookingservice.tasks.domain.async.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.haritonenko.bookingservice.cache.service.BookingCacheService;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
 import ru.haritonenko.bookingservice.domain.db.repository.BookingEntityRepository;
 import ru.haritonenko.bookingservice.domain.exception.BookingNotFoundException;
+import ru.haritonenko.bookingservice.domain.event.BookingEventFactory;
+import ru.haritonenko.bookingservice.domain.service.BookingEventDeliveryService;
 import ru.haritonenko.bookingservice.domain.status.BookingStatus;
-import ru.haritonenko.bookingservice.kafka.producer.booking.sender.KafkaBookingEventSender;
-import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
 import ru.haritonenko.commonlibs.dto.kafka.event.type.BookingEventType;
-import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -25,11 +23,9 @@ import java.util.UUID;
 public class BookingTaskStateService {
 
     private final BookingEntityRepository bookingRepository;
-    private final KafkaBookingEventSender bookingEventSender;
+    private final BookingEventDeliveryService eventDeliveryService;
+    private final BookingEventFactory eventFactory;
     private final BookingCacheService cacheService;
-
-    @Value("${app.booking.events.source}")
-    private String sourceService;
 
     @Transactional(readOnly = true)
     public boolean existsBookingById(UUID bookingId) {
@@ -56,7 +52,7 @@ public class BookingTaskStateService {
         BookingEntity savedBooking = bookingRepository.save(booking);
 
         log.info("Sending event to Kafka to mark booking as failed: eventType={}", BookingEventType.BOOKING_FAILED);
-        bookingEventSender.sendEvent(toKafkaEvent(savedBooking, BookingEventType.BOOKING_FAILED));
+        eventDeliveryService.publish(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_FAILED));
         log.info("Booking status was updated to {} after starting marking: bookingId={}", booking.getStatus(), bookingId);
         evictBookingCaches(booking);
     }
@@ -81,7 +77,7 @@ public class BookingTaskStateService {
         BookingEntity savedBooking = bookingRepository.save(booking);
 
         log.info("Sending event to Kafka to hold booking: eventType={}", BookingEventType.BOOKING_HOLD_CREATED);
-        bookingEventSender.sendEvent(toKafkaEvent(savedBooking, BookingEventType.BOOKING_HOLD_CREATED));
+        eventDeliveryService.publish(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_HOLD_CREATED));
         log.info("Booking status was updated to {} after starting holding: bookingId={}", booking.getStatus(), bookingId);
         evictBookingCaches(booking);
     }
@@ -91,28 +87,4 @@ public class BookingTaskStateService {
         cacheService.evictUserPages(booking.getUserId());
     }
 
-    private BookingKafkaEvent<BookingKafkaPayload> toKafkaEvent(BookingEntity booking, BookingEventType type) {
-        return BookingKafkaEvent.<BookingKafkaPayload>builder()
-                .eventId(UUID.randomUUID())
-                .correlationId(booking.getId().toString())
-                .source(sourceService)
-                .eventType(type)
-                .createdAt(OffsetDateTime.now())
-                .payload(BookingKafkaPayload.builder()
-                        .bookingId(booking.getId())
-                        .bookingCode(booking.getBookingCode())
-                        .userId(booking.getUserId())
-                        .roomCategoryId(booking.getRoomCategoryId())
-                        .guests(booking.getGuests())
-                        .adultCount(booking.getAdultCount())
-                        .childrenCount(booking.getChildrenCount())
-                        .checkInDate(booking.getCheckInDate())
-                        .checkOutDate(booking.getCheckOutDate())
-                        .priceAmount(booking.getPriceAmount())
-                        .bookingStatus(booking.getStatus().name())
-                        .holdExpiresAt(booking.getHoldExpiresAt())
-                        .cancellationReason(booking.getCancellationReason())
-                        .build())
-                .build();
-    }
 }

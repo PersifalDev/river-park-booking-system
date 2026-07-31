@@ -28,6 +28,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -83,7 +84,7 @@ class BookingServiceIntegrationTest extends AbstractIntegrationTest {
         doNothing().when(bookingInventoryService).releaseHeldInventory(any());
         doNothing().when(bookingInventoryService).releaseConfirmedInventory(any());
         doNothing().when(bookingInventoryService).confirmHeldInventory(any());
-        doNothing().when(bookingEventSender).sendEvent(any());
+        when(bookingEventSender.sendEvent(any())).thenReturn(CompletableFuture.completedFuture(null));
         doNothing().when(bookingOutboxService).saveEvent(any());
     }
 
@@ -101,6 +102,24 @@ class BookingServiceIntegrationTest extends AbstractIntegrationTest {
         assertEquals(AsyncBookingTaskStatus.NEW, task.getStatus());
         assertEquals(ProcessingStep.VALIDATE_REQUEST, task.getProcessingStep());
         verify(taskDispatcher).dispatchTask(any());
+    }
+
+    @Test
+    void shouldAlwaysReadCurrentBookingStatus() {
+        BookingEntity booking = bookingRepository.saveAndFlush(bookingEntity(BookingStatus.CREATED));
+
+        assertEquals(
+                BookingStatus.CREATED,
+                bookingService.getBookingByUuidAndUserId(10L, booking.getId()).status()
+        );
+
+        booking.setStatus(BookingStatus.HOLD);
+        bookingRepository.saveAndFlush(booking);
+
+        assertEquals(
+                BookingStatus.HOLD,
+                bookingService.getBookingByUuidAndUserId(10L, booking.getId()).status()
+        );
     }
 
     @Test
@@ -137,7 +156,7 @@ class BookingServiceIntegrationTest extends AbstractIntegrationTest {
         assertEquals(BookingStatus.CONFIRMED, confirmed.status());
         assertNull(confirmed.holdExpiresAt());
         verify(bookingInventoryService).confirmHeldInventory(any());
-        verify(bookingEventSender).sendEvent(any());
+        verify(bookingOutboxService).saveEvent(any());
     }
 
     @Test

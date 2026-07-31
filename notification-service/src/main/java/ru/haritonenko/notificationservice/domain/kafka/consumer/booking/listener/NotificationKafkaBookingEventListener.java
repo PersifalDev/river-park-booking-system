@@ -1,14 +1,12 @@
 package ru.haritonenko.notificationservice.domain.kafka.consumer.booking.listener;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
-import ru.haritonenko.notificationservice.domain.service.booking.BookingNotificationService;
+import ru.haritonenko.notificationservice.domain.service.booking.BookingEventProcessor;
 
 import java.util.UUID;
 
@@ -17,8 +15,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class NotificationKafkaBookingEventListener {
 
-    private final BookingNotificationService notificationService;
-    private final ObjectMapper objectMapper;
+    private final BookingEventProcessor eventProcessor;
 
     @KafkaListener(topics = "${app.kafka.consumer.topics.booking-events}", containerFactory = "bookingNotificationConsumerFactory")
     public void listenBookingEvent(ConsumerRecord<UUID, BookingKafkaEvent<?>> record) {
@@ -28,15 +25,8 @@ public class NotificationKafkaBookingEventListener {
             return;
         }
 
-        BookingKafkaPayload payload = objectMapper.convertValue(event.payload(), BookingKafkaPayload.class);
-        log.info("Booking event received in notification-service: key={}, eventId={}, eventType={}, payload={}", record.key(), event.eventId(), event.eventType(), payload);
-        switch (event.eventType()) {
-            case BOOKING_CREATED -> notificationService.sendBookingCreatedNotification(payload);
-            case BOOKING_HOLD_CREATED -> notificationService.sendBookingHoldCreatedNotification(payload);
-            case BOOKING_CONFIRMED -> notificationService.sendBookingConfirmedNotification(payload);
-            case BOOKING_CANCELLED -> notificationService.sendBookingCancelledNotification(payload);
-            case BOOKING_EXPIRED -> notificationService.sendBookingExpiredNotification(payload);
-            case BOOKING_FAILED -> notificationService.sendBookingFailedNotification(payload);
-        }
+        log.info("Booking event received in notification-service: key={}, eventId={}, eventType={}",
+                record.key(), event.eventId(), event.eventType());
+        eventProcessor.process(event);
     }
 }
