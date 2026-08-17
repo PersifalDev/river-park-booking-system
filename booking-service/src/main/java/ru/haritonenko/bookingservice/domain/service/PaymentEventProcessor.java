@@ -8,8 +8,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
 import ru.haritonenko.bookingservice.domain.status.BookingStatus;
 import ru.haritonenko.bookingservice.inbox.ProcessedEventService;
-import ru.haritonenko.commonlibs.dto.kafka.event.PaymentKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.event.PaymentEvent;
+import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentPayload;
 
 import java.util.List;
 
@@ -23,7 +23,7 @@ public class PaymentEventProcessor {
     private final TransactionTemplate transactionTemplate;
     private final ProcessedEventService processedEventService;
 
-    public void process(PaymentKafkaEvent<?> event) {
+    public void process(PaymentEvent<?> event) {
         if (event == null || event.payload() == null) {
             throw new IllegalArgumentException("Payment event and payload are required");
         }
@@ -34,8 +34,8 @@ public class PaymentEventProcessor {
         );
     }
 
-    private void processNewEvent(PaymentKafkaEvent<?> event) {
-        PaymentKafkaPayload payload = objectMapper.convertValue(event.payload(), PaymentKafkaPayload.class);
+    private void processNewEvent(PaymentEvent<?> event) {
+        PaymentPayload payload = objectMapper.convertValue(event.payload(), PaymentPayload.class);
         log.info("Processing payment event in booking-service: eventId={}, eventType={}, bookingId={}",
                 event.eventId(),
                 event.eventType(),

@@ -3,12 +3,12 @@ package ru.haritonenko.bookingservice.domain.event;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
-import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.event.NotificationKafkaEvent;
+import ru.haritonenko.commonlibs.dto.kafka.event.BookingEvent;
+import ru.haritonenko.commonlibs.dto.kafka.event.NotificationEvent;
 import ru.haritonenko.commonlibs.dto.kafka.event.type.BookingEventType;
 import ru.haritonenko.commonlibs.dto.kafka.event.type.NotificationEventType;
-import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
-import ru.haritonenko.commonlibs.dto.kafka.payload.NotificationKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.payload.BookingPayload;
+import ru.haritonenko.commonlibs.dto.kafka.payload.NotificationPayload;
 import ru.haritonenko.commonlibs.notification.NotificationStatus;
 
 import java.time.OffsetDateTime;
@@ -20,14 +20,14 @@ public class BookingEventFactory {
     @Value("${app.booking.events.source}")
     private String sourceService;
 
-    public BookingKafkaEvent<BookingKafkaPayload> bookingEvent(BookingEntity booking, BookingEventType type) {
-        return BookingKafkaEvent.<BookingKafkaPayload>builder()
+    public BookingEvent<BookingPayload> bookingEvent(BookingEntity booking, BookingEventType type) {
+        return BookingEvent.<BookingPayload>builder()
                 .eventId(UUID.randomUUID())
                 .correlationId(booking.getId().toString())
                 .source(sourceService)
                 .eventType(type)
                 .createdAt(OffsetDateTime.now())
-                .payload(BookingKafkaPayload.builder()
+                .payload(BookingPayload.builder()
                         .bookingId(booking.getId())
                         .bookingCode(booking.getBookingCode())
                         .userId(booking.getUserId())
@@ -45,7 +45,7 @@ public class BookingEventFactory {
                 .build();
     }
 
-    public NotificationKafkaEvent<NotificationKafkaPayload> notificationEvent(
+    public NotificationEvent<NotificationPayload> notificationEvent(
             BookingEntity booking,
             NotificationEventType type,
             String title,
@@ -53,13 +53,13 @@ public class BookingEventFactory {
     ) {
         UUID notificationId = UUID.randomUUID();
         OffsetDateTime now = OffsetDateTime.now();
-        return new NotificationKafkaEvent<>(
+        return new NotificationEvent<>(
                 UUID.randomUUID(),
                 type,
                 sourceService,
                 booking.getId().toString(),
                 now,
-                new NotificationKafkaPayload(
+                new NotificationPayload(
                         notificationId,
                         booking.getUserId(),
                         booking.getId(),

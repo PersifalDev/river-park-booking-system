@@ -6,8 +6,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
-import ru.haritonenko.commonlibs.dto.kafka.event.NotificationKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.payload.NotificationKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.event.NotificationEvent;
+import ru.haritonenko.commonlibs.dto.kafka.payload.NotificationPayload;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -20,10 +20,10 @@ public class KafkaNotificationEventSender {
     @Value("${app.kafka.producer.topics.notification-events}")
     private String topic;
 
-    private final KafkaTemplate<UUID, NotificationKafkaEvent<NotificationKafkaPayload>> kafkaNotificationTemplate;
+    private final KafkaTemplate<UUID, NotificationEvent<NotificationPayload>> kafkaNotificationTemplate;
 
-    public CompletableFuture<SendResult<UUID, NotificationKafkaEvent<NotificationKafkaPayload>>> sendEvent(
-            NotificationKafkaEvent<NotificationKafkaPayload> event
+    public CompletableFuture<SendResult<UUID, NotificationEvent<NotificationPayload>>> sendEvent(
+            NotificationEvent<NotificationPayload> event
     ) {
         UUID key = event.payload().notificationId();
 
@@ -32,22 +32,17 @@ public class KafkaNotificationEventSender {
                 event.eventType(),
                 key);
 
-        CompletableFuture<SendResult<UUID, NotificationKafkaEvent<NotificationKafkaPayload>>> future =
+        CompletableFuture<SendResult<UUID, NotificationEvent<NotificationPayload>>> future =
                 kafkaNotificationTemplate.send(topic, key, event);
-        future
-                .whenComplete((sendResult, ex) -> {
+        future.whenComplete((sendResult, ex) -> {
                     if (ex != null) {
                         log.error("Failed to send notification event: eventId={}, notificationId={}",
-                                event.eventId(),
-                                key,
-                                ex);
+                                event.eventId(), key, ex);
                         return;
                     }
 
                     log.info("Notification event sent successfully: topic={}, key={}, partition={}, offset={}",
-                            topic,
-                            key,
-                            sendResult.getRecordMetadata().partition(),
+                            topic, key, sendResult.getRecordMetadata().partition(),
                             sendResult.getRecordMetadata().offset());
                 });
         return future;

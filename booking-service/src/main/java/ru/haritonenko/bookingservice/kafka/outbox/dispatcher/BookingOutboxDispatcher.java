@@ -18,10 +18,10 @@ import ru.haritonenko.bookingservice.kafka.outbox.status.OutboxEventKind;
 import ru.haritonenko.bookingservice.observability.BookingMetrics;
 import ru.haritonenko.bookingservice.kafka.producer.booking.sender.KafkaBookingEventSender;
 import ru.haritonenko.bookingservice.kafka.producer.notification.sender.KafkaNotificationEventSender;
-import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.event.NotificationKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
-import ru.haritonenko.commonlibs.dto.kafka.payload.NotificationKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.event.BookingEvent;
+import ru.haritonenko.commonlibs.dto.kafka.event.NotificationEvent;
+import ru.haritonenko.commonlibs.dto.kafka.payload.BookingPayload;
+import ru.haritonenko.commonlibs.dto.kafka.payload.NotificationPayload;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -101,17 +101,17 @@ public class BookingOutboxDispatcher {
 
         switch (eventKind) {
             case BOOKING -> {
-                BookingKafkaEvent<BookingKafkaPayload> kafkaEvent = objectMapper.readValue(
+                BookingEvent<BookingPayload> kafkaEvent = objectMapper.readValue(
                         event.getPayload(),
-                        new TypeReference<BookingKafkaEvent<BookingKafkaPayload>>() {
+                        new TypeReference<BookingEvent<BookingPayload>>() {
                         }
                 );
                 sender.sendEvent(kafkaEvent).join();
             }
             case NOTIFICATION -> {
-                NotificationKafkaEvent<NotificationKafkaPayload> kafkaEvent = objectMapper.readValue(
+                NotificationEvent<NotificationPayload> kafkaEvent = objectMapper.readValue(
                         event.getPayload(),
-                        new TypeReference<NotificationKafkaEvent<NotificationKafkaPayload>>() {
+                        new TypeReference<NotificationEvent<NotificationPayload>>() {
                         }
                 );
                 notificationSender.sendEvent(kafkaEvent).join();

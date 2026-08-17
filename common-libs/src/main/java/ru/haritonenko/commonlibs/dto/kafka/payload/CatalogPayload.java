@@ -6,7 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Builder
-public record CatalogKafkaPayload(
+public record CatalogPayload(
         Long roomCategoryId,
         String roomType,
         String categoryName,

@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import ru.haritonenko.commonlibs.dto.kafka.event.PaymentKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.event.PaymentEvent;
+import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentPayload;
 import ru.haritonenko.notificationservice.inbox.ProcessedEventService;
 
 @Slf4j
@@ -17,7 +17,7 @@ public class PaymentEventProcessor {
     private final ObjectMapper objectMapper;
     private final ProcessedEventService processedEventService;
 
-    public void process(PaymentKafkaEvent<?> event) {
+    public void process(PaymentEvent<?> event) {
         if (event == null || event.payload() == null) {
             throw new IllegalArgumentException("Payment event and payload are required");
         }
@@ -28,8 +28,8 @@ public class PaymentEventProcessor {
         );
     }
 
-    private void processNewEvent(PaymentKafkaEvent<?> event) {
-        PaymentKafkaPayload payload = objectMapper.convertValue(event.payload(), PaymentKafkaPayload.class);
+    private void processNewEvent(PaymentEvent<?> event) {
+        PaymentPayload payload = objectMapper.convertValue(event.payload(), PaymentPayload.class);
         log.info("Processing payment event in notification-service: eventId={}, eventType={}, paymentId={}",
                 event.eventId(),
                 event.eventType(),

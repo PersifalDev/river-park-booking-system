@@ -3,8 +3,8 @@ package ru.haritonenko.notificationservice.domain.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import ru.haritonenko.commonlibs.dto.kafka.event.NotificationKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.payload.NotificationKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.event.NotificationEvent;
+import ru.haritonenko.commonlibs.dto.kafka.payload.NotificationPayload;
 import ru.haritonenko.notificationservice.inbox.ProcessedEventService;
 
 @Service
@@ -15,7 +15,7 @@ public class DirectNotificationEventProcessor {
     private final ObjectMapper objectMapper;
     private final ProcessedEventService processedEventService;
 
-    public void process(NotificationKafkaEvent<?> event) {
+    public void process(NotificationEvent<?> event) {
         if (event == null || event.payload() == null) {
             throw new IllegalArgumentException("Notification event and payload are required");
         }
@@ -26,8 +26,8 @@ public class DirectNotificationEventProcessor {
         );
     }
 
-    private void processNewEvent(NotificationKafkaEvent<?> event) {
-        NotificationKafkaPayload payload = objectMapper.convertValue(event.payload(), NotificationKafkaPayload.class);
+    private void processNewEvent(NotificationEvent<?> event) {
+        NotificationPayload payload = objectMapper.convertValue(event.payload(), NotificationPayload.class);
         notificationService.createNotification(
                 payload.userId(),
                 payload.bookingId(),

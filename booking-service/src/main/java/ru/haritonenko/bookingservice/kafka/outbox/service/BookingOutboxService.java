@@ -10,12 +10,13 @@ import ru.haritonenko.bookingservice.kafka.outbox.db.repository.BookingOutboxRep
 import ru.haritonenko.bookingservice.kafka.outbox.exception.KafkaBookingEventIllegalStateException;
 import ru.haritonenko.bookingservice.kafka.outbox.status.OutboxStatus;
 import ru.haritonenko.bookingservice.kafka.outbox.status.OutboxEventKind;
-import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.event.NotificationKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
-import ru.haritonenko.commonlibs.dto.kafka.payload.NotificationKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.event.BookingEvent;
+import ru.haritonenko.commonlibs.dto.kafka.event.NotificationEvent;
+import ru.haritonenko.commonlibs.dto.kafka.payload.BookingPayload;
+import ru.haritonenko.commonlibs.dto.kafka.payload.NotificationPayload;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -25,7 +26,7 @@ public class BookingOutboxService {
     private final BookingOutboxRepository repository;
     private final ObjectMapper objectMapper;
 
-    public void saveEvent(BookingKafkaEvent<BookingKafkaPayload> event) {
+    public void saveEvent(BookingEvent<BookingPayload> event) {
         save(
                 event.eventId(),
                 event.payload().bookingId(),
@@ -35,7 +36,7 @@ public class BookingOutboxService {
         );
     }
 
-    public void saveNotificationEvent(NotificationKafkaEvent<NotificationKafkaPayload> event) {
+    public void saveNotificationEvent(NotificationEvent<NotificationPayload> event) {
         save(
                 event.eventId(),
                 event.payload().bookingId() == null
@@ -48,8 +49,8 @@ public class BookingOutboxService {
     }
 
     private void save(
-            java.util.UUID eventId,
-            java.util.UUID aggregateId,
+            UUID eventId,
+            UUID aggregateId,
             String eventType,
             OutboxEventKind eventKind,
             Object event

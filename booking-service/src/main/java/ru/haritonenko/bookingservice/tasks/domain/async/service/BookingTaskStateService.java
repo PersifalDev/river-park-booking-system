@@ -51,8 +51,8 @@ public class BookingTaskStateService {
         booking.setHoldExpiresAt(null);
         BookingEntity savedBooking = bookingRepository.save(booking);
 
-        log.info("Sending event to Kafka to mark booking as failed: eventType={}", BookingEventType.BOOKING_FAILED);
-        eventDeliveryService.publish(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_FAILED));
+        log.info("Publishing booking event: eventType={}", BookingEventType.BOOKING_FAILED);
+        eventDeliveryService.submitForDelivery(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_FAILED));
         log.info("Booking status was updated to {} after starting marking: bookingId={}", booking.getStatus(), bookingId);
         evictBookingCaches(booking);
     }
@@ -77,7 +77,7 @@ public class BookingTaskStateService {
         BookingEntity savedBooking = bookingRepository.save(booking);
 
         log.info("Sending event to Kafka to hold booking: eventType={}", BookingEventType.BOOKING_HOLD_CREATED);
-        eventDeliveryService.publish(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_HOLD_CREATED));
+        eventDeliveryService.submitForDelivery(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_HOLD_CREATED));
         log.info("Booking status was updated to {} after starting holding: bookingId={}", booking.getStatus(), bookingId);
         evictBookingCaches(booking);
     }

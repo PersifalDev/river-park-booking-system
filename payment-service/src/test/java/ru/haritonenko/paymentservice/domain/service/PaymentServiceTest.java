@@ -4,7 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.springframework.test.util.ReflectionTestUtils;
-import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.payload.BookingPayload;
 import ru.haritonenko.paymentservice.domain.Payment;
 import ru.haritonenko.paymentservice.domain.db.entity.PaymentEntity;
 import ru.haritonenko.paymentservice.domain.db.repository.PaymentEntityRepository;
@@ -76,7 +76,7 @@ class PaymentServiceTest {
             return entity;
         });
 
-        Payment actual = service.createPendingPayment(BookingKafkaPayload.builder()
+        Payment actual = service.createPendingPayment(BookingPayload.builder()
                 .bookingId(bookingId)
                 .bookingCode("BK-1")
                 .userId(10L)

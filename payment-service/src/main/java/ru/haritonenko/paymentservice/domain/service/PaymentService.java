@@ -8,10 +8,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.haritonenko.commonlibs.dto.kafka.event.PaymentKafkaEvent;
+import ru.haritonenko.commonlibs.dto.kafka.event.PaymentEvent;
 import ru.haritonenko.commonlibs.dto.kafka.event.type.PaymentEventType;
-import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
-import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.payload.BookingPayload;
+import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentPayload;
 import ru.haritonenko.commonlibs.utils.pages.CommonPageable;
 import ru.haritonenko.paymentservice.api.dto.filter.PaymentPageFilter;
 import ru.haritonenko.paymentservice.cache.PaymentCacheService;
@@ -59,7 +59,7 @@ public class PaymentService {
     private String defaultInstruction;
 
     @Transactional
-    public Payment createPendingPayment(BookingKafkaPayload payload) {
+    public Payment createPendingPayment(BookingPayload payload) {
         if (payload == null || payload.bookingId() == null) {
             paymentMetrics.recordFailure();
             throw new IllegalArgumentException("Booking payload is invalid");
@@ -67,7 +67,7 @@ public class PaymentService {
         return lockService.execute(paymentLockKey(payload.bookingId()), () -> createPendingPaymentLocked(payload));
     }
 
-    private Payment createPendingPaymentLocked(BookingKafkaPayload payload) {
+    private Payment createPendingPaymentLocked(BookingPayload payload) {
         if (payload == null || payload.bookingId() == null || payload.userId() == null) {
             log.warn("Skip creating payment because booking payload is invalid: payload={}", payload);
             paymentMetrics.recordFailure();
@@ -223,13 +223,13 @@ public class PaymentService {
 
     private void sendPaymentEvent(PaymentEntity paymentEntity, PaymentEventType paymentEventType) {
         log.info("Preparing payment Kafka event: paymentId={}, bookingId={}, eventType={}", paymentEntity.getId(), paymentEntity.getBookingId(), paymentEventType);
-        eventDeliveryService.publish(new PaymentKafkaEvent<>(
+        eventDeliveryService.publish(new PaymentEvent<>(
                 UUID.randomUUID(),
                 paymentEventType,
                 sourceService,
                 paymentEntity.getBookingId().toString(),
                 OffsetDateTime.now(),
-                PaymentKafkaPayload.builder()
+                PaymentPayload.builder()
                         .bookingId(paymentEntity.getBookingId())
                         .bookingCode(paymentEntity.getBookingCode())
                         .paymentId(paymentEntity.getId())

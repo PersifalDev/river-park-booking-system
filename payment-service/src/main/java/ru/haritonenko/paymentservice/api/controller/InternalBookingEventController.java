@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
+import ru.haritonenko.commonlibs.dto.kafka.event.BookingEvent;
 import ru.haritonenko.paymentservice.domain.service.BookingEventProcessor;
 
 @RestController
@@ -17,7 +17,7 @@ public class InternalBookingEventController {
     private final BookingEventProcessor eventProcessor;
 
     @PostMapping
-    public ResponseEntity<Void> handle(@RequestBody BookingKafkaEvent<?> event) {
+    public ResponseEntity<Void> handle(@RequestBody BookingEvent<?> event) {
         eventProcessor.process(event);
         return ResponseEntity.noContent().build();
     }

@@ -6,9 +6,9 @@ import ru.haritonenko.bookingservice.external.client.notification.NotificationSe
 import ru.haritonenko.bookingservice.external.client.payment.PaymentServiceHttpClient;
 import ru.haritonenko.bookingservice.kafka.outbox.service.BookingOutboxService;
 import ru.haritonenko.commonlibs.communication.WorkMode;
-import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
+import ru.haritonenko.commonlibs.dto.kafka.event.BookingEvent;
 import ru.haritonenko.commonlibs.dto.kafka.event.type.BookingEventType;
-import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.payload.BookingPayload;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -25,13 +25,13 @@ class BookingEventDeliveryServiceTest {
     private final NotificationServiceHttpClient notificationClient = mock(NotificationServiceHttpClient.class);
     private final BookingEventDeliveryService service =
             new BookingEventDeliveryService(properties, outboxService, paymentClient, notificationClient);
-    private final BookingKafkaEvent<BookingKafkaPayload> event = bookingEvent();
+    private final BookingEvent<BookingPayload> event = bookingEvent();
 
     @Test
     void shouldPersistToOutboxInAsyncMode() {
         properties.setWorkMode(WorkMode.ASYNC);
 
-        service.publish(event);
+        service.submitForDelivery(event);
 
         verify(outboxService).saveEvent(event);
         verify(paymentClient, never()).handleBookingEvent(event);
@@ -42,22 +42,22 @@ class BookingEventDeliveryServiceTest {
     void shouldCallDependentServicesInSyncMode() {
         properties.setWorkMode(WorkMode.SYNC);
 
-        service.publish(event);
+        service.submitForDelivery(event);
 
         verify(paymentClient).handleBookingEvent(event);
         verify(notificationClient).handleBookingEvent(event);
         verify(outboxService, never()).saveEvent(event);
     }
 
-    private BookingKafkaEvent<BookingKafkaPayload> bookingEvent() {
+    private BookingEvent<BookingPayload> bookingEvent() {
         UUID bookingId = UUID.randomUUID();
-        return new BookingKafkaEvent<>(
+        return new BookingEvent<>(
                 UUID.randomUUID(),
                 BookingEventType.BOOKING_HOLD_CREATED,
                 "booking-service",
                 bookingId.toString(),
                 OffsetDateTime.now(),
-                BookingKafkaPayload.builder().bookingId(bookingId).build()
+                BookingPayload.builder().bookingId(bookingId).build()
         );
     }
 }

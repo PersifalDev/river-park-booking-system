@@ -8,8 +8,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
-import ru.haritonenko.commonlibs.dto.kafka.event.NotificationKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.payload.NotificationKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.event.NotificationEvent;
+import ru.haritonenko.commonlibs.dto.kafka.payload.NotificationPayload;
 
 import java.util.UUID;
 
@@ -18,12 +18,12 @@ import java.util.UUID;
 public class KafkaConfigurationNotificationProducer {
 
     @Bean
-    public KafkaTemplate<UUID, NotificationKafkaEvent<NotificationKafkaPayload>> kafkaNotificationTemplate(
+    public KafkaTemplate<UUID, NotificationEvent<NotificationPayload>> kafkaNotificationTemplate(
             KafkaProperties kafkaProperties
     ) {
         var props = kafkaProperties.buildProducerProperties();
 
-        ProducerFactory<UUID, NotificationKafkaEvent<NotificationKafkaPayload>> producerFactory =
+        ProducerFactory<UUID, NotificationEvent<NotificationPayload>> producerFactory =
                 new DefaultKafkaProducerFactory<>(props);
 
         return new KafkaTemplate<>(producerFactory);

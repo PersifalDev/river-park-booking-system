@@ -13,13 +13,10 @@ import ru.haritonenko.bookingservice.domain.status.BookingStatus;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface BookingRoomRepository extends JpaRepository<BookingRoomEntity, Long> {
-
-    Optional<BookingRoomEntity> findByRoomNumber(String roomNumber);
 
     boolean existsByRoomCategoryId(Long roomCategoryId);
 

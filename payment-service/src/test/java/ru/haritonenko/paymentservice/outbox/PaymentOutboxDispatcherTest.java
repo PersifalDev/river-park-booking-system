@@ -8,9 +8,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
-import ru.haritonenko.commonlibs.dto.kafka.event.PaymentKafkaEvent;
+import ru.haritonenko.commonlibs.dto.kafka.event.PaymentEvent;
 import ru.haritonenko.commonlibs.dto.kafka.event.type.PaymentEventType;
-import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentPayload;
 import ru.haritonenko.paymentservice.config.PaymentOutboxProperties;
 import ru.haritonenko.paymentservice.kafka.producer.sender.KafkaPaymentEventSender;
 
@@ -106,7 +106,7 @@ class PaymentOutboxDispatcherTest {
         verify(sender, never()).sendEvent(any());
     }
 
-    private void mockRead(PaymentOutboxEntity outbox, PaymentKafkaEvent<PaymentKafkaPayload> event) {
+    private void mockRead(PaymentOutboxEntity outbox, PaymentEvent<PaymentPayload> event) {
         try {
             when(objectMapper.readValue(eq(outbox.getPayload()), any(TypeReference.class))).thenReturn(event);
         } catch (JsonProcessingException exception) {
@@ -127,16 +127,16 @@ class PaymentOutboxDispatcherTest {
                 .build();
     }
 
-    private PaymentKafkaEvent<PaymentKafkaPayload> event() {
+    private PaymentEvent<PaymentPayload> event() {
         UUID bookingId = UUID.randomUUID();
         UUID paymentId = UUID.randomUUID();
-        return PaymentKafkaEvent.<PaymentKafkaPayload>builder()
+        return PaymentEvent.<PaymentPayload>builder()
                 .eventId(UUID.randomUUID())
                 .eventType(PaymentEventType.PAYMENT_PENDING)
                 .source("payment-service-test")
                 .correlationId(bookingId.toString())
                 .createdAt(OffsetDateTime.now())
-                .payload(PaymentKafkaPayload.builder()
+                .payload(PaymentPayload.builder()
                         .bookingId(bookingId)
                         .paymentId(paymentId)
                         .build())

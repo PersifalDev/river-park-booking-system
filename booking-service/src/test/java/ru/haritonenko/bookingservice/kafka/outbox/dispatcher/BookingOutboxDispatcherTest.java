@@ -18,9 +18,9 @@ import ru.haritonenko.bookingservice.kafka.outbox.status.OutboxEventKind;
 import ru.haritonenko.bookingservice.kafka.producer.booking.sender.KafkaBookingEventSender;
 import ru.haritonenko.bookingservice.kafka.producer.notification.sender.KafkaNotificationEventSender;
 import ru.haritonenko.bookingservice.observability.BookingMetrics;
-import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
+import ru.haritonenko.commonlibs.dto.kafka.event.BookingEvent;
 import ru.haritonenko.commonlibs.dto.kafka.event.type.BookingEventType;
-import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.payload.BookingPayload;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -177,7 +177,7 @@ class BookingOutboxDispatcherTest {
         assertThrows(KafkaEventNotFoundException.class, () -> dispatcher.sendOne(eventId));
     }
 
-    private void mockRead(BookingOutboxEntity outbox, BookingKafkaEvent<BookingKafkaPayload> event) {
+    private void mockRead(BookingOutboxEntity outbox, BookingEvent<BookingPayload> event) {
         try {
             when(objectMapper.readValue(eq(outbox.getPayload()), any(TypeReference.class))).thenReturn(event);
         } catch (JsonProcessingException e) {
@@ -198,15 +198,15 @@ class BookingOutboxDispatcherTest {
                 .build();
     }
 
-    private BookingKafkaEvent<BookingKafkaPayload> event() {
+    private BookingEvent<BookingPayload> event() {
         UUID bookingId = UUID.randomUUID();
-        return BookingKafkaEvent.<BookingKafkaPayload>builder()
+        return BookingEvent.<BookingPayload>builder()
                 .eventId(UUID.randomUUID())
                 .correlationId(bookingId.toString())
                 .source("booking-service-test")
                 .eventType(BookingEventType.BOOKING_CANCELLED)
                 .createdAt(OffsetDateTime.now())
-                .payload(BookingKafkaPayload.builder().bookingId(bookingId).build())
+                .payload(BookingPayload.builder().bookingId(bookingId).build())
                 .build();
     }
 }

@@ -1,6 +1,6 @@
 package ru.haritonenko.commonlibs.dto.kafka.event.type;
 
-public enum UserEventType {
+public enum UserEventType implements EventType {
 
     USER_PROFILE_REQUESTED,
     USER_PROFILE_RESPONSE,

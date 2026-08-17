@@ -8,7 +8,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Builder
-public record BookingKafkaPayload(
+public record BookingPayload(
         UUID bookingId,
         String bookingCode,
         Long userId,

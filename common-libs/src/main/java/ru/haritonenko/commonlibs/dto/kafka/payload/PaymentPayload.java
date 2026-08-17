@@ -7,7 +7,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Builder
-public record PaymentKafkaPayload(
+public record PaymentPayload(
         UUID bookingId,
         String bookingCode,
         UUID paymentId,

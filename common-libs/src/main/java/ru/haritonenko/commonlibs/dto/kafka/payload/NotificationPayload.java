@@ -6,7 +6,7 @@ import ru.haritonenko.commonlibs.notification.NotificationStatus;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-public record NotificationKafkaPayload(
+public record NotificationPayload(
         UUID notificationId,
         Long userId,
         UUID bookingId,

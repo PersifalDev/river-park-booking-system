@@ -5,7 +5,7 @@ import lombok.Builder;
 import java.time.LocalDate;
 
 @Builder
-public record CatalogAvailabilityKafkaPayload(
+public record CatalogAvailabilityPayload(
         Long roomCategoryId,
         LocalDate checkInDate,
         LocalDate checkOutDate,

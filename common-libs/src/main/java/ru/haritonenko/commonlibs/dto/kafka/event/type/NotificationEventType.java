@@ -1,6 +1,6 @@
 package ru.haritonenko.commonlibs.dto.kafka.event.type;
 
-public enum NotificationEventType {
+public enum NotificationEventType implements EventType {
     BOOKING_CREATED,
     BOOKING_HOLD_CREATED,
     BOOKING_HOLD_EXPIRING,

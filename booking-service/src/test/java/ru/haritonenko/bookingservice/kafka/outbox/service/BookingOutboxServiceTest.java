@@ -3,13 +3,12 @@ package ru.haritonenko.bookingservice.kafka.outbox.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import ru.haritonenko.bookingservice.kafka.outbox.db.BookingOutboxEntity;
 import ru.haritonenko.bookingservice.kafka.outbox.db.repository.BookingOutboxRepository;
 import ru.haritonenko.bookingservice.kafka.outbox.exception.KafkaBookingEventIllegalStateException;
 import ru.haritonenko.bookingservice.kafka.outbox.status.OutboxStatus;
-import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
+import ru.haritonenko.commonlibs.dto.kafka.event.BookingEvent;
 import ru.haritonenko.commonlibs.dto.kafka.event.type.BookingEventType;
-import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.payload.BookingPayload;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -30,7 +29,7 @@ class BookingOutboxServiceTest {
 
     @Test
     void shouldSaveEventAsNewOutboxEntity() throws Exception {
-        BookingKafkaEvent<BookingKafkaPayload> event = event();
+        BookingEvent<BookingPayload> event = event();
         when(objectMapper.writeValueAsString(event)).thenReturn("{\"eventId\":\"%s\"}".formatted(event.eventId()));
 
         service.saveEvent(event);
@@ -47,22 +46,22 @@ class BookingOutboxServiceTest {
 
     @Test
     void shouldThrowWhenEventCanNotBeSerialized() throws Exception {
-        BookingKafkaEvent<BookingKafkaPayload> event = event();
+        BookingEvent<BookingPayload> event = event();
         when(objectMapper.writeValueAsString(any())).thenThrow(new JsonProcessingException("boom") {
         });
 
         assertThrows(KafkaBookingEventIllegalStateException.class, () -> service.saveEvent(event));
     }
 
-    private BookingKafkaEvent<BookingKafkaPayload> event() {
+    private BookingEvent<BookingPayload> event() {
         UUID bookingId = UUID.randomUUID();
-        return BookingKafkaEvent.<BookingKafkaPayload>builder()
+        return BookingEvent.<BookingPayload>builder()
                 .eventId(UUID.randomUUID())
                 .correlationId(bookingId.toString())
                 .source("booking-service-test")
                 .eventType(BookingEventType.BOOKING_CANCELLED)
                 .createdAt(OffsetDateTime.now())
-                .payload(BookingKafkaPayload.builder()
+                .payload(BookingPayload.builder()
                         .bookingId(bookingId)
                         .bookingCode("BK-TEST")
                         .userId(10L)

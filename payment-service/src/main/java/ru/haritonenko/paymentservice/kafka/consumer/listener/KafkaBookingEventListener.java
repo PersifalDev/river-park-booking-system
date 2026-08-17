@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
-import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
+import ru.haritonenko.commonlibs.dto.kafka.event.BookingEvent;
 import ru.haritonenko.paymentservice.domain.service.BookingEventProcessor;
 
 import java.util.UUID;
@@ -18,8 +18,8 @@ public class KafkaBookingEventListener {
     private final BookingEventProcessor eventProcessor;
 
     @KafkaListener(topics = "${app.kafka.consumer.topics.booking-events}", containerFactory = "bookingPaymentKafkaListenerContainerFactory")
-    public void listenBookingEvent(ConsumerRecord<UUID, BookingKafkaEvent<?>> record) {
-        BookingKafkaEvent<?> event = record.value();
+    public void listenBookingEvent(ConsumerRecord<UUID, BookingEvent<?>> record) {
+        BookingEvent<?> event = record.value();
         if (event == null || event.payload() == null) {
             log.warn("Received empty booking event in payment-service");
             return;

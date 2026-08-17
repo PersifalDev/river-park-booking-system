@@ -1,12 +1,15 @@
 package ru.haritonenko.commonlibs.dto.kafka.event;
 
-import ru.haritonenko.commonlibs.dto.kafka.event.type.NotificationEventType;
+import lombok.Builder;
+import ru.haritonenko.commonlibs.dto.kafka.event.type.PaymentEventType;
+
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-public record NotificationKafkaEvent<T>(
+@Builder
+public record PaymentEvent<T>(
         UUID eventId,
-        NotificationEventType eventType,
+        PaymentEventType eventType,
         String source,
         String correlationId,
         OffsetDateTime createdAt,

@@ -9,8 +9,8 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.util.backoff.FixedBackOff;
-import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.event.BookingEvent;
+import ru.haritonenko.commonlibs.dto.kafka.payload.BookingPayload;
 
 import java.util.UUID;
 
@@ -20,7 +20,7 @@ public class KafkaConsumerErrorHandlerConfig {
     @Bean
     public DefaultErrorHandler bookingKafkaErrorHandler(
             @Qualifier("kafkaBookingTemplate")
-            KafkaTemplate<UUID, BookingKafkaEvent<BookingKafkaPayload>> template,
+            KafkaTemplate<UUID, BookingEvent<BookingPayload>> template,
             @Value("${app.kafka.consumer.retry.backoff-ms:1000}") long backoffMs,
             @Value("${app.kafka.consumer.retry.max-retries:3}") long maxRetries
     ) {

@@ -1,6 +1,6 @@
 package ru.haritonenko.commonlibs.dto.kafka.event.type;
 
-public enum CatalogEventType {
+public enum CatalogEventType implements EventType {
 
     CATALOG_CATEGORY_REQUESTED,
     CATALOG_CATEGORY_RESPONSE,

@@ -9,8 +9,8 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
-import ru.haritonenko.commonlibs.dto.kafka.event.PaymentKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.event.PaymentEvent;
+import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentPayload;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -23,7 +23,7 @@ public class KafkaConfigurationPaymentProducer {
     private String bootstrapServers;
 
     @Bean
-    public ProducerFactory<UUID, PaymentKafkaEvent<PaymentKafkaPayload>> paymentKafkaProducerFactory() {
+    public ProducerFactory<UUID, PaymentEvent<PaymentPayload>> paymentKafkaProducerFactory() {
         Map<String, Object> configs = new HashMap<>();
         configs.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configs.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, UUIDSerializer.class);
@@ -32,7 +32,7 @@ public class KafkaConfigurationPaymentProducer {
     }
 
     @Bean
-    public KafkaTemplate<UUID, PaymentKafkaEvent<PaymentKafkaPayload>> paymentKafkaTemplate() {
+    public KafkaTemplate<UUID, PaymentEvent<PaymentPayload>> paymentKafkaTemplate() {
         return new KafkaTemplate<>(paymentKafkaProducerFactory());
     }
 }

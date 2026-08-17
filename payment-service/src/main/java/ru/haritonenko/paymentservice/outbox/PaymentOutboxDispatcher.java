@@ -9,15 +9,14 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
-import ru.haritonenko.commonlibs.dto.kafka.event.PaymentKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.event.PaymentEvent;
+import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentPayload;
 import ru.haritonenko.paymentservice.config.PaymentOutboxProperties;
 import ru.haritonenko.paymentservice.kafka.producer.sender.KafkaPaymentEventSender;
 
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletionException;
 
 @Slf4j
 @Service
@@ -64,9 +63,9 @@ public class PaymentOutboxDispatcher {
     public void sendOne(UUID eventId) {
         PaymentOutboxEntity event = find(eventId);
         try {
-            PaymentKafkaEvent<PaymentKafkaPayload> kafkaEvent = objectMapper.readValue(
+            PaymentEvent<PaymentPayload> kafkaEvent = objectMapper.readValue(
                     event.getPayload(),
-                    new TypeReference<PaymentKafkaEvent<PaymentKafkaPayload>>() {
+                    new TypeReference<PaymentEvent<PaymentPayload>>() {
                     }
             );
             sender.sendEvent(kafkaEvent).join();

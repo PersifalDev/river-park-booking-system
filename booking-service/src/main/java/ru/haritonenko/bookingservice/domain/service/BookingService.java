@@ -278,7 +278,7 @@ public class BookingService {
 
             BookingEntity saved = bookingRepository.save(booking);
 
-            eventDeliveryService.publish(eventFactory.bookingEvent(saved, BookingEventType.BOOKING_CANCELLED));
+            eventDeliveryService.submitForDelivery(eventFactory.bookingEvent(saved, BookingEventType.BOOKING_CANCELLED));
 
             return saved;
         })).orElseThrow(() -> new IllegalBookingStateException("Booking cancellation transaction returned null result"));
@@ -316,7 +316,7 @@ public class BookingService {
         BookingEntity savedBooking = bookingRepository.save(booking);
 
         log.info("Sending event to Kafka to confirm booking: eventType={}", BookingEventType.BOOKING_CONFIRMED);
-        eventDeliveryService.publish(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_CONFIRMED));
+        eventDeliveryService.submitForDelivery(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_CONFIRMED));
         log.info("Booking confirmed successfully: uuid={}, userId={}", uuid, authUserId);
 
         cacheService.evictBookingByUser(authUserId, uuid);
@@ -464,7 +464,7 @@ public class BookingService {
         BookingEntity savedBooking = bookingRepository.save(booking);
 
         log.info("Sending event to Kafka to mark booking as failed: eventType={}", BookingEventType.BOOKING_FAILED);
-        eventDeliveryService.publish(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_FAILED));
+        eventDeliveryService.submitForDelivery(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_FAILED));
         log.info("Booking status was updated to {} after starting marking: bookingId={}", booking.getStatus(), bookingId);
         evictBookingCaches(booking);
         bookingMetrics.record(BookingStatus.FAILED);
@@ -487,7 +487,7 @@ public class BookingService {
         BookingEntity savedBooking = bookingRepository.save(booking);
 
         log.info("Sending event to Kafka to expire booking: eventType={}", BookingEventType.BOOKING_EXPIRED);
-        eventDeliveryService.publish(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_EXPIRED));
+        eventDeliveryService.submitForDelivery(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_EXPIRED));
         log.info("Booking expired successfully: bookingId={}", bookingId);
         evictBookingCaches(booking);
         bookingMetrics.record(BookingStatus.EXPIRED);
@@ -521,7 +521,7 @@ public class BookingService {
         BookingEntity savedBooking = bookingRepository.save(booking);
 
         log.info("Sending event to Kafka to expire created booking: eventType={}", BookingEventType.BOOKING_EXPIRED);
-        eventDeliveryService.publish(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_EXPIRED));
+        eventDeliveryService.submitForDelivery(eventFactory.bookingEvent(savedBooking, BookingEventType.BOOKING_EXPIRED));
         log.info("Created booking expired successfully: bookingId={}", bookingId);
         evictBookingCaches(booking);
         bookingMetrics.record(BookingStatus.EXPIRED);
@@ -582,7 +582,7 @@ public class BookingService {
 
     @Transactional
     public void sendDirectNotification(BookingEntity booking, NotificationEventType type, String title, String message) {
-        eventDeliveryService.publish(eventFactory.notificationEvent(booking, type, title, message));
+        eventDeliveryService.submitForDelivery(eventFactory.notificationEvent(booking, type, title, message));
     }
 
     @Transactional
@@ -636,7 +636,7 @@ public class BookingService {
     }
 
     private BookingEntity findBookingEntityByIdAndUserId(UUID uuid, Long authUserId) {
-        log.info("Searching for booking :bookingId={}, userId={}", uuid, authUserId);
+        log.info("Searching for booking: bookingId={}, userId={}", uuid, authUserId);
         return bookingRepository.findByIdAndUserId(uuid, authUserId)
                 .orElseThrow(() -> {
                     log.warn("Booking not found: uuid={}, userId={}", uuid, authUserId);

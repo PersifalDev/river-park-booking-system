@@ -1,6 +1,6 @@
 package ru.haritonenko.commonlibs.dto.kafka.event.type;
 
-public enum PaymentEventType {
+public enum PaymentEventType implements EventType {
 
     PAYMENT_INVOICE_CREATED,
     PAYMENT_PENDING,

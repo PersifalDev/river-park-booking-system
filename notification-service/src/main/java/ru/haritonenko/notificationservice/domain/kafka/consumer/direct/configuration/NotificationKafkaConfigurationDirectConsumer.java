@@ -11,8 +11,8 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
-import ru.haritonenko.commonlibs.dto.kafka.event.NotificationKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.payload.NotificationKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.event.NotificationEvent;
+import ru.haritonenko.commonlibs.dto.kafka.payload.NotificationPayload;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -31,7 +31,7 @@ public class NotificationKafkaConfigurationDirectConsumer {
     private String trustedPackages;
 
     @Bean
-    public ConsumerFactory<UUID, NotificationKafkaEvent<NotificationKafkaPayload>> directNotificationConsumerFactoryBean() {
+    public ConsumerFactory<UUID, NotificationEvent<NotificationPayload>> directNotificationConsumerFactoryBean() {
         Map<String, Object> configs = new HashMap<>();
         configs.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configs.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
@@ -45,10 +45,10 @@ public class NotificationKafkaConfigurationDirectConsumer {
     }
 
     @Bean(name = "directNotificationKafkaListenerContainerFactory")
-    public ConcurrentKafkaListenerContainerFactory<UUID, NotificationKafkaEvent<NotificationKafkaPayload>> directNotificationKafkaListenerContainerFactory(
+    public ConcurrentKafkaListenerContainerFactory<UUID, NotificationEvent<NotificationPayload>> directNotificationKafkaListenerContainerFactory(
             DefaultErrorHandler notificationKafkaErrorHandler
     ) {
-        ConcurrentKafkaListenerContainerFactory<UUID, NotificationKafkaEvent<NotificationKafkaPayload>> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        ConcurrentKafkaListenerContainerFactory<UUID, NotificationEvent<NotificationPayload>> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(directNotificationConsumerFactoryBean());
         factory.setCommonErrorHandler(notificationKafkaErrorHandler);
         return factory;

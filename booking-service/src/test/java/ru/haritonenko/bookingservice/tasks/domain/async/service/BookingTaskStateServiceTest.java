@@ -9,9 +9,9 @@ import ru.haritonenko.bookingservice.domain.exception.BookingNotFoundException;
 import ru.haritonenko.bookingservice.domain.event.BookingEventFactory;
 import ru.haritonenko.bookingservice.domain.service.BookingEventDeliveryService;
 import ru.haritonenko.bookingservice.domain.status.BookingStatus;
-import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
+import ru.haritonenko.commonlibs.dto.kafka.event.BookingEvent;
 import ru.haritonenko.commonlibs.dto.kafka.event.type.BookingEventType;
-import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.payload.BookingPayload;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -44,13 +44,13 @@ class BookingTaskStateServiceTest {
                 .thenAnswer(invocation -> {
                     BookingEntity booking = invocation.getArgument(0);
                     BookingEventType eventType = invocation.getArgument(1);
-                    return BookingKafkaEvent.<ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload>builder()
+                    return BookingEvent.<BookingPayload>builder()
                             .eventId(UUID.randomUUID())
                             .eventType(eventType)
                             .source("booking-service-test")
                             .correlationId(booking.getId().toString())
                             .createdAt(OffsetDateTime.now())
-                            .payload(ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload.builder()
+                            .payload(BookingPayload.builder()
                                     .bookingId(booking.getId())
                                     .build())
                             .build();
@@ -85,7 +85,7 @@ class BookingTaskStateServiceTest {
         assertEquals(BookingStatus.FAILED, booking.getStatus());
         assertEquals("reason", booking.getCancellationReason());
         assertNull(booking.getHoldExpiresAt());
-        verify(eventDeliveryService).publish(argThat((BookingKafkaEvent<BookingKafkaPayload> event) ->
+        verify(eventDeliveryService).submitForDelivery(argThat((BookingEvent<BookingPayload> event) ->
                 event.eventType() == BookingEventType.BOOKING_FAILED
         ));
     }
@@ -113,7 +113,7 @@ class BookingTaskStateServiceTest {
         assertEquals(BookingStatus.HOLD, booking.getStatus());
         assertEquals(0, BigDecimal.valueOf(10000).compareTo(booking.getPriceAmount()));
         assertEquals(holdExpiresAt, booking.getHoldExpiresAt());
-        verify(eventDeliveryService).publish(argThat((BookingKafkaEvent<BookingKafkaPayload> event) ->
+        verify(eventDeliveryService).submitForDelivery(argThat((BookingEvent<BookingPayload> event) ->
                 event.eventType() == BookingEventType.BOOKING_HOLD_CREATED
         ));
     }

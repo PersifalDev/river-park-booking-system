@@ -2,9 +2,9 @@ package ru.haritonenko.paymentservice.domain.service;
 
 import org.junit.jupiter.api.Test;
 import ru.haritonenko.commonlibs.communication.WorkMode;
-import ru.haritonenko.commonlibs.dto.kafka.event.PaymentKafkaEvent;
+import ru.haritonenko.commonlibs.dto.kafka.event.PaymentEvent;
 import ru.haritonenko.commonlibs.dto.kafka.event.type.PaymentEventType;
-import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentPayload;
 import ru.haritonenko.paymentservice.config.PaymentWorkModeProperties;
 import ru.haritonenko.paymentservice.external.BookingServiceHttpClient;
 import ru.haritonenko.paymentservice.external.NotificationServiceHttpClient;
@@ -25,7 +25,7 @@ class PaymentEventDeliveryServiceTest {
     private final NotificationServiceHttpClient notificationClient = mock(NotificationServiceHttpClient.class);
     private final PaymentEventDeliveryService service =
             new PaymentEventDeliveryService(properties, outboxService, bookingClient, notificationClient);
-    private final PaymentKafkaEvent<PaymentKafkaPayload> event = paymentEvent();
+    private final PaymentEvent<PaymentPayload> event = paymentEvent();
 
     @Test
     void shouldPersistToOutboxInAsyncMode() {
@@ -49,16 +49,16 @@ class PaymentEventDeliveryServiceTest {
         verify(outboxService, never()).save(event);
     }
 
-    private PaymentKafkaEvent<PaymentKafkaPayload> paymentEvent() {
+    private PaymentEvent<PaymentPayload> paymentEvent() {
         UUID bookingId = UUID.randomUUID();
         UUID paymentId = UUID.randomUUID();
-        return new PaymentKafkaEvent<>(
+        return new PaymentEvent<>(
                 UUID.randomUUID(),
                 PaymentEventType.PAYMENT_PENDING,
                 "payment-service",
                 bookingId.toString(),
                 OffsetDateTime.now(),
-                PaymentKafkaPayload.builder()
+                PaymentPayload.builder()
                         .bookingId(bookingId)
                         .paymentId(paymentId)
                         .build()

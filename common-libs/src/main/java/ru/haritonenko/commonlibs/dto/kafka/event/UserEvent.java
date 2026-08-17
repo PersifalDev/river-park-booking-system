@@ -1,15 +1,15 @@
 package ru.haritonenko.commonlibs.dto.kafka.event;
 
 import lombok.Builder;
-import ru.haritonenko.commonlibs.dto.kafka.event.type.BookingEventType;
+import ru.haritonenko.commonlibs.dto.kafka.event.type.UserEventType;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Builder
-public record BookingKafkaEvent<T>(
+public record UserEvent<T>(
         UUID eventId,
-        BookingEventType eventType,
+        UserEventType eventType,
         String source,
         String correlationId,
         OffsetDateTime createdAt,

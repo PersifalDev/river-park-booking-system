@@ -10,6 +10,7 @@ import ru.haritonenko.bookingservice.tasks.domain.async.dispatcher.config.AsyncB
 import ru.haritonenko.bookingservice.tasks.domain.async.processor.AsyncBookingTaskProcessor;
 import ru.haritonenko.bookingservice.tasks.domain.async.status.AsyncBookingTaskStatus;
 import ru.haritonenko.bookingservice.tasks.domain.async.status.TaskExecutionStatus;
+import ru.haritonenko.bookingservice.tasks.domain.exception.IllegalArgumentAsyncBookingTaskException;
 
 import java.time.OffsetDateTime;
 import java.util.concurrent.CompletableFuture;
@@ -40,6 +41,7 @@ public class AsyncBookingTaskDispatcher {
     }
 
     public void dispatchTask(AsyncBookingTaskEntity task) {
+       checkAsyncTaskArgumentIsValid(task);
         log.info("Dispatching booking task: taskId={}, bookingId={}, step={}, currentStatus={}",
                 task.getId(),
                 task.getBookingId(),
@@ -53,6 +55,7 @@ public class AsyncBookingTaskDispatcher {
     }
 
     public void executeSynchronously(AsyncBookingTaskEntity task) {
+        checkAsyncTaskArgumentIsValid(task);
         log.info("Executing booking task synchronously: taskId={}, bookingId={}",
                 task.getId(),
                 task.getBookingId());
@@ -155,5 +158,12 @@ public class AsyncBookingTaskDispatcher {
                     .build());
             log.info("Task marked as succeeded: taskId={}, bookingId={}", task.getId(), task.getBookingId());
         });
+    }
+
+    private void checkAsyncTaskArgumentIsValid(AsyncBookingTaskEntity task) {
+        if(task == null){
+            log.warn("Task is null. Nothing to execute synchronously.");
+            throw new IllegalArgumentAsyncBookingTaskException("Task is null. Nothing to execute synchronously.");
+        }
     }
 }

@@ -12,8 +12,8 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
-import ru.haritonenko.commonlibs.dto.kafka.event.PaymentKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.event.PaymentEvent;
+import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentPayload;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -27,7 +27,7 @@ public class KafkaConfigurationPaymentConsumer {
     private String trustedPackages;
 
     @Bean
-    public ConsumerFactory<UUID, PaymentKafkaEvent<PaymentKafkaPayload>> paymentConsumerFactory(
+    public ConsumerFactory<UUID, PaymentEvent<PaymentPayload>> paymentConsumerFactory(
             @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers,
             @Value("${app.kafka.consumer.groups.payment-events}") String groupId
     ) {
@@ -41,17 +41,17 @@ public class KafkaConfigurationPaymentConsumer {
         configProperties.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JacksonJsonDeserializer.class);
         configProperties.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, trustedPackages);
         configProperties.put(JacksonJsonDeserializer.USE_TYPE_INFO_HEADERS, false);
-        configProperties.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, PaymentKafkaEvent.class.getName());
+        configProperties.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, PaymentEvent.class.getName());
 
         return new DefaultKafkaConsumerFactory<>(configProperties);
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<UUID, PaymentKafkaEvent<PaymentKafkaPayload>> paymentKafkaListenerContainerFactory(
-            ConsumerFactory<UUID, PaymentKafkaEvent<PaymentKafkaPayload>> paymentConsumerFactory
+    public ConcurrentKafkaListenerContainerFactory<UUID, PaymentEvent<PaymentPayload>> paymentKafkaListenerContainerFactory(
+            ConsumerFactory<UUID, PaymentEvent<PaymentPayload>> paymentConsumerFactory
             , DefaultErrorHandler bookingKafkaErrorHandler
     ) {
-        ConcurrentKafkaListenerContainerFactory<UUID, PaymentKafkaEvent<PaymentKafkaPayload>> factory =
+        ConcurrentKafkaListenerContainerFactory<UUID, PaymentEvent<PaymentPayload>> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(paymentConsumerFactory);
         factory.setCommonErrorHandler(bookingKafkaErrorHandler);

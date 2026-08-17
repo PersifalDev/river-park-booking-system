@@ -3,7 +3,7 @@ package ru.haritonenko.commonlibs.dto.kafka.payload;
 import lombok.Builder;
 
 @Builder
-public record UserKafkaPayload(
+public record UserPayload(
         Long userId,
         Long telegramId,
         String login,

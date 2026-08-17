@@ -7,6 +7,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
 import ru.haritonenko.bookingservice.domain.exception.BookingAvailabilityException;
 import ru.haritonenko.bookingservice.domain.exception.BookingHoldFailedException;
+import ru.haritonenko.bookingservice.domain.exception.BookingNotFoundException;
 import ru.haritonenko.bookingservice.domain.exception.IllegalBookingStateException;
 import ru.haritonenko.bookingservice.domain.service.BookingInventoryService;
 import ru.haritonenko.bookingservice.domain.service.price.BookingPricingService;
@@ -19,6 +20,7 @@ import ru.haritonenko.bookingservice.tasks.domain.async.status.TaskExecutionStat
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -73,6 +75,7 @@ public class AsyncBookingTaskProcessor {
 
                 if (!booking.getCheckOutDate().isAfter(booking.getCheckInDate())) {
                     bookingTaskStateService.markBookingFailed(bookingId, "Check out date must be after check in date");
+
                     throw new IllegalBookingStateException(
                             "Booking request validation failed id=%s".formatted(bookingId)
                     );
@@ -94,7 +97,7 @@ public class AsyncBookingTaskProcessor {
             if (stepAtStart == ProcessingStep.CHECK_AVAILABILITY) {
                 CompletableFuture<Void> eventChain = CompletableFuture
                         .supplyAsync(() -> {
-                            BookingEntity booking = bookingTaskStateService.findBookingEntity(bookingId);
+                            BookingEntity booking = findBookingEntity(task);
                             log.info("Checking booking availability: bookingId={}, taskId={}", bookingId, task.getId());
                             return bookingInventoryService.isAvailable(booking);
                         }, externalHttpThreadPool)
@@ -147,7 +150,7 @@ public class AsyncBookingTaskProcessor {
             }
 
             if (stepAtStart == ProcessingStep.CREATE_HOLD) {
-                BigDecimal priceAmount = bookingTaskStateService.findBookingEntity(bookingId).getPriceAmount();
+                BigDecimal priceAmount = findBookingEntity(task).getPriceAmount();
                 getCreateHoldFuture(task, priceAmount)
                         .thenCompose(ignore -> getSaveBookingFuture(task))
                         .get();
@@ -193,7 +196,7 @@ public class AsyncBookingTaskProcessor {
     private CompletableFuture<BigDecimal> getCalculatePriceFuture(AsyncBookingTaskEntity task) {
         return CompletableFuture
                 .supplyAsync(() -> {
-                    BookingEntity booking = bookingTaskStateService.findBookingEntity(task.getBookingId());
+                    BookingEntity booking = findBookingEntity(task);
                     log.info("Calculating booking price: bookingId={}, taskId={}", task.getBookingId(), task.getId());
                     return bookingPricingService.calculatePrice(booking);
                 }, externalHttpThreadPool)
@@ -222,7 +225,7 @@ public class AsyncBookingTaskProcessor {
     private CompletableFuture<Void> getCreateHoldFuture(AsyncBookingTaskEntity task, BigDecimal priceAmount) {
         return CompletableFuture
                 .supplyAsync(() -> {
-                    BookingEntity booking = bookingTaskStateService.findBookingEntity(task.getBookingId());
+                    BookingEntity booking = findBookingEntity(task);
                     return bookingInventoryService.getTotalUnitsFromRoomCategory(booking.getRoomCategoryId());
                 }, externalHttpThreadPool)
                 .orTimeout(externalCallTimeoutMillis(), TimeUnit.MILLISECONDS)
@@ -260,9 +263,10 @@ public class AsyncBookingTaskProcessor {
     private CompletableFuture<Void> getSaveBookingFuture(AsyncBookingTaskEntity task) {
         return CompletableFuture
                 .runAsync(() -> transactionTemplate.executeWithoutResult(status -> {
-                    BookingEntity booking = bookingTaskStateService.findBookingEntity(task.getBookingId());
+                    BookingEntity booking = findBookingEntity(task);
                     log.info("Finalizing booking persistence: bookingId={}, taskId={}", task.getBookingId(), task.getId());
                     if (booking.getPriceAmount() == null || booking.getHoldExpiresAt() == null) {
+                        log.warn("Illegal booking state. Impossible to save booking with id={}", booking.getId());
                         throw new IllegalBookingStateException(
                                 "Booking is not fully prepared for hold id=%s".formatted(booking.getId())
                         );
@@ -303,5 +307,15 @@ public class AsyncBookingTaskProcessor {
             current = current.getCause();
         }
         return current;
+    }
+
+    private BookingEntity findBookingEntity(AsyncBookingTaskEntity task) {
+        UUID bookingId = task.getBookingId();
+        BookingEntity booking = bookingTaskStateService.findBookingEntity(bookingId);
+        if (booking == null) {
+            log.warn("Booking not found for task processing: bookingId={}", bookingId);
+            throw new BookingNotFoundException("Booking not found for task processing");
+        }
+        return booking;
     }
 }

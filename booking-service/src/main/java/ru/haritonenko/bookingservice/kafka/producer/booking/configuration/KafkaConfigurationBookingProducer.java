@@ -7,8 +7,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
-import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.event.BookingEvent;
+import ru.haritonenko.commonlibs.dto.kafka.payload.BookingPayload;
 
 import java.util.UUID;
 
@@ -17,12 +17,12 @@ import java.util.UUID;
 public class KafkaConfigurationBookingProducer {
 
     @Bean
-    public KafkaTemplate<UUID, BookingKafkaEvent<BookingKafkaPayload>> kafkaBookingTemplate(
+    public KafkaTemplate<UUID, BookingEvent<BookingPayload>> kafkaBookingTemplate(
             KafkaProperties kafkaProperties
     ) {
         var props = kafkaProperties.buildProducerProperties();
 
-        ProducerFactory<UUID, BookingKafkaEvent<BookingKafkaPayload>> producerFactory =
+        ProducerFactory<UUID, BookingEvent<BookingPayload>> producerFactory =
                 new DefaultKafkaProducerFactory<>(props);
 
         return new KafkaTemplate<>(producerFactory);

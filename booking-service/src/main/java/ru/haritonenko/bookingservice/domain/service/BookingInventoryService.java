@@ -31,17 +31,6 @@ public class BookingInventoryService {
     private final BookingRoomInventoryService roomInventoryService;
     private final RedisDistributedLockService lockService;
 
-    public void holdInventory(BookingEntity booking) {
-        if (isNull(booking)) {
-            log.warn("Booking not found to hold inventory");
-            throw new BookingNotFoundException("Booking not found");
-        }
-
-        Long roomCategoryId = booking.getRoomCategoryId();
-        Integer totalUnits = getTotalUnitsFromRoomCategory(roomCategoryId);
-        holdInventory(booking, totalUnits);
-    }
-
     public void holdInventory(BookingEntity booking, Integer totalUnits) {
         if (isNull(booking)) {
             log.warn("Booking not found to hold inventory");

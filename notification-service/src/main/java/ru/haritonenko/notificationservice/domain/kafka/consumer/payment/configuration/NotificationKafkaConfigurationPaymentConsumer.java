@@ -11,8 +11,8 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
-import ru.haritonenko.commonlibs.dto.kafka.event.PaymentKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.event.PaymentEvent;
+import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentPayload;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -31,7 +31,7 @@ public class NotificationKafkaConfigurationPaymentConsumer {
     private String trustedPackages;
 
     @Bean
-    public ConsumerFactory<UUID, PaymentKafkaEvent<PaymentKafkaPayload>> paymentNotificationConsumerFactoryBean() {
+    public ConsumerFactory<UUID, PaymentEvent<PaymentPayload>> paymentNotificationConsumerFactoryBean() {
         Map<String, Object> configs = new HashMap<>();
         configs.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configs.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
@@ -45,10 +45,10 @@ public class NotificationKafkaConfigurationPaymentConsumer {
     }
 
     @Bean(name = "paymentKafkaListenerContainerFactory")
-    public ConcurrentKafkaListenerContainerFactory<UUID, PaymentKafkaEvent<PaymentKafkaPayload>> paymentKafkaListenerContainerFactory(
+    public ConcurrentKafkaListenerContainerFactory<UUID, PaymentEvent<PaymentPayload>> paymentKafkaListenerContainerFactory(
             DefaultErrorHandler notificationKafkaErrorHandler
     ) {
-        ConcurrentKafkaListenerContainerFactory<UUID, PaymentKafkaEvent<PaymentKafkaPayload>> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        ConcurrentKafkaListenerContainerFactory<UUID, PaymentEvent<PaymentPayload>> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(paymentNotificationConsumerFactoryBean());
         factory.setCommonErrorHandler(notificationKafkaErrorHandler);
         return factory;

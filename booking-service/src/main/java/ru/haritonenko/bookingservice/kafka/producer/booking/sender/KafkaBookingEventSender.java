@@ -6,8 +6,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
-import ru.haritonenko.commonlibs.dto.kafka.event.BookingKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.payload.BookingKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.event.BookingEvent;
+import ru.haritonenko.commonlibs.dto.kafka.payload.BookingPayload;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -20,10 +20,10 @@ public class KafkaBookingEventSender {
     @Value("${app.kafka.producer.topics.booking-events}")
     private String topic;
 
-    private final KafkaTemplate<UUID, BookingKafkaEvent<BookingKafkaPayload>> kafkaBookingTemplate;
+    private final KafkaTemplate<UUID, BookingEvent<BookingPayload>> kafkaBookingTemplate;
 
-    public CompletableFuture<SendResult<UUID, BookingKafkaEvent<BookingKafkaPayload>>> sendEvent(
-            BookingKafkaEvent<BookingKafkaPayload> event
+    public CompletableFuture<SendResult<UUID, BookingEvent<BookingPayload>>> sendEvent(
+            BookingEvent<BookingPayload> event
     ) {
         UUID key = event.payload().bookingId();
 
@@ -32,7 +32,7 @@ public class KafkaBookingEventSender {
                 event.eventType(),
                 key);
 
-        CompletableFuture<SendResult<UUID, BookingKafkaEvent<BookingKafkaPayload>>> future =
+        CompletableFuture<SendResult<UUID, BookingEvent<BookingPayload>>> future =
                 kafkaBookingTemplate.send(topic, key, event);
         future
                 .whenComplete((sendResult, ex) -> {

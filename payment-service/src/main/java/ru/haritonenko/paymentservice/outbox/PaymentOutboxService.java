@@ -5,8 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import ru.haritonenko.commonlibs.dto.kafka.event.PaymentKafkaEvent;
-import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentKafkaPayload;
+import ru.haritonenko.commonlibs.dto.kafka.event.PaymentEvent;
+import ru.haritonenko.commonlibs.dto.kafka.payload.PaymentPayload;
 
 import java.time.OffsetDateTime;
 
@@ -18,7 +18,7 @@ public class PaymentOutboxService {
     private final PaymentOutboxRepository repository;
     private final ObjectMapper objectMapper;
 
-    public void save(PaymentKafkaEvent<PaymentKafkaPayload> event) {
+    public void save(PaymentEvent<PaymentPayload> event) {
         try {
             repository.save(PaymentOutboxEntity.builder()
                     .id(event.eventId())
