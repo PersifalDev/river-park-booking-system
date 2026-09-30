@@ -1,0 +1,143 @@
+name: river-park-research
+services:
+  kafka:
+    container_name: river-park-research-kafka
+    ports: !override []
+  prometheus:
+    container_name: river-park-research-prometheus
+    image: prom/prometheus:v3.5.0
+    ports: !override
+      - "127.0.0.1:19090:9090"
+    profiles: !override []
+    volumes: !override
+      - ./research/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - infra_prometheus_data:/prometheus
+  grafana:
+    container_name: river-park-research-grafana
+    image: grafana/grafana:12.1.0
+    ports: !override
+      - "127.0.0.1:13000:3000"
+    profiles: !override []
+    depends_on: !override ["prometheus"]
+  loki:
+    container_name: river-park-research-loki
+    ports: !override []
+  tempo:
+    container_name: river-park-research-tempo
+    ports: !override []
+  alloy:
+    container_name: river-park-research-alloy
+    ports: !override []
+  kafka-exporter:
+    container_name: river-park-research-kafka-exporter
+    image: danielqsj/kafka-exporter:v1.9.0
+    ports: !override
+      - "127.0.0.1:19308:9308"
+    profiles: !override []
+  cadvisor:
+    container_name: river-park-research-cadvisor
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    ports: !override
+      - "127.0.0.1:18090:8080"
+    profiles: !override []
+  user-postgres:
+    container_name: river-park-research-user-postgres
+    image: postgres:16.10
+    ports: !override []
+  catalog-postgres:
+    container_name: river-park-research-catalog-postgres
+    image: postgres:16.10
+    ports: !override []
+  booking-postgres:
+    container_name: river-park-research-booking-postgres
+    image: postgres:16.10
+    ports: !override []
+  payment-postgres:
+    container_name: river-park-research-payment-postgres
+    image: postgres:16.10
+    ports: !override []
+  notification-postgres:
+    container_name: river-park-research-notification-postgres
+    image: postgres:16.10
+    ports: !override []
+  catalog-service-redis:
+    container_name: river-park-research-catalog-service-redis
+    image: redis:7.2.10
+    ports: !override []
+  notification-service-redis:
+    container_name: river-park-research-notification-service-redis
+    image: redis:7.2.10
+    ports: !override []
+  user-service:
+    container_name: river-park-research-user-service
+    ports: !override
+      - "127.0.0.1:18083:8083"
+    env_file: !override [".env.research.example"]
+    environment:
+      MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILES_HISTOGRAM_HTTP_SERVER_REQUESTS: "true"
+      MANAGEMENT_METRICS_DISTRIBUTION_MINIMUM_EXPECTED_VALUE_HTTP_SERVER_REQUESTS: "1ms"
+      MANAGEMENT_METRICS_DISTRIBUTION_MAXIMUM_EXPECTED_VALUE_HTTP_SERVER_REQUESTS: "60s"
+  catalog-service:
+    container_name: river-park-research-catalog-service
+    ports: !override
+      - "127.0.0.1:18085:8085"
+    env_file: !override [".env.research.example"]
+    volumes: !override []
+    environment:
+      MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILES_HISTOGRAM_HTTP_SERVER_REQUESTS: "true"
+      MANAGEMENT_METRICS_DISTRIBUTION_MINIMUM_EXPECTED_VALUE_HTTP_SERVER_REQUESTS: "1ms"
+      MANAGEMENT_METRICS_DISTRIBUTION_MAXIMUM_EXPECTED_VALUE_HTTP_SERVER_REQUESTS: "60s"
+  booking-service:
+    container_name: river-park-research-booking-service
+    ports: !override
+      - "127.0.0.1:18084:8084"
+    env_file: !override [".env.research.example"]
+    environment:
+      MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILES_HISTOGRAM_HTTP_SERVER_REQUESTS: "true"
+      MANAGEMENT_METRICS_DISTRIBUTION_MINIMUM_EXPECTED_VALUE_HTTP_SERVER_REQUESTS: "1ms"
+      MANAGEMENT_METRICS_DISTRIBUTION_MAXIMUM_EXPECTED_VALUE_HTTP_SERVER_REQUESTS: "60s"
+  payment-service:
+    container_name: river-park-research-payment-service
+    ports: !override
+      - "127.0.0.1:18087:8087"
+    env_file: !override [".env.research.example"]
+    environment:
+      MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILES_HISTOGRAM_HTTP_SERVER_REQUESTS: "true"
+      MANAGEMENT_METRICS_DISTRIBUTION_MINIMUM_EXPECTED_VALUE_HTTP_SERVER_REQUESTS: "1ms"
+      MANAGEMENT_METRICS_DISTRIBUTION_MAXIMUM_EXPECTED_VALUE_HTTP_SERVER_REQUESTS: "60s"
+  notification-service:
+    container_name: river-park-research-notification-service
+    ports: !override
+      - "127.0.0.1:18088:8088"
+    env_file: !override [".env.research.example"]
+    environment:
+      MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILES_HISTOGRAM_HTTP_SERVER_REQUESTS: "true"
+      MANAGEMENT_METRICS_DISTRIBUTION_MINIMUM_EXPECTED_VALUE_HTTP_SERVER_REQUESTS: "1ms"
+      MANAGEMENT_METRICS_DISTRIBUTION_MAXIMUM_EXPECTED_VALUE_HTTP_SERVER_REQUESTS: "60s"
+  telegram-bot:
+    container_name: river-park-research-telegram-bot
+    ports: !override []
+    env_file: !override [".env.research.example"]
+volumes:
+  infra_prometheus_data:
+    name: river-park-research-${RESEARCH_DATASET_ID:-pilot}-infra_prometheus_data
+  infra_grafana_data:
+    name: river-park-research-${RESEARCH_DATASET_ID:-pilot}-infra_grafana_data
+  infra_loki_data:
+    name: river-park-research-${RESEARCH_DATASET_ID:-pilot}-infra_loki_data
+  infra_tempo_data:
+    name: river-park-research-${RESEARCH_DATASET_ID:-pilot}-infra_tempo_data
+  infra_user_postgres_data:
+    name: river-park-research-${RESEARCH_DATASET_ID:-pilot}-infra_user_postgres_data
+  infra_catalog_postgres_data:
+    name: river-park-research-${RESEARCH_DATASET_ID:-pilot}-infra_catalog_postgres_data
+  infra_booking_postgres_data:
+    name: river-park-research-${RESEARCH_DATASET_ID:-pilot}-infra_booking_postgres_data
+  infra_payment_postgres_data:
+    name: river-park-research-${RESEARCH_DATASET_ID:-pilot}-infra_payment_postgres_data
+  infra_notification_postgres_data:
+    name: river-park-research-${RESEARCH_DATASET_ID:-pilot}-infra_notification_postgres_data
+  infra_catalog_redis_data:
+    name: river-park-research-${RESEARCH_DATASET_ID:-pilot}-infra_catalog_redis_data
+  infra_notification_redis_data:
+    name: river-park-research-${RESEARCH_DATASET_ID:-pilot}-infra_notification_redis_data
