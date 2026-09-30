@@ -9,6 +9,7 @@ import ru.haritonenko.bookingservice.domain.exception.BookingNotFoundException;
 import ru.haritonenko.bookingservice.domain.event.BookingEventFactory;
 import ru.haritonenko.bookingservice.domain.service.BookingEventDeliveryService;
 import ru.haritonenko.bookingservice.domain.status.BookingStatus;
+import ru.haritonenko.bookingservice.observability.BookingMetrics;
 import ru.haritonenko.commonlibs.dto.kafka.event.BookingEvent;
 import ru.haritonenko.commonlibs.dto.kafka.event.type.BookingEventType;
 import ru.haritonenko.commonlibs.dto.kafka.payload.BookingPayload;
@@ -27,6 +28,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 class BookingTaskStateServiceTest {
 
@@ -34,12 +37,15 @@ class BookingTaskStateServiceTest {
     private final BookingEventDeliveryService eventDeliveryService = mock(BookingEventDeliveryService.class);
     private final BookingEventFactory eventFactory = mock(BookingEventFactory.class);
     private final BookingCacheService cacheService = mock(BookingCacheService.class);
+    private final BookingMetrics metrics = mock(BookingMetrics.class);
 
     private final BookingTaskStateService service =
-            new BookingTaskStateService(bookingRepository, eventDeliveryService, eventFactory, cacheService);
+            new BookingTaskStateService(bookingRepository, eventDeliveryService, eventFactory, cacheService, metrics);
 
     @BeforeEach
     void setUp() {
+        when(bookingRepository.findByIdForUpdate(any(UUID.class)))
+                .thenAnswer(invocation -> bookingRepository.findById(invocation.getArgument(0)));
         when(eventFactory.bookingEvent(any(BookingEntity.class), any(BookingEventType.class)))
                 .thenAnswer(invocation -> {
                     BookingEntity booking = invocation.getArgument(0);
@@ -55,6 +61,29 @@ class BookingTaskStateServiceTest {
                                     .build())
                             .build();
                 });
+    }
+
+    @Test
+    void repeatedHoldShouldNotRepublishOrCountTransitionTwice() {
+        BookingEntity booking = booking(BookingStatus.CREATED);
+        when(bookingRepository.findById(booking.getId())).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var expiresAt = OffsetDateTime.now().plusMinutes(15);
+        service.setBookingHold(booking.getId(), BigDecimal.TEN, expiresAt);
+        service.setBookingHold(booking.getId(), BigDecimal.TEN, expiresAt);
+        verify(eventDeliveryService, times(1)).submitForDelivery(any(BookingEvent.class));
+        verify(metrics, times(1)).record(BookingStatus.HOLD);
+    }
+
+    @Test
+    void failedProcessingShouldNotOverwriteCancellation() {
+        BookingEntity booking = booking(BookingStatus.CANCELLED);
+        when(bookingRepository.findById(booking.getId())).thenReturn(Optional.of(booking));
+        service.markBookingFailed(booking.getId(), "late worker failure");
+        assertEquals(BookingStatus.CANCELLED, booking.getStatus());
+        verifyNoInteractions(eventDeliveryService, metrics);
+        assertThrows(ru.haritonenko.bookingservice.domain.exception.IllegalBookingStateException.class,
+                () -> service.setBookingHold(booking.getId(), BigDecimal.TEN, OffsetDateTime.now()));
     }
 
     @Test

@@ -32,6 +32,9 @@ management:
       probes:
         enabled: true
   metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: ${HTTP_LATENCY_HISTOGRAM_ENABLED:true}
     tags:
       application: ${spring.application.name}
   tracing:

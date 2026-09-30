@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.support.TransactionTemplate;
 import ru.haritonenko.bookingservice.api.dto.BookingRequestDto;
 import ru.haritonenko.bookingservice.domain.Booking;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
@@ -19,6 +20,7 @@ import ru.haritonenko.bookingservice.kafka.producer.booking.sender.KafkaBookingE
 import ru.haritonenko.bookingservice.kafka.producer.notification.sender.KafkaNotificationEventSender;
 import ru.haritonenko.bookingservice.tasks.domain.async.db.repository.AsyncBookingTaskEntityRepository;
 import ru.haritonenko.bookingservice.tasks.domain.async.dispatcher.AsyncBookingTaskDispatcher;
+import ru.haritonenko.bookingservice.tasks.domain.async.service.BookingTaskStateService;
 import ru.haritonenko.bookingservice.tasks.domain.async.status.AsyncBookingTaskStatus;
 import ru.haritonenko.bookingservice.tasks.domain.async.status.ProcessingStep;
 import ru.haritonenko.commonlibs.dto.category.RoomCategoryResponseDto;
@@ -29,11 +31,15 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
@@ -43,6 +49,12 @@ class BookingServiceIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private BookingService bookingService;
+
+    @Autowired
+    private BookingTaskStateService taskStateService;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     @Autowired
     private BookingEntityRepository bookingRepository;
@@ -199,6 +211,46 @@ class BookingServiceIntegrationTest extends AbstractIntegrationTest {
                 BookingNotFoundException.class,
                 () -> bookingService.cancelBookingByUuidAndUserId(booking.getId(), 11L)
         );
+    }
+
+    @Test
+    void shouldSerializeHoldAndCancellation() throws Exception {
+        BookingEntity saved = bookingRepository.saveAndFlush(bookingEntity(BookingStatus.CREATED));
+        CountDownLatch heldInTransaction = new CountDownLatch(1);
+        CountDownLatch commitHold = new CountDownLatch(1);
+        var executor = Executors.newFixedThreadPool(2);
+        try {
+            var hold = executor.submit(() -> transactionTemplate.executeWithoutResult(tx -> {
+                taskStateService.setBookingHold(saved.getId(), BigDecimal.TEN, OffsetDateTime.now().plusMinutes(15));
+                heldInTransaction.countDown();
+                try {
+                    if (!commitHold.await(10, TimeUnit.SECONDS)) { throw new IllegalStateException("Hold barrier timed out"); }
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(exception);
+                }
+            }));
+            assertTrue(heldInTransaction.await(10, TimeUnit.SECONDS));
+            var cancel = executor.submit(() -> bookingService.cancelBookingByUuidAndUserId(saved.getId(), 10L));
+            commitHold.countDown();
+            hold.get(10, TimeUnit.SECONDS);
+            cancel.get(10, TimeUnit.SECONDS);
+            assertEquals(BookingStatus.CANCELLED, bookingRepository.findById(saved.getId()).orElseThrow().getStatus());
+            verify(bookingInventoryService).releaseHeldInventory(any());
+        } finally {
+            commitHold.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void lateFailureShouldPreserveCancelledBooking() {
+        BookingEntity saved = bookingRepository.saveAndFlush(bookingEntity(BookingStatus.CREATED));
+        bookingService.cancelBookingByUuidAndUserId(saved.getId(), 10L);
+        taskStateService.markBookingFailed(saved.getId(), "late validation error");
+        assertThrows(IllegalBookingStateException.class,
+                () -> taskStateService.setBookingHold(saved.getId(), BigDecimal.TEN, OffsetDateTime.now().plusMinutes(15)));
+        assertEquals(BookingStatus.CANCELLED, bookingRepository.findById(saved.getId()).orElseThrow().getStatus());
     }
 
     private BookingRequestDto request() {

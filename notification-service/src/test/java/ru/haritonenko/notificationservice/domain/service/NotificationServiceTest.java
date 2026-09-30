@@ -5,11 +5,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import ru.haritonenko.commonlibs.dto.kafka.event.type.NotificationEventType;
 import ru.haritonenko.commonlibs.notification.NotificationStatus;
 import ru.haritonenko.notificationservice.cache.NotificationCacheService;
 import ru.haritonenko.notificationservice.domain.db.entity.NotificationEntity;
 import ru.haritonenko.notificationservice.domain.db.repository.NotificationEntityRepository;
+import ru.haritonenko.notificationservice.api.dto.filter.NotificationPageFilter;
 
 import java.util.List;
 import java.util.Optional;
@@ -19,9 +21,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 class NotificationServiceTest {
 
@@ -36,6 +40,18 @@ class NotificationServiceTest {
         service = new NotificationService(repository, cacheService);
         ReflectionTestUtils.setField(service, "defaultPageNumber", 0);
         ReflectionTestUtils.setField(service, "defaultPageSize", 10);
+    }
+
+    @Test
+    void shouldScopeBookingFilterToAuthenticatedOwner() {
+        var filter = new NotificationPageFilter();
+        var bookingId = UUID.randomUUID();
+        filter.setBookingId(bookingId);
+        var expected = new PageImpl<NotificationEntity>(List.of());
+        when(repository.findAllByUserIdAndBookingIdOrderByCreatedAtDesc(eq(10L), eq(bookingId), any()))
+                .thenReturn(expected);
+        assertEquals(expected, service.getAllNotificationsByUserId(10L, filter));
+        verify(repository).findAllByUserIdAndBookingIdOrderByCreatedAtDesc(eq(10L), eq(bookingId), any());
     }
 
     @Test
@@ -93,6 +109,22 @@ class NotificationServiceTest {
         assertTrue(second.isRead());
         verify(repository).save(first);
         verify(repository).save(second);
+    }
+
+    @Test
+    void shouldEvictNotificationPagesOnlyAfterCommit() {
+        when(repository.save(any(NotificationEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        TransactionSynchronizationManager.initSynchronization();
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            service.createNotification(10L, UUID.randomUUID(), null, "Title", "Message", NotificationEventType.PAYMENT_PENDING);
+            verifyNoInteractions(cacheService);
+            TransactionSynchronizationManager.getSynchronizations().forEach(synchronization -> synchronization.afterCommit());
+            verify(cacheService).evictUserPages(10L);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
     }
 
     private NotificationEntity notification(Long userId, boolean read) {

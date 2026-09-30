@@ -41,7 +41,8 @@ public class NotificationCacheService {
     private String pageKey(Long userId, NotificationPageFilter pageFilter) {
         return userId
                 + ":page=" + (pageFilter == null || pageFilter.getPageNumber() == null ? "default" : pageFilter.getPageNumber())
-                + ":size=" + (pageFilter == null || pageFilter.getPageSize() == null ? "default" : pageFilter.getPageSize());
+                + ":size=" + (pageFilter == null || pageFilter.getPageSize() == null ? "default" : pageFilter.getPageSize())
+                + ":booking=" + (pageFilter == null || pageFilter.getBookingId() == null ? "all" : pageFilter.getBookingId());
     }
 
     private void evictIndexedKeys(String cacheName, Set<String> keys) {

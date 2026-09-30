@@ -29,6 +29,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 class AsyncBookingTaskDispatcherTest {
 
@@ -66,6 +68,15 @@ class AsyncBookingTaskDispatcherTest {
     @AfterEach
     void tearDown() {
         executorService.shutdownNow();
+    }
+
+    @Test
+    void shouldPreserveTaskForRetryWhenExecutorRejectsSubmission() {
+        executorService.shutdown();
+        assertDoesNotThrow(() -> dispatcher.dispatchTask(task(0)));
+        verify(taskProcessor, never()).processTask(any());
+        verify(taskRepository).save(argThat(saved -> saved.getStatus() == AsyncBookingTaskStatus.FAILED_RETRYABLE
+                && saved.getNextAttemptAt() != null));
     }
 
     @Test

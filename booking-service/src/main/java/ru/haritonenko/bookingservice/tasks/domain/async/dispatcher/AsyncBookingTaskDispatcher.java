@@ -15,6 +15,7 @@ import ru.haritonenko.bookingservice.tasks.domain.exception.IllegalArgumentAsync
 import java.time.OffsetDateTime;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 
 @Slf4j
 @Service
@@ -49,9 +50,13 @@ public class AsyncBookingTaskDispatcher {
                 task.getStatus()
         );
         AsyncBookingTaskEntity inProgressTask = markInProgress(task);
-        CompletableFuture
+        try {
+            CompletableFuture
                 .runAsync(() -> executeMarkedTask(inProgressTask), taskDispatcherThreadPool)
                 .exceptionally(ex -> handleExceptionInTaskHappened(inProgressTask, ex));
+        } catch (RejectedExecutionException ex) {
+            handleExceptionInTaskHappened(inProgressTask, ex);
+        }
     }
 
     public void executeSynchronously(AsyncBookingTaskEntity task) {

@@ -1,8 +1,6 @@
-param(
-    [Parameter(Mandatory = $true)]
-    [string]$Token,
-    [Parameter(Mandatory = $true)]
-    [string]$CategoryIds,
+﻿param(
+    [string]$Token = '',
+    [string]$CategoryIds = '1,2,3',
     [int]$Repeats = 5,
     [int]$TargetRate = 20,
     [string]$Duration = "60s",

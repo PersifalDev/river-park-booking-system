@@ -6,11 +6,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import ru.haritonenko.commonlibs.utils.pages.PageFilter;
+import java.util.UUID;
 
 @Getter
 @Setter
 @NoArgsConstructor
 public class NotificationPageFilter implements PageFilter {
+
+    private UUID bookingId;
 
     @Min(value = 0, message = "Min number of page is 0")
     private Integer pageNumber = 0;

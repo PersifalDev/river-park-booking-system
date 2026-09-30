@@ -13,6 +13,7 @@ import ru.haritonenko.commonlibs.notification.NotificationStatus;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import java.nio.charset.StandardCharsets;
 
 @Component
 public class BookingEventFactory {
@@ -22,7 +23,9 @@ public class BookingEventFactory {
 
     public BookingEvent<BookingPayload> bookingEvent(BookingEntity booking, BookingEventType type) {
         return BookingEvent.<BookingPayload>builder()
-                .eventId(UUID.randomUUID())
+                .eventId(type == BookingEventType.BOOKING_HOLD_CREATED
+                        ? UUID.nameUUIDFromBytes(("booking-hold:" + booking.getId()).getBytes(StandardCharsets.UTF_8))
+                        : UUID.randomUUID())
                 .correlationId(booking.getId().toString())
                 .source(sourceService)
                 .eventType(type)

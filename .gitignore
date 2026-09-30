@@ -2,3 +2,5 @@
 .idea/
 test-scripts/results/
 test-scripts/work-modes/results/
+test-scripts/research/results/
+infra/.env.research

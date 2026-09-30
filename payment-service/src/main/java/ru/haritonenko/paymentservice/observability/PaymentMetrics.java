@@ -3,6 +3,8 @@ package ru.haritonenko.paymentservice.observability;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import ru.haritonenko.paymentservice.domain.status.PaymentStatus;
 
 import java.util.EnumMap;
@@ -31,7 +33,17 @@ public class PaymentMetrics {
     public void record(PaymentStatus status) {
         Counter counter = paymentEvents.get(status);
         if (counter != null) {
-            counter.increment();
+            if (TransactionSynchronizationManager.isSynchronizationActive()
+                    && TransactionSynchronizationManager.isActualTransactionActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        counter.increment();
+                    }
+                });
+            } else {
+                counter.increment();
+            }
         }
     }
 

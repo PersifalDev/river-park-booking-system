@@ -3,6 +3,7 @@ package ru.haritonenko.bookingservice;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.FunctionCounter;
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -66,7 +67,7 @@ public class CommonApplicationConfig {
                 0L,
                 TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(properties.getDispatcher().getQueueCapacity()),
-                new ThreadPoolExecutor.CallerRunsPolicy()
+                new ThreadPoolExecutor.AbortPolicy()
         );
         return ExecutorServiceMetrics.monitor(
                 meterRegistry,
@@ -85,47 +86,35 @@ public class CommonApplicationConfig {
         Gauge.builder("booking_external_http_virtual_threads_enabled", () -> virtualThreads ? 1 : 0)
                 .description("Whether booking external HTTP executor uses virtual threads")
                 .register(meterRegistry);
-        ExecutorService executor = virtualThreads
-                ? virtualExternalHttpExecutor(properties, meterRegistry)
-                : new ThreadPoolExecutor(
-                        properties.getExternalHttp().getPlatform().getThreadPoolSize(),
-                        properties.getExternalHttp().getPlatform().getThreadPoolSize(),
-                        0L,
-                        TimeUnit.MILLISECONDS,
-                        new ArrayBlockingQueue<>(properties.getExternalHttp().getPlatform().getQueueCapacity()),
-                        new ThreadPoolExecutor.CallerRunsPolicy()
-                );
-        return ExecutorServiceMetrics.monitor(
-                meterRegistry,
-                executor,
-                "booking-external-http",
-                Tags.of("thread.type", virtualThreads ? "virtual" : "platform")
-        );
-    }
-
-    private ExecutorService virtualExternalHttpExecutor(
-            AsyncBookingTaskDispatcherProperties properties,
-            MeterRegistry meterRegistry
-    ) {
+        String threadType = virtualThreads ? "virtual" : "platform";
         var executor = new ConcurrencyLimitedExecutorService(
-                Executors.newVirtualThreadPerTaskExecutor(),
-                properties.getExternalHttp().getVirtualMaxConcurrency()
+                virtualThreads ? Executors.newVirtualThreadPerTaskExecutor()
+                        : Executors.newFixedThreadPool(properties.getExternalHttp().getPlatform().getThreadPoolSize()),
+                virtualThreads ? properties.getExternalHttp().getVirtualMaxConcurrency()
+                        : properties.getExternalHttp().getPlatform().getThreadPoolSize(),
+                properties.getExternalHttp().getPlatform().getQueueCapacity()
         );
         Gauge.builder("booking_external_http_active_tasks", executor,
                         ConcurrencyLimitedExecutorService::getActiveTaskCount)
-                .description("Active tasks in the virtual external HTTP executor")
-                .tag("thread.type", "virtual")
+                .description("Active tasks in the external HTTP executor")
+                .tag("thread.type", threadType)
                 .register(meterRegistry);
         Gauge.builder("booking_external_http_waiting_tasks", executor,
                         ConcurrencyLimitedExecutorService::getWaitingTaskCount)
-                .description("Tasks waiting for a virtual external HTTP concurrency permit")
-                .tag("thread.type", "virtual")
+                .description("Admitted tasks waiting for execution")
+                .tag("thread.type", threadType)
                 .register(meterRegistry);
         Gauge.builder("booking_external_http_max_concurrency", executor,
                         ConcurrencyLimitedExecutorService::getMaxConcurrency)
                 .description("Maximum external HTTP task concurrency")
-                .tag("thread.type", "virtual")
+                .tag("thread.type", threadType)
                 .register(meterRegistry);
+        Gauge.builder("booking_external_http_max_admitted_tasks", executor,
+                        ConcurrencyLimitedExecutorService::getMaxAdmittedTasks)
+                .tag("thread.type", threadType).register(meterRegistry);
+        FunctionCounter.builder("booking_external_http_rejected_tasks", executor,
+                        ConcurrencyLimitedExecutorService::getRejectedTaskCount)
+                .tag("thread.type", threadType).register(meterRegistry);
         return executor;
     }
 }

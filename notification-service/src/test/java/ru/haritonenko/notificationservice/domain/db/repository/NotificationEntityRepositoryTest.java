@@ -59,4 +59,24 @@ class NotificationEntityRepositoryTest {
                 .read(read)
                 .build();
     }
+
+    @Test
+    void shouldFilterByOwnerAndBookingAndUnreadState() {
+        UUID bookingId = UUID.randomUUID();
+        NotificationEntity unread = notification(10L, false);
+        NotificationEntity read = notification(10L, true);
+        NotificationEntity stranger = notification(20L, false);
+        unread.setBookingId(bookingId);
+        read.setBookingId(bookingId);
+        stranger.setBookingId(bookingId);
+        repository.saveAll(java.util.List.of(unread, read, stranger, notification(10L, false)));
+        repository.flush();
+
+        var all = repository.findAllByUserIdAndBookingIdOrderByCreatedAtDesc(10L, bookingId, PageRequest.of(0, 10));
+        var onlyUnread = repository.findAllByUserIdAndBookingIdAndReadFalseOrderByCreatedAtDesc(10L, bookingId, PageRequest.of(0, 10));
+
+        assertEquals(2, all.getTotalElements());
+        assertEquals(1, onlyUnread.getTotalElements());
+        assertEquals(unread.getId(), onlyUnread.getContent().getFirst().getId());
+    }
 }

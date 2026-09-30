@@ -159,6 +159,8 @@ public class BookingService {
                     .nextAttemptAt(now)
                     .build());
 
+            bookingMetrics.record(BookingStatus.CREATED);
+
             log.info("Booking draft and async task created: bookingId={}, taskId={}", savedBookingId, task.getId());
 
             return new BookingCreationResult(savedBooking.getId(), task.getId());
@@ -188,7 +190,6 @@ public class BookingService {
 
         cacheService.evictUserPages(userId);
 
-        bookingMetrics.record(BookingStatus.CREATED);
         return mapper.toDomain(foundBooking);
     }
 
@@ -248,7 +249,7 @@ public class BookingService {
         log.info("Cancelling booking: uuid={}, userId={}", uuid, authUserId);
 
         BookingEntity savedBooking = Optional.ofNullable(transactionTemplate.execute(status -> {
-            BookingEntity booking = findBookingEntityByIdAndUserId(uuid, authUserId);
+            BookingEntity booking = findBookingEntityByIdAndUserIdForUpdate(uuid, authUserId);
 
             if (INACTIVE_STATUSES.contains(booking.getStatus())) {
                 log.warn("Booking already inactive and can not be cancelled: uuid={}, userId={}, status={}",
@@ -294,7 +295,7 @@ public class BookingService {
     @Transactional
     public Booking confirmBookingByUuidAndUserId(UUID uuid, Long authUserId) {
         log.info("Confirming booking: uuid={}, userId={}", uuid, authUserId);
-        BookingEntity booking = findBookingEntityByIdAndUserId(uuid, authUserId);
+        BookingEntity booking = findBookingEntityByIdAndUserIdForUpdate(uuid, authUserId);
 
         if (booking.getStatus() != BookingStatus.HOLD) {
             log.warn("Booking must be in HOLD status for confirmation: uuid={}, userId={}, status={}",
@@ -457,7 +458,9 @@ public class BookingService {
     @Transactional
     public void markBookingFailed(UUID bookingId, String reason) {
         log.warn("Marking booking as failed: bookingId={}, reason={}", bookingId, reason);
-        BookingEntity booking = findBookingEntity(bookingId);
+        BookingEntity booking = findBookingEntityForUpdate(bookingId);
+        if (booking.getStatus() != BookingStatus.CREATED && booking.getStatus() != BookingStatus.HOLD) { return; }
+        if (booking.getStatus() == BookingStatus.HOLD) { bookingInventoryService.releaseHeldInventory(booking); }
         booking.setStatus(BookingStatus.FAILED);
         booking.setCancellationReason(reason);
         booking.setHoldExpiresAt(null);
@@ -473,7 +476,7 @@ public class BookingService {
     @Transactional
     public void expireBooking(UUID bookingId) {
         log.info("Expiring booking: bookingId={}", bookingId);
-        BookingEntity booking = findBookingEntity(bookingId);
+        BookingEntity booking = findBookingEntityForUpdate(bookingId);
 
         if (booking.getStatus() != BookingStatus.HOLD) {
             log.warn("Booking status is not HOLD, expiration skipped: bookingId={}, status={}", bookingId, booking.getStatus());
@@ -508,7 +511,7 @@ public class BookingService {
     @Transactional
     public void expireCreatedBooking(UUID bookingId) {
         log.info("Expiring created booking: bookingId={}", bookingId);
-        BookingEntity booking = findBookingEntity(bookingId);
+        BookingEntity booking = findBookingEntityForUpdate(bookingId);
 
         if (booking.getStatus() != BookingStatus.CREATED) {
             log.warn("Booking status is not CREATED, created expiration skipped: bookingId={}, status={}", bookingId, booking.getStatus());
@@ -545,7 +548,7 @@ public class BookingService {
     @Transactional
     public void releaseInventoryAfterCheckOut(UUID bookingId) {
         log.info("Releasing inventory after check-out: bookingId={}", bookingId);
-        BookingEntity booking = findBookingEntity(bookingId);
+        BookingEntity booking = findBookingEntityForUpdate(bookingId);
         if (booking.getStatus() != BookingStatus.CONFIRMED || booking.getInventoryReleasedAt() != null) {
             return;
         }
@@ -566,7 +569,7 @@ public class BookingService {
 
     @Transactional
     public void markHoldReminderSent(UUID bookingId, OffsetDateTime sentAt) {
-        BookingEntity booking = findBookingEntity(bookingId);
+        BookingEntity booking = findBookingEntityForUpdate(bookingId);
         booking.setHoldReminderSentAt(sentAt);
         bookingRepository.save(booking);
         evictBookingCaches(booking);
@@ -574,7 +577,7 @@ public class BookingService {
 
     @Transactional
     public void markCheckInReminderSent(UUID bookingId, OffsetDateTime sentAt) {
-        BookingEntity booking = findBookingEntity(bookingId);
+        BookingEntity booking = findBookingEntityForUpdate(bookingId);
         booking.setCheckInReminderSentAt(sentAt);
         bookingRepository.save(booking);
         evictBookingCaches(booking);
@@ -642,6 +645,16 @@ public class BookingService {
                     log.warn("Booking not found: uuid={}, userId={}", uuid, authUserId);
                     return new BookingNotFoundException("Booking not found uuid=%s userId=%s".formatted(uuid, authUserId));
                 });
+    }
+
+    private BookingEntity findBookingEntityByIdAndUserIdForUpdate(UUID uuid, Long authUserId) {
+        return bookingRepository.findByIdAndUserIdForUpdate(uuid, authUserId)
+                .orElseThrow(() -> new BookingNotFoundException("Booking not found uuid=%s userId=%s".formatted(uuid, authUserId)));
+    }
+
+    private BookingEntity findBookingEntityForUpdate(UUID bookingId) {
+        return bookingRepository.findByIdForUpdate(bookingId)
+                .orElseThrow(() -> new BookingNotFoundException("Booking not found id=" + bookingId));
     }
 
     private String normalizePromoCode(String promoCode) {

@@ -1,6 +1,8 @@
 package ru.haritonenko.bookingservice.tasks.domain.async.dispatcher.executor;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -8,12 +10,75 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.Future;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ConcurrencyLimitedExecutorServiceTest {
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldApplySameAdmissionLimitToBothThreadTypes(boolean virtual) throws Exception {
+        var executor = new ConcurrencyLimitedExecutorService(virtual
+                ? Executors.newVirtualThreadPerTaskExecutor() : Executors.newFixedThreadPool(2), 2, 1);
+        var release = new CountDownLatch(1);
+        List<Future<?>> tasks = new ArrayList<>();
+        try {
+            for (int i = 0; i < 3; i++) {
+                tasks.add(executor.submit(() -> {
+                    try {
+                        release.await();
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                    }
+                }));
+            }
+            await(() -> executor.getActiveTaskCount() == 2 && executor.getWaitingTaskCount() == 1,
+                    Duration.ofSeconds(5));
+            assertThrows(RejectedExecutionException.class, () -> executor.execute(() -> {}));
+            assertEquals(1, executor.getRejectedTaskCount());
+            release.countDown();
+            for (var task : tasks) {
+                task.get(5, TimeUnit.SECONDS);
+            }
+            await(() -> executor.getActiveTaskCount() == 0 && executor.getWaitingTaskCount() == 0,
+                    Duration.ofSeconds(5));
+            executor.submit(() -> {}).get(5, TimeUnit.SECONDS);
+        } finally {
+            release.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shutdownShouldCancelWaitingFutureAndReleaseAdmission(boolean virtual) throws Exception {
+        var executor = new ConcurrencyLimitedExecutorService(virtual
+                ? Executors.newVirtualThreadPerTaskExecutor() : Executors.newFixedThreadPool(1), 1, 1);
+        var release = new CountDownLatch(1);
+        try {
+            executor.submit(() -> {
+                try {
+                    release.await();
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+            await(() -> executor.getActiveTaskCount() == 1, Duration.ofSeconds(5));
+            var waiting = executor.submit(() -> {});
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+            assertTrue(waiting.isCancelled());
+            assertEquals(0, executor.getActiveTaskCount());
+            assertEquals(0, executor.getWaitingTaskCount());
+        } finally {
+            release.countDown();
+            executor.shutdownNow();
+        }
+    }
 
     @Test
     void shouldLimitConcurrentVirtualTasks() throws Exception {

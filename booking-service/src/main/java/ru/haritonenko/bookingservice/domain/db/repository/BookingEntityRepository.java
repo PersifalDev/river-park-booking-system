@@ -5,6 +5,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -20,6 +22,14 @@ import java.util.UUID;
 
 @Repository
 public interface BookingEntityRepository extends JpaRepository<BookingEntity, UUID>, JpaSpecificationExecutor<BookingEntity> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select b from BookingEntity b where b.id = :id")
+    Optional<BookingEntity> findByIdForUpdate(@Param("id") UUID id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select b from BookingEntity b where b.id = :id and b.userId = :userId")
+    Optional<BookingEntity> findByIdAndUserIdForUpdate(@Param("id") UUID id, @Param("userId") Long userId);
 
     Optional<BookingEntity> findByIdAndUserId(
             UUID id,

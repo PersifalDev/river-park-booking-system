@@ -9,6 +9,7 @@ import ru.haritonenko.bookingservice.tasks.domain.async.status.AsyncBookingTaskS
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Collection;
 
 @Repository
 public interface AsyncBookingTaskEntityRepository extends JpaRepository<AsyncBookingTaskEntity, Long> {
@@ -32,4 +33,7 @@ public interface AsyncBookingTaskEntityRepository extends JpaRepository<AsyncBoo
     );
 
     long countByStatus(AsyncBookingTaskStatus status);
+
+    @Query("select min(t.createdAt) from AsyncBookingTaskEntity t where t.status in :statuses")
+    OffsetDateTime findOldestCreatedAtByStatuses(@Param("statuses") Collection<AsyncBookingTaskStatus> statuses);
 }

@@ -7,6 +7,7 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 import ru.haritonenko.bookingservice.domain.db.entity.BookingEntity;
+import ru.haritonenko.bookingservice.domain.status.BookingStatus;
 import ru.haritonenko.bookingservice.domain.service.BookingInventoryService;
 import ru.haritonenko.bookingservice.domain.service.price.BookingPricingService;
 import ru.haritonenko.bookingservice.tasks.domain.async.db.entity.AsyncBookingTaskEntity;
@@ -24,8 +25,11 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import java.time.OffsetDateTime;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -68,6 +72,8 @@ class AsyncBookingTaskProcessorTest {
             return null;
         }).when(transactionTemplate).executeWithoutResult(any());
         when(taskRepository.save(any(AsyncBookingTaskEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(bookingTaskStateService.findBookingEntityForUpdate(any())).thenAnswer(invocation ->
+                bookingTaskStateService.findBookingEntity(invocation.getArgument(0)));
         doAnswer(invocation -> {
             BookingEntity booking = bookingTaskStateService.findBookingEntity(invocation.getArgument(0));
             booking.setPriceAmount(invocation.getArgument(1));
@@ -84,6 +90,41 @@ class AsyncBookingTaskProcessorTest {
     @AfterEach
     void tearDown() {
         executorService.shutdownNow();
+    }
+
+    @Test
+    void invalidDatesShouldBeMarkedFailedAfterValidationTransactionEnds() {
+        var insideTransaction = new AtomicBoolean();
+        doAnswer(invocation -> {
+            Consumer<TransactionStatus> callback = invocation.getArgument(0);
+            insideTransaction.set(true);
+            try { callback.accept(mock(TransactionStatus.class)); }
+            finally { insideTransaction.set(false); }
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
+        AsyncBookingTaskEntity task = task(ProcessingStep.VALIDATE_REQUEST);
+        BookingEntity booking = booking(task.getBookingId());
+        booking.setCheckOutDate(booking.getCheckInDate());
+        when(bookingTaskStateService.existsBookingById(task.getBookingId())).thenReturn(true);
+        when(bookingTaskStateService.findBookingEntity(task.getBookingId())).thenReturn(booking);
+        doAnswer(invocation -> { assertFalse(insideTransaction.get()); return null; })
+                .when(bookingTaskStateService).markBookingFailed(any(), any());
+        assertEquals(TaskExecutionStatus.NON_RETRYABLE_ERROR, processor.processTask(task));
+        verify(bookingTaskStateService).markBookingFailed(task.getBookingId(), "Check out date must be after check in date");
+    }
+
+    @Test
+    void alreadyHeldBookingShouldNotReserveInventoryAgain() {
+        AsyncBookingTaskEntity task = task(ProcessingStep.CREATE_HOLD);
+        BookingEntity booking = booking(task.getBookingId());
+        booking.setStatus(BookingStatus.HOLD);
+        booking.setHoldExpiresAt(OffsetDateTime.now().plusMinutes(15));
+        when(bookingTaskStateService.existsBookingById(task.getBookingId())).thenReturn(true);
+        when(bookingTaskStateService.findBookingEntity(task.getBookingId())).thenReturn(booking);
+        when(bookingInventoryService.getTotalUnitsFromRoomCategory(1L)).thenReturn(10);
+        assertEquals(TaskExecutionStatus.SUCCESS, processor.processTask(task));
+        verify(bookingInventoryService, never()).holdInventory(booking, 10);
+        verify(bookingTaskStateService, never()).setBookingHold(any(), any(), any());
     }
 
     @Test
@@ -170,6 +211,7 @@ class AsyncBookingTaskProcessorTest {
                 .checkOutDate(checkInDate.plusDays(1))
                 .priceAmount(BigDecimal.ONE)
                 .hasPromo(false)
+                .status(BookingStatus.CREATED)
                 .build();
     }
 }

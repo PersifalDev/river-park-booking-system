@@ -10,6 +10,7 @@ import ru.haritonenko.bookingservice.domain.exception.BookingHoldFailedException
 import ru.haritonenko.bookingservice.domain.exception.BookingNotFoundException;
 import ru.haritonenko.bookingservice.domain.exception.IllegalBookingStateException;
 import ru.haritonenko.bookingservice.domain.service.BookingInventoryService;
+import ru.haritonenko.bookingservice.domain.status.BookingStatus;
 import ru.haritonenko.bookingservice.domain.service.price.BookingPricingService;
 import ru.haritonenko.bookingservice.tasks.domain.async.db.entity.AsyncBookingTaskEntity;
 import ru.haritonenko.bookingservice.tasks.domain.async.db.repository.AsyncBookingTaskEntityRepository;
@@ -68,32 +69,30 @@ public class AsyncBookingTaskProcessor {
             return TaskExecutionStatus.NON_RETRYABLE_ERROR;
         }
 
-        if (stepAtStart == ProcessingStep.VALIDATE_REQUEST) {
-            transactionTemplate.executeWithoutResult(status -> {
-                BookingEntity booking = bookingTaskStateService.findBookingEntity(bookingId);
-                log.info("Validating booking request: bookingId={}, taskId={}", bookingId, task.getId());
-
-                if (!booking.getCheckOutDate().isAfter(booking.getCheckInDate())) {
-                    bookingTaskStateService.markBookingFailed(bookingId, "Check out date must be after check in date");
-
-                    throw new IllegalBookingStateException(
-                            "Booking request validation failed id=%s".formatted(bookingId)
-                    );
-                }
-
-                task.setProcessingStep(ProcessingStep.CHECK_AVAILABILITY);
-                taskRepository.save(task);
-                log.info("Booking request validation finished: bookingId={}, taskId={}, nextStep={}",
-                        bookingId,
-                        task.getId(),
-                        task.getProcessingStep()
-                );
-            });
-            stepAtStart = ProcessingStep.CHECK_AVAILABILITY;
-            logCurrentProcessingStep(task);
-        }
-
         try {
+            if (stepAtStart == ProcessingStep.VALIDATE_REQUEST) {
+                transactionTemplate.executeWithoutResult(status -> {
+                    BookingEntity booking = bookingTaskStateService.findBookingEntity(bookingId);
+                    log.info("Validating booking request: bookingId={}, taskId={}", bookingId, task.getId());
+
+                    if (!booking.getCheckOutDate().isAfter(booking.getCheckInDate())) {
+                        throw new IllegalBookingStateException(
+                                "Check out date must be after check in date"
+                        );
+                    }
+
+                    task.setProcessingStep(ProcessingStep.CHECK_AVAILABILITY);
+                    taskRepository.save(task);
+                    log.info("Booking request validation finished: bookingId={}, taskId={}, nextStep={}",
+                            bookingId,
+                            task.getId(),
+                            task.getProcessingStep()
+                    );
+                });
+                stepAtStart = ProcessingStep.CHECK_AVAILABILITY;
+                logCurrentProcessingStep(task);
+            }
+
             if (stepAtStart == ProcessingStep.CHECK_AVAILABILITY) {
                 CompletableFuture<Void> eventChain = CompletableFuture
                         .supplyAsync(() -> {
@@ -104,9 +103,8 @@ public class AsyncBookingTaskProcessor {
                         .thenApplyAsync(available -> transactionTemplate.execute(status -> {
                             if (!Boolean.TRUE.equals(available)) {
                                 log.warn("Booking availability check failed: bookingId={}, taskId={}", bookingId, task.getId());
-                                bookingTaskStateService.markBookingFailed(bookingId, "No available rooms for requested period");
                                 throw new BookingAvailabilityException(
-                                        "No available rooms for bookingId=%s".formatted(bookingId)
+                                        "No available rooms for requested period"
                                 );
                             }
 
@@ -180,13 +178,15 @@ public class AsyncBookingTaskProcessor {
             log.warn("Booking task processing interrupted: bookingId={}, taskId={}", bookingId, task.getId(), ex);
             Thread.currentThread().interrupt();
             return TaskExecutionStatus.RETRYABLE_ERROR;
-        } catch (ExecutionException ex) {
+        } catch (ExecutionException | RuntimeException ex) {
             Throwable exception = unwrap(ex);
             log.warn("Exception while processing booking task: bookingId={}, taskId={}", bookingId, task.getId(), exception);
 
             if (exception instanceof BookingAvailabilityException
                     || exception instanceof BookingHoldFailedException
                     || exception instanceof IllegalBookingStateException) {
+                // The failed stage has rolled back; persist failure in a separate transaction.
+                bookingTaskStateService.markBookingFailed(bookingId, exception.getMessage());
                 return TaskExecutionStatus.NON_RETRYABLE_ERROR;
             }
             return TaskExecutionStatus.RETRYABLE_ERROR;
@@ -231,7 +231,15 @@ public class AsyncBookingTaskProcessor {
                 .orTimeout(externalCallTimeoutMillis(), TimeUnit.MILLISECONDS)
                 .thenAcceptAsync(totalUnits -> transactionTemplate.executeWithoutResult(status -> {
                     try {
-                        BookingEntity booking = bookingTaskStateService.findBookingEntity(task.getBookingId());
+                        BookingEntity booking = bookingTaskStateService.findBookingEntityForUpdate(task.getBookingId());
+                        if (booking.getStatus() == BookingStatus.HOLD) {
+                            task.setProcessingStep(ProcessingStep.SAVE_BOOKING);
+                            taskRepository.save(task);
+                            return;
+                        }
+                        if (booking.getStatus() != BookingStatus.CREATED) {
+                            throw new IllegalBookingStateException("Booking is no longer CREATED id=" + booking.getId());
+                        }
                         log.info("Creating booking hold: bookingId={}, taskId={}", task.getBookingId(), task.getId());
                         bookingInventoryService.holdInventory(booking, totalUnits);
                         bookingTaskStateService.setBookingHold(
@@ -248,7 +256,6 @@ public class AsyncBookingTaskProcessor {
                         );
                     } catch (BookingAvailabilityException ex) {
                         log.warn("Booking hold creation failed: bookingId={}, taskId={}", task.getBookingId(), task.getId(), ex);
-                        bookingTaskStateService.markBookingFailed(task.getBookingId(), ex.getMessage());
                         throw new BookingHoldFailedException(ex.getMessage());
                     }
                 }), externalHttpThreadPool)

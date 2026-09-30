@@ -8,6 +8,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import ru.haritonenko.commonlibs.dto.kafka.event.type.NotificationEventType;
 import ru.haritonenko.commonlibs.notification.NotificationStatus;
 import ru.haritonenko.commonlibs.utils.pages.CommonPageable;
@@ -46,29 +48,37 @@ public class NotificationService {
                 .read(false)
                 .build());
         log.info("Notification created successfully: notificationId={}, userId={}", entity.getId(), entity.getUserId());
-        cacheService.evictUserPages(userId);
+        evictAfterCommit(userId);
         return entity;
     }
 
     @Cacheable(
             value = "notificationPages",
+            condition = "#pageFilter == null || #pageFilter.bookingId == null",
             key = "@notificationCacheService.registerAllPageKey(#userId, #pageFilter)"
     )
     @Transactional(readOnly = true)
     public Page<NotificationEntity> getAllNotificationsByUserId(Long userId, NotificationPageFilter pageFilter) {
         log.info("Getting all notifications by userId={}", userId);
         Pageable pageable = CommonPageable.getPageable(pageFilter, defaultPageNumber, defaultPageSize);
+        if (pageFilter != null && pageFilter.getBookingId() != null) {
+            return notificationRepository.findAllByUserIdAndBookingIdOrderByCreatedAtDesc(userId, pageFilter.getBookingId(), pageable);
+        }
         return notificationRepository.findAllByUserIdOrderByCreatedAtDesc(userId, pageable);
     }
 
     @Cacheable(
             value = "unreadNotificationPages",
+            condition = "#pageFilter == null || #pageFilter.bookingId == null",
             key = "@notificationCacheService.registerUnreadPageKey(#userId, #pageFilter)"
     )
     @Transactional(readOnly = true)
     public Page<NotificationEntity> getUnreadNotificationsByUserId(Long userId, NotificationPageFilter pageFilter) {
         log.info("Getting unread notifications by userId={}", userId);
         Pageable pageable = CommonPageable.getPageable(pageFilter, defaultPageNumber, defaultPageSize);
+        if (pageFilter != null && pageFilter.getBookingId() != null) {
+            return notificationRepository.findAllByUserIdAndBookingIdAndReadFalseOrderByCreatedAtDesc(userId, pageFilter.getBookingId(), pageable);
+        }
         return notificationRepository.findAllByUserIdAndReadFalseOrderByCreatedAtDesc(userId, pageable);
     }
 
@@ -84,7 +94,7 @@ public class NotificationService {
         entity.setStatus(NotificationStatus.READ);
         NotificationEntity savedEntity = notificationRepository.save(entity);
         log.info("Notification marked as read successfully: notificationId={}, userId={}", savedEntity.getId(), userId);
-        cacheService.evictUserPages(userId);
+        evictAfterCommit(userId);
         return savedEntity;
     }
 
@@ -97,6 +107,20 @@ public class NotificationService {
             notificationRepository.save(entity);
         });
         log.info("All unread notifications were marked as read for userId={}", userId);
-        cacheService.evictUserPages(userId);
+        evictAfterCommit(userId);
+    }
+
+    private void evictAfterCommit(Long userId) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()
+                && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    cacheService.evictUserPages(userId);
+                }
+            });
+        } else {
+            cacheService.evictUserPages(userId);
+        }
     }
 }

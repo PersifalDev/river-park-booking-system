@@ -10,6 +10,8 @@ import java.util.UUID;
 
 @Repository
 public interface NotificationEntityRepository extends JpaRepository<NotificationEntity, UUID> {
+    Page<NotificationEntity> findAllByUserIdAndBookingIdOrderByCreatedAtDesc(Long userId, UUID bookingId, Pageable pageable);
+    Page<NotificationEntity> findAllByUserIdAndBookingIdAndReadFalseOrderByCreatedAtDesc(Long userId, UUID bookingId, Pageable pageable);
     Page<NotificationEntity> findAllByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
     Page<NotificationEntity> findAllByUserIdAndReadFalseOrderByCreatedAtDesc(Long userId, Pageable pageable);
 }

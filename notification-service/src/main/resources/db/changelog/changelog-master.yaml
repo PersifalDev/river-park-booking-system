@@ -14,3 +14,11 @@ databaseChangeLog:
         - sqlFile:
             path: db/changelog/002-create-processed-event-table.sql
             relativeToChangelogFile: false
+
+  - changeSet:
+      id: 003-notifications-booking-index
+      author: haritonenko
+      changes:
+        - sqlFile:
+            path: db/changelog/003-notifications-booking-index.sql
+            relativeToChangelogFile: false

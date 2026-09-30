@@ -8,6 +8,7 @@ import ru.haritonenko.bookingservice.kafka.outbox.status.OutboxStatus;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Collection;
 import java.util.UUID;
 
 public interface BookingOutboxRepository extends JpaRepository<BookingOutboxEntity, UUID> {
@@ -27,4 +28,7 @@ public interface BookingOutboxRepository extends JpaRepository<BookingOutboxEnti
     );
 
     long countByStatus(OutboxStatus status);
+
+    @Query("select min(e.createdAt) from BookingOutboxEntity e where e.status in :statuses")
+    OffsetDateTime findOldestCreatedAtByStatuses(@Param("statuses") Collection<OutboxStatus> statuses);
 }
